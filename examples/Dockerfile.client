@@ -1,0 +1,6 @@
+FROM openjdk:8
+
+RUN mkdir -p /build/install/examples
+
+ADD build/install/examples /build/install/examples
+

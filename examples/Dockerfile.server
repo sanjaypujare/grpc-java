@@ -1,0 +1,12 @@
+FROM openjdk:8
+
+RUN mkdir -p /build/install/example-tls
+
+ADD build/install/example-tls /build/install/example-tls
+
+RUN mkdir -p /tmp/sslcert
+
+ADD tmp/sslcert /tmp/sslcert
+
+EXPOSE 54440
+

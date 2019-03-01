@@ -70,12 +70,16 @@ public class HelloWorldClient {
    * greeting.
    */
   public static void main(String[] args) throws Exception {
-    HelloWorldClient client = new HelloWorldClient("localhost", 50051);
+    String host = "localhost";
+    if (args.length > 0) {
+      host = args[0];
+    }
+    HelloWorldClient client = new HelloWorldClient(host, 50051);
     try {
       /* Access a service running on the local machine on port 50051 */
       String user = "world";
-      if (args.length > 0) {
-        user = args[0]; /* Use the arg as the name to greet if provided */
+      if (args.length > 1) {
+        user = args[1]; /* Use the arg as the name to greet if provided */
       }
       client.greet(user);
     } finally {
