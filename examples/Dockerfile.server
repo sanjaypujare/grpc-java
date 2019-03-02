@@ -1,12 +1,9 @@
 FROM openjdk:8
 
-RUN mkdir -p /build/install/example-tls
+RUN mkdir -p /build/install/examples
 
-ADD build/install/example-tls /build/install/example-tls
+ADD build/install/examples /build/install/examples
 
-RUN mkdir -p /tmp/sslcert
+CMD ["/build/install/examples/bin/hello-world-server"]
 
-ADD tmp/sslcert /tmp/sslcert
-
-EXPOSE 54440
-
+EXPOSE 50051
