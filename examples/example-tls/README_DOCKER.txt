@@ -16,12 +16,21 @@ docker run -p 54440:54440 -d mgrpc/proto1server:1.0
 
 - Running "docker ps" will show the proto1server running in daemon mode
 
-- Run the client docker as (on MacOS)
+- Run the client docker as
+
+on MacOS:
 
 docker run --add-host=localhost:`ipconfig getifaddr en0` -it mgrpc/proto1client:1.0
 
+on gLinux
+
+docker run --add-host=localhost:`hostname --ip-address` -it mgrpc/proto1client:1.0
+
   -it to run in interactive mode
   --add-host to tell container to map localhost to local en0 IP address
+
+Note the command "ipconfig getifaddr en0" on MacOS or "hostname --ip-address" on gLinux
+gets you the local IP address (on en0 or such NIC)
 
 - Inside the shell of proto1client, run this command
 
