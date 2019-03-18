@@ -20,23 +20,22 @@ docker run -p 54440:54440 -d mgrpc/proto1server:1.0
 
 on MacOS:
 
-docker run --add-host=localhost:`ipconfig getifaddr en0` -it mgrpc/proto1client:1.0
+docker run --add-host=localhost:`ipconfig getifaddr en0` mgrpc/proto1client:1.0
 
 on gLinux
 
-docker run --add-host=localhost:`hostname --ip-address` -it mgrpc/proto1client:1.0
+docker run --add-host=localhost:`hostname --ip-address` mgrpc/proto1client:1.0
 
-  -it to run in interactive mode
   --add-host to tell container to map localhost to local en0 IP address
 
 Note the command "ipconfig getifaddr en0" on MacOS or "hostname --ip-address" on gLinux
 gets you the local IP address (on en0 or such NIC)
 
-- Inside the shell of proto1client, run this command
+- The client docker container runs the following command inside (you don't need to do anything):
 
 /build/install/example-tls/bin/hello-world-tls-client localhost 54440 /tmp/sslcert/ca.crt /tmp/sslcert/client.crt /tmp/sslcert/client.pem
 
-  You should see a successful response:
+So you should see a successful response:
 Mar 18, 2019 9:32:05 PM io.grpc.examples.helloworldtls.HelloWorldClientTls greet
 INFO: Will try to greet localhost ...
 Mar 18, 2019 9:32:05 PM io.grpc.examples.helloworldtls.HelloWorldClientTls greet
