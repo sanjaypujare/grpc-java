@@ -1,5 +1,7 @@
 FROM openjdk:8
 
+ADD clientScript.sh /clientScript.sh
+
 RUN mkdir -p /build/install/example-tls
 
 ADD build/install/example-tls /build/install/example-tls
@@ -8,4 +10,4 @@ RUN mkdir -p /tmp/sslcert
 
 ADD tmp/sslcert /tmp/sslcert
 
-CMD ["/build/install/example-tls/bin/hello-world-tls-client","localhost","54440","/tmp/sslcert/ca.crt","/tmp/sslcert/client.crt","/tmp/sslcert/client.pem"]
+CMD ["/bin/sh","-c","/clientScript.sh"]
