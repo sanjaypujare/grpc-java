@@ -1,0 +1,9 @@
+FROM openjdk:8
+
+RUN mkdir -p /build/install/example-tls
+
+ADD build/install/example-tls /build/install/example-tls
+
+CMD ["/build/install/example-tls/bin/hello-world-tls-server","0.0.0.0","54440","/etc/certs/cert-chain.pem","/etc/certs/key.pem", "/etc/certs/root-cert.pem"]
+
+EXPOSE 54440
