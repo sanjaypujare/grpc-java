@@ -32,6 +32,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.logging.Logger;
 
+import javax.net.ssl.SSLException;
+
 /**
  * Server that manages startup/shutdown of a {@code Greeter} server with TLS enabled.
  */
@@ -69,10 +71,21 @@ public class HelloWorldServerTls {
                 SslProvider.OPENSSL);
     }
 
+    /**
+     * 
+     * 
+     * @return
+     * @throws SSLException 
+     */
+    private DynamicSslContext getSslContext() throws SSLException {
+        return new DynamicSslContext(new File(certChainFilePath), new File(privateKeyFilePath),
+        		new File(trustCertCollectionFilePath), 1L);
+    }
+    
     private void start() throws IOException {
         server = NettyServerBuilder.forAddress(new InetSocketAddress(host, port))
                 .addService(new GreeterImpl())
-                .sslContext(getSslContextBuilder().build())
+                .sslContext(getSslContext())    // was getSslContextBuilder().build()
                 .build()
                 .start();
         logger.info("Server started, listening on " + port);

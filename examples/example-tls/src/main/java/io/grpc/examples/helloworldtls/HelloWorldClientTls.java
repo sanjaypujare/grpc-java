@@ -93,7 +93,7 @@ public class HelloWorldClientTls {
             logger.log(Level.WARNING, "RPC failed: {0}", e.getStatus());
             return;
         }
-        logger.info("Greeting: " + response.getMessage());
+        logger.info("Greeting (response from server): " + response.getMessage());
     }
 
     /**

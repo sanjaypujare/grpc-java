@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 IMAGENAME=proto1_istio_server
-TAG=0.5
+TAG=0.6
 PROJECTID=mgrpc-prototype-gke
 
 echo Building ${IMAGENAME}:${TAG}

@@ -48,3 +48,7 @@ set the value of the env variable COUNT while running the docker container:
 docker run --add-host=localhost:`ipconfig getifaddr en0` -e COUNT=3 mgrpc/proto1client:1.0
 
 In the above case, the command is run 3 times
+
+Tag history:
+0.5 = milestone 1
+0.6 = using DynamicSslContext to test dynamic cert loading
