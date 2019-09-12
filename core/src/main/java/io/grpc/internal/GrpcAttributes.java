@@ -67,5 +67,14 @@ public final class GrpcAttributes {
   public static final Attributes.Key<Attributes> ATTR_CLIENT_EAG_ATTRS =
       Attributes.Key.create("io.grpc.internal.GrpcAttributes.clientEagAttrs");
 
+  /**
+   * Attribute key for SdsSecretConfig of a subchannel.
+   * We use String as the value type because SdsSecretConfig is not visible.
+   *
+   */
+  @Grpc.TransportAttr
+  public static final Attributes.Key<String> ATTR_SDS_CONFIG =
+          Attributes.Key.create("io.grpc.internal.GrpcAttributes.sdsSecretConfig");
+
   private GrpcAttributes() {}
 }
