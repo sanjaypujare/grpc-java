@@ -20,11 +20,15 @@ import io.netty.channel.ChannelHandler;
 import io.netty.util.AsciiString;
 
 final class SdsProtocolNegotiator implements ProtocolNegotiator {
+  final SdsProtocolNegotiatorFactory.Cfg cfg;
+
   // private final ObjectPool<SdsClient> sdsClientPool;
   // private SdsClient sdsClient;
-  public SdsProtocolNegotiator(/*ObjectPool<SdsClient> sdsClientPool*/ ) {
+  public SdsProtocolNegotiator(
+      /*ObjectPool<SdsClient> sdsClientPool*/ SdsProtocolNegotiatorFactory.Cfg cfg) {
     // this.sdsClientPool = sdsClientPool;
     // this.sdsClient = sdsClientPool.getObject();
+    this.cfg = cfg;
   }
 
   @Override
@@ -34,7 +38,7 @@ final class SdsProtocolNegotiator implements ProtocolNegotiator {
 
   @Override
   public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
-    return new SdsHandler(/*sdsClient,*/ grpcHandler);
+    return new SdsHandler(/*sdsClient,*/ grpcHandler, cfg);
   }
 
   @Override

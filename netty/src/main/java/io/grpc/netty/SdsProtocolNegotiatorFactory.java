@@ -19,16 +19,23 @@ package io.grpc.netty;
 import io.netty.channel.ChannelHandler;
 import io.netty.util.AsciiString;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.TrustManagerFactory;
+
 public final class SdsProtocolNegotiatorFactory
     implements InternalNettyChannelBuilder.ProtocolNegotiatorFactory {
 
   // inject SecretManager once ready
 
-  public SdsProtocolNegotiatorFactory() {}
+  Cfg cfg;
+
+  public SdsProtocolNegotiatorFactory(Cfg cfg) {
+    this.cfg = cfg;
+  }
 
   @Override
   public InternalProtocolNegotiator.ProtocolNegotiator buildProtocolNegotiator() {
-    final SdsProtocolNegotiator negotiator = new SdsProtocolNegotiator();
+    final SdsProtocolNegotiator negotiator = new SdsProtocolNegotiator(cfg);
     final class LocalSdsNegotiator implements InternalProtocolNegotiator.ProtocolNegotiator {
 
       @Override
@@ -48,5 +55,11 @@ public final class SdsProtocolNegotiatorFactory
     }
 
     return new LocalSdsNegotiator();
+  }
+
+  public interface Cfg {
+    TrustManagerFactory getTrustManagerFactory();
+
+    KeyManagerFactory getKeyManagerFactory();
   }
 }
