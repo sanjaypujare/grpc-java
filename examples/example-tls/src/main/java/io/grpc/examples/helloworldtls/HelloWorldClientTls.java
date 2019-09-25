@@ -23,13 +23,17 @@ import io.grpc.examples.helloworld.HelloReply;
 import io.grpc.examples.helloworld.HelloRequest;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.netty.SdsProtocolNegotiatorFactory;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.File;
+import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLException;
+import javax.net.ssl.TrustManagerFactory;
 
 /**
  * A simple client that requests a greeting from the {@link HelloWorldServerTls} with TLS.
@@ -39,6 +43,30 @@ public class HelloWorldClientTls {
 
     private final ManagedChannel channel;
     private final GreeterGrpc.GreeterBlockingStub blockingStub;
+
+    static class MyCfg implements SdsProtocolNegotiatorFactory.Cfg {
+
+      InputStream keyCertChainInputStream;
+      InputStream keyInputStream;
+      InputStream trustChainInputStream;
+
+      @Override
+      public InputStream getKeyCertChainInputStream() {
+        return keyCertChainInputStream;
+      }
+
+      @Override
+      public InputStream getKeyInputStream() {
+        return keyInputStream;
+      }
+
+      @Override
+      public InputStream getTrustChainInputStream() {
+        return trustChainInputStream;
+      }
+    }
+
+    SdsProtocolNegotiatorFactory sdsProtocolNegotiatorFactory;
 
     private static SslContext buildSslContext(String trustCertCollectionFilePath,
                                               String clientCertChainFilePath,
@@ -53,17 +81,27 @@ public class HelloWorldClientTls {
         return builder.build();
     }
 
+
+
     /**
      * Construct client connecting to HelloWorld server at {@code host:port}.
      */
     public HelloWorldClientTls(String host,
                                int port,
-                               SslContext sslContext) throws SSLException {
+                      String trustCertCollectionFilePath,
+        String clientCertChainFilePath,
+        String clientPrivateKeyFilePath ) throws SSLException {
 
-        this(NettyChannelBuilder.forAddress(host, port)
-                .overrideAuthority("foo.test.google.fr")  /* Only for using provided test certs. */
+      MyCfg myCfg = new MyCfg();
+
+
+      NettyChannelBuilder builder = NettyChannelBuilder.forAddress(host, port)
+          .overrideAuthority("foo.test.google.fr");  /* Only for using provided test certs. */
+      ManagedChannel channel =  builder
                 .sslContext(sslContext)
-                .build());
+                .build();
+      this.channel = channel;
+      blockingStub = GreeterGrpc.newBlockingStub(channel);
     }
 
     /**
@@ -109,18 +147,10 @@ public class HelloWorldClientTls {
 
         HelloWorldClientTls client;
         switch (args.length) {
-            case 2:
-                /* Use default CA. Only for real server certificates. */
-                client = new HelloWorldClientTls(args[0], Integer.parseInt(args[1]),
-                        buildSslContext(null, null, null));
-                break;
-            case 3:
-                client = new HelloWorldClientTls(args[0], Integer.parseInt(args[1]),
-                        buildSslContext(args[2], null, null));
-                break;
+
             default:
                 client = new HelloWorldClientTls(args[0], Integer.parseInt(args[1]),
-                        buildSslContext(args[2], args[3], args[4]));
+                        args[2], args[3], args[4]);
         }
 
         try {

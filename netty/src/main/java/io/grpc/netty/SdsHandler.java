@@ -51,8 +51,8 @@ final class SdsHandler extends ChannelHandlerAdapter {
     try {
       sslContext =
           GrpcSslContexts.forClient()
-              .trustManager(cfg.getTrustManagerFactory())
-              .keyManager(cfg.getKeyManagerFactory())
+              .trustManager(cfg.getTrustChainInputStream())
+              .keyManager(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
               .build();
     } catch (SSLException e) {
       throw new RuntimeException(e);
