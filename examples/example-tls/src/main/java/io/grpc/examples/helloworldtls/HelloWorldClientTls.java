@@ -22,11 +22,14 @@ import io.grpc.examples.helloworld.GreeterGrpc;
 import io.grpc.examples.helloworld.HelloReply;
 import io.grpc.examples.helloworld.HelloRequest;
 import io.grpc.netty.GrpcSslContexts;
+import io.grpc.netty.InternalNettyChannelBuilder;
 import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.SdsProtocolNegotiatorFactory;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -90,15 +93,25 @@ public class HelloWorldClientTls {
                                int port,
                       String trustCertCollectionFilePath,
         String clientCertChainFilePath,
-        String clientPrivateKeyFilePath ) throws SSLException {
+        String clientPrivateKeyFilePath ) throws SSLException, FileNotFoundException {
+
+      System.out.println("building myCfg here");
 
       MyCfg myCfg = new MyCfg();
+
+      myCfg.keyCertChainInputStream = new FileInputStream(clientCertChainFilePath);
+      myCfg.keyInputStream = new FileInputStream(clientPrivateKeyFilePath);
+      myCfg.trustChainInputStream = new FileInputStream(trustCertCollectionFilePath);
 
 
       NettyChannelBuilder builder = NettyChannelBuilder.forAddress(host, port)
           .overrideAuthority("foo.test.google.fr");  /* Only for using provided test certs. */
+
+      InternalNettyChannelBuilder.setProtocolNegotiatorFactory(
+          builder,
+          new SdsProtocolNegotiatorFactory(myCfg));
+
       ManagedChannel channel =  builder
-                .sslContext(sslContext)
                 .build();
       this.channel = channel;
       blockingStub = GreeterGrpc.newBlockingStub(channel);
@@ -113,6 +126,7 @@ public class HelloWorldClientTls {
     }
 
     public void shutdown() throws InterruptedException {
+      System.out.println("calling channel shutdown");
         channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
     }
 

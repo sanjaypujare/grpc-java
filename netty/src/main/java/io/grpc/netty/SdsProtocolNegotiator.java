@@ -29,11 +29,13 @@ final class SdsProtocolNegotiator implements ProtocolNegotiator {
     // this.sdsClientPool = sdsClientPool;
     // this.sdsClient = sdsClientPool.getObject();
     this.cfg = cfg;
+    System.out.println("from SdsProtocolNegotiator ctor");
   }
 
   @Override
   public void close() {
     // sdsClient = sdsClientPool.returnObject(sdsClient);
+    throw new RuntimeException("from close()");
   }
 
   @Override
