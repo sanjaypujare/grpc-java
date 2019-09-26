@@ -126,8 +126,12 @@ public class HelloWorldClientTls {
     }
 
     public void shutdown() throws InterruptedException {
-      System.out.println("calling channel shutdown");
+      System.out.println("calling channel shutdown.....");
         channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+        // the following wait (not sure how much needed) causes ProtocolNegotiator.close to be called
+      // without the wait the close is not called.
+      System.out.println("waiting 100L...");
+      Thread.sleep(100L);
     }
 
     /**

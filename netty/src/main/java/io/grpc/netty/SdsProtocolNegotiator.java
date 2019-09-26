@@ -35,7 +35,7 @@ final class SdsProtocolNegotiator implements ProtocolNegotiator {
   @Override
   public void close() {
     // sdsClient = sdsClientPool.returnObject(sdsClient);
-    throw new RuntimeException("from close()");
+    System.out.println("from SdsProtocolNegotiator close");
   }
 
   @Override
