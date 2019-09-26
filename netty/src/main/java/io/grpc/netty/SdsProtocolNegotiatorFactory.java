@@ -18,10 +18,7 @@ package io.grpc.netty;
 
 import io.netty.channel.ChannelHandler;
 import io.netty.util.AsciiString;
-
 import java.io.InputStream;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.TrustManagerFactory;
 
 public final class SdsProtocolNegotiatorFactory
     implements InternalNettyChannelBuilder.ProtocolNegotiatorFactory {
@@ -59,8 +56,11 @@ public final class SdsProtocolNegotiatorFactory
   }
 
   public interface Cfg {
+
     InputStream getKeyCertChainInputStream();
+
     InputStream getKeyInputStream();
+
     InputStream getTrustChainInputStream();
   }
 }
