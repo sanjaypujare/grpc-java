@@ -98,4 +98,4 @@ publishing {
         }
     }
 }
-[publishMavenPublicationToMavenRepository, publishMavenPublicationToMavenLocal]*.onlyIf { false }
+[publishMavenPublicationToMavenRepository]*.onlyIf { false }
