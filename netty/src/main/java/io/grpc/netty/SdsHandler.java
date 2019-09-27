@@ -47,11 +47,13 @@ final class SdsHandler extends ChannelHandlerAdapter {
     // Cfg could just be SslContext; made it a separate object to show we can pass
     // whatever data is needed.
 
+    // instead of using cfg.getTrustChainInputStream() to trustManager we use
+    // SdsTrustManagerFactory
     SslContext sslContext = null;
     try {
       sslContext =
           GrpcSslContexts.forClient()
-              .trustManager(cfg.getTrustChainInputStream())
+              .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
               .keyManager(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
               .build();
     } catch (SSLException e) {
