@@ -22,9 +22,7 @@ import io.grpc.examples.helloworld.GreeterGrpc;
 import io.grpc.examples.helloworld.HelloReply;
 import io.grpc.examples.helloworld.HelloRequest;
 import io.grpc.netty.GrpcSslContexts;
-import io.grpc.netty.InternalNettyChannelBuilder;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
-import io.grpc.netty.SdsProtocolNegotiatorFactory;
 import io.grpc.xds.tls.SdsProtocolNegotiators;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -35,9 +33,7 @@ import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLException;
-import javax.net.ssl.TrustManagerFactory;
 
 /**
  * A simple client that requests a greeting from the {@link HelloWorldServerTls} with TLS.
@@ -69,8 +65,6 @@ public class HelloWorldClientTls {
         return trustChainInputStream;
       }
     }
-
-    SdsProtocolNegotiatorFactory sdsProtocolNegotiatorFactory;
 
     private static SslContext buildSslContext(String trustCertCollectionFilePath,
                                               String clientCertChainFilePath,
