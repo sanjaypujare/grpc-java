@@ -19,9 +19,11 @@ package io.grpc.xds.tls;
 import io.grpc.netty.GrpcHttp2ConnectionHandler;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.InternalNettyChannelBuilder;
+import io.grpc.netty.InternalNettyChannelBuilder.ProtocolNegotiatorFactory;
 import io.grpc.netty.InternalProtocolNegotiator;
 import io.grpc.netty.InternalProtocolNegotiator.ProtocolNegotiator;
 import io.grpc.netty.InternalProtocolNegotiators;
+import io.grpc.netty.NettyChannelBuilder;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
@@ -48,6 +50,15 @@ public final class SdsProtocolNegotiators {
     InputStream getKeyInputStream();
 
     InputStream getTrustChainInputStream();
+  }
+
+  /**
+   * Sets the {@link ProtocolNegotiatorFactory} to be used. Overrides any specified negotiation type
+   * and {@code SslContext}.
+   */
+  public static void setProtocolNegotiatorFactory(
+      NettyChannelBuilder builder, ClientSdsProtocolNegotiatorFactory protocolNegotiator) {
+    InternalNettyChannelBuilder.setProtocolNegotiatorFactory(builder, protocolNegotiator);
   }
 
   /**

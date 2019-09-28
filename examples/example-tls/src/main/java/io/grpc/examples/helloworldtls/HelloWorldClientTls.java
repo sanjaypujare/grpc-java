@@ -23,8 +23,9 @@ import io.grpc.examples.helloworld.HelloReply;
 import io.grpc.examples.helloworld.HelloRequest;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.InternalNettyChannelBuilder;
-import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.SdsProtocolNegotiatorFactory;
+import io.grpc.xds.tls.SdsProtocolNegotiators;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.File;
@@ -47,7 +48,7 @@ public class HelloWorldClientTls {
     private final ManagedChannel channel;
     private final GreeterGrpc.GreeterBlockingStub blockingStub;
 
-    static class MyCfg implements SdsProtocolNegotiatorFactory.Cfg {
+    static class MyCfg implements SdsProtocolNegotiators.Cfg {
 
       InputStream keyCertChainInputStream;
       InputStream keyInputStream;
@@ -84,8 +85,6 @@ public class HelloWorldClientTls {
         return builder.build();
     }
 
-
-
     /**
      * Construct client connecting to HelloWorld server at {@code host:port}.
      */
@@ -95,7 +94,7 @@ public class HelloWorldClientTls {
         String clientCertChainFilePath,
         String clientPrivateKeyFilePath ) throws SSLException, FileNotFoundException {
 
-      System.out.println("building myCfg here");
+      System.out.println("building SdsProtocolNegotiators.Cfg here");
 
       MyCfg myCfg = new MyCfg();
 
@@ -107,9 +106,9 @@ public class HelloWorldClientTls {
       NettyChannelBuilder builder = NettyChannelBuilder.forAddress(host, port)
           .overrideAuthority("foo.test.google.fr");  /* Only for using provided test certs. */
 
-      InternalNettyChannelBuilder.setProtocolNegotiatorFactory(
+      SdsProtocolNegotiators.setProtocolNegotiatorFactory(
           builder,
-          new SdsProtocolNegotiatorFactory(myCfg));
+          new SdsProtocolNegotiators.ClientSdsProtocolNegotiatorFactory(myCfg));
 
       ManagedChannel channel =  builder
                 .build();
