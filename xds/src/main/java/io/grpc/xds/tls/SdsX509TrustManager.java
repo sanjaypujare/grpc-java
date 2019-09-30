@@ -72,7 +72,7 @@ public class SdsX509TrustManager extends X509ExtendedTrustManager implements X50
   @Override
   public void checkServerTrusted(X509Certificate[] x509Certificates, String s, SSLEngine sslEngine)
       throws CertificateException {
-    System.out.println("checkServerTrusted 2 called: " + s);
+    System.out.println("checkServerTrusted 2 called 9/29: " + s);
   }
 
   @Override

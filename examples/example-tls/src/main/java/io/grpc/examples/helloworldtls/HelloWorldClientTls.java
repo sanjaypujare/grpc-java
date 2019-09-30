@@ -44,27 +44,6 @@ public class HelloWorldClientTls {
     private final ManagedChannel channel;
     private final GreeterGrpc.GreeterBlockingStub blockingStub;
 
-    static class MyCfg implements SdsProtocolNegotiators.Cfg {
-
-      InputStream keyCertChainInputStream;
-      InputStream keyInputStream;
-      InputStream trustChainInputStream;
-
-      @Override
-      public InputStream getKeyCertChainInputStream() {
-        return keyCertChainInputStream;
-      }
-
-      @Override
-      public InputStream getKeyInputStream() {
-        return keyInputStream;
-      }
-
-      @Override
-      public InputStream getTrustChainInputStream() {
-        return trustChainInputStream;
-      }
-    }
 
     private static SslContext buildSslContext(String trustCertCollectionFilePath,
                                               String clientCertChainFilePath,
@@ -90,11 +69,11 @@ public class HelloWorldClientTls {
 
       System.out.println("building SdsProtocolNegotiators.Cfg here");
 
-      MyCfg myCfg = new MyCfg();
+      SdsProtocolNegotiators.Cfg myCfg = new SdsProtocolNegotiators.Cfg();
 
-      myCfg.keyCertChainInputStream = new FileInputStream(clientCertChainFilePath);
-      myCfg.keyInputStream = new FileInputStream(clientPrivateKeyFilePath);
-      myCfg.trustChainInputStream = new FileInputStream(trustCertCollectionFilePath);
+      myCfg.keyCertChain = clientCertChainFilePath;
+      myCfg.key = clientPrivateKeyFilePath;
+      myCfg.trustChain = trustCertCollectionFilePath;
 
 
       NettyChannelBuilder builder = NettyChannelBuilder.forAddress(host, port)

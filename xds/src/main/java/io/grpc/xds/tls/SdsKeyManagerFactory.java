@@ -34,10 +34,20 @@ public class SdsKeyManagerFactory extends KeyManagerFactory {
     super(factorySpi, provider, algorithm);
   }
 
-  static final class SdsKeyManagerFactorySpi extends KeyManagerFactorySpi {
+  private static final Provider PROVIDER = new Provider("", 0.0, "") {
+    private static final long serialVersionUID = -2680540247105807895L;
+  };
+
+  public SdsKeyManagerFactory(String privateKey, String certChain) {
+    this(new SdsKeyManagerFactorySpi(privateKey, certChain), null,
+            null);
+    System.out.println("SdsKeyManagerFactory ctor");
+  }
+
+  public static final class SdsKeyManagerFactorySpi extends KeyManagerFactorySpi {
     KeyManager[] keyManagers = new KeyManager[1];
 
-    SdsKeyManagerFactorySpi(String privateKey, String certChain) {
+    public SdsKeyManagerFactorySpi(String privateKey, String certChain) {
 
       keyManagers[0] = new SdsX509ExtendedKeyManager(privateKey, certChain);
     }

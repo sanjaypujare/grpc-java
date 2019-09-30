@@ -32,6 +32,9 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.AsciiString;
+
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -48,13 +51,22 @@ public final class SdsProtocolNegotiators {
 
   private static final AsciiString SCHEME = AsciiString.of("https");
 
-  public interface Cfg {
+  public static class Cfg {
+    public String keyCertChain;
+    public String key;
+    public String trustChain;
 
-    InputStream getKeyCertChainInputStream();
+    public InputStream getKeyCertChainInputStream() throws FileNotFoundException {
+      return new FileInputStream(keyCertChain);
+    }
 
-    InputStream getKeyInputStream();
+    public InputStream getKeyInputStream() throws FileNotFoundException {
+      return new FileInputStream(key);
+    }
 
-    InputStream getTrustChainInputStream();
+    public InputStream getTrustChainInputStream() throws FileNotFoundException {
+      return new FileInputStream(trustChain);
+    }
   }
 
   /**
@@ -115,13 +127,13 @@ public final class SdsProtocolNegotiators {
       // this.sdsClientPool = sdsClientPool;
       // this.sdsClient = sdsClientPool.getObject();
       this.cfg = cfg;
-      System.out.println("from ClientSdsProtocolNegotiator ctor");
+      System.out.println("in ClientSdsProtocolNegotiator ctor:9/29");
     }
 
     @Override
     public void close() {
       // sdsClient = sdsClientPool.returnObject(sdsClient);
-      System.out.println("from ClientSdsProtocolNegotiator close");
+      System.out.println("from ClientSdsProtocolNegotiator close 9/29");
     }
 
     @Override
@@ -161,14 +173,17 @@ public final class SdsProtocolNegotiators {
 
       // instead of using cfg.getTrustChainInputStream() to trustManager we use
       // SdsTrustManagerFactory
+      // TODO: debug the issues with SdsKeyManagerFactory: it is not workign and is giving us
+      // SSLHandshakeException: error:10000410:SSL routines:OPENSSL_internal:SSLV3_ALERT_HANDSHAKE_FAILURE
       SslContext sslContext = null;
       try {
         sslContext =
             GrpcSslContexts.forClient()
                 .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
                 .keyManager(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
+                //.keyManager(new SdsKeyManagerFactory(cfg.key, cfg.keyCertChain))
                 .build();
-      } catch (SSLException e) {
+      } catch (SSLException | FileNotFoundException e) {
         throw new RuntimeException(e);
       }
       ChannelHandler handler = InternalProtocolNegotiators.tls(sslContext).newHandler(grpcHandler);
@@ -225,7 +240,7 @@ public final class SdsProtocolNegotiators {
                         .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
                         .keyManager(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
                         .build();
-      } catch (SSLException e) {
+      } catch (SSLException | FileNotFoundException e) {
         throw new RuntimeException(e);
       }
       ChannelHandler handler = InternalProtocolNegotiators.tls(sslContext).newHandler(grpcHandler);
