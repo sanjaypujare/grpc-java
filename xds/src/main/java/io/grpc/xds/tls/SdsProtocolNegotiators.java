@@ -16,6 +16,8 @@
 
 package io.grpc.xds.tls;
 
+import io.grpc.Channel;
+import io.grpc.internal.ObjectPool;
 import io.grpc.netty.GrpcHttp2ConnectionHandler;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.InternalNettyChannelBuilder;
@@ -28,9 +30,11 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.AsciiString;
 import java.io.InputStream;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
 
 /**
@@ -39,6 +43,7 @@ import javax.net.ssl.SSLException;
  * Netty's {@code SslHandler}.
  */
 public final class SdsProtocolNegotiators {
+  @SuppressWarnings("unused")
   private static final Logger logger = Logger.getLogger(SdsProtocolNegotiators.class.getName());
 
   private static final AsciiString SCHEME = AsciiString.of("https");
@@ -169,6 +174,81 @@ public final class SdsProtocolNegotiators {
       ChannelHandler handler = InternalProtocolNegotiators.tls(sslContext).newHandler(grpcHandler);
       // Delegate rest of handshake to TLS handler
       ctx.pipeline().replace(ClientSdsHandler.this, null, handler);
+    }
+  }
+
+  /**
+   * Creates a protocol negotiator for SDS on the server side.
+   */
+  public static ProtocolNegotiator serverSdsProtocolNegotiator() {
+
+
+    return new ServerSdsProtocolNegotiator();
+  }
+
+  @SuppressWarnings("unused")
+  private static final class ServerSdsHandler extends ChannelHandlerAdapter {
+    // private final SdsClient sdsClient;
+    private final GrpcHttp2ConnectionHandler grpcHandler;
+    private final Cfg cfg;
+
+    ServerSdsHandler(
+            /*SdsClient sdsClient,*/ GrpcHttp2ConnectionHandler grpcHandler,
+                                     Cfg cfg) {
+      // this.sdsClient = sdsClient;
+      this.grpcHandler = grpcHandler;
+      this.cfg = cfg;
+    }
+
+    @Override
+    public void handlerAdded(final ChannelHandlerContext ctx) {
+      /*SdsSecretConfig sdsConfig = grpcHandler.getEagAttributes().get(SDS_CONFIG_KEY);
+      if (sdsConfig == null) {
+        ctx.fireExceptionCaught(Status.UNAVAILABLE.withDescription(
+        “No SDS info available; not using xDS balancer”).toException());
+        return;
+      } */
+      // Cfg could just be SslContext; made it a separate object to show we can pass
+      // whatever data is needed.
+
+      // instead of using cfg.getTrustChainInputStream() to trustManager we use
+      // SdsTrustManagerFactory
+      SslContext sslContext = null;
+      try {
+        /*sslContext =
+                SslContextBuilder.forServer()
+*/
+
+
+        sslContext =
+                GrpcSslContexts.forClient()
+                        .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
+                        .keyManager(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
+                        .build();
+      } catch (SSLException e) {
+        throw new RuntimeException(e);
+      }
+      ChannelHandler handler = InternalProtocolNegotiators.tls(sslContext).newHandler(grpcHandler);
+      // Delegate rest of handshake to TLS handler
+      ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
+    }
+  }
+
+  private static final class ServerSdsProtocolNegotiator implements ProtocolNegotiator {
+
+    @Override
+    public AsciiString scheme() {
+      return null;
+    }
+
+    @Override
+    public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
+      return null;
+    }
+
+    @Override
+    public void close() {
+
     }
   }
 }
