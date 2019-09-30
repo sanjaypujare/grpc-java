@@ -16,8 +16,6 @@
 
 package io.grpc.xds.tls;
 
-import io.grpc.Channel;
-import io.grpc.internal.ObjectPool;
 import io.grpc.netty.GrpcHttp2ConnectionHandler;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.InternalNettyChannelBuilder;
@@ -30,28 +28,43 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.AsciiString;
-
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.logging.Logger;
-import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
 
 /**
- * A gRPC {@link ProtocolNegotiator} used to handle SSL when certs/keys are
- * provided by SDS. This class creates a Netty handler similar to
- * Netty's {@code SslHandler}.
+ * A gRPC {@link ProtocolNegotiator} used to handle SSL when certs/keys are provided by SDS. This
+ * class creates a Netty handler similar to Netty's {@code SslHandler}.
  */
 public final class SdsProtocolNegotiators {
+
   @SuppressWarnings("unused")
   private static final Logger logger = Logger.getLogger(SdsProtocolNegotiators.class.getName());
 
   private static final AsciiString SCHEME = AsciiString.of("https");
 
+  /**
+   * Sets the {@link ProtocolNegotiatorFactory} to be used. Overrides any specified negotiation type
+   * and {@code SslContext}.
+   */
+  public static void setProtocolNegotiatorFactory(
+      NettyChannelBuilder builder, ClientSdsProtocolNegotiatorFactory protocolNegotiator) {
+    InternalNettyChannelBuilder.setProtocolNegotiatorFactory(builder, protocolNegotiator);
+  }
+
+  /**
+   * Creates a protocol negotiator for SDS on the server side.
+   */
+  public static ProtocolNegotiator serverSdsProtocolNegotiator() {
+
+    return new ServerSdsProtocolNegotiator();
+  }
+
   public static class Cfg {
+
     public String keyCertChain;
     public String key;
     public String trustChain;
@@ -67,15 +80,6 @@ public final class SdsProtocolNegotiators {
     public InputStream getTrustChainInputStream() throws FileNotFoundException {
       return new FileInputStream(trustChain);
     }
-  }
-
-  /**
-   * Sets the {@link ProtocolNegotiatorFactory} to be used. Overrides any specified negotiation type
-   * and {@code SslContext}.
-   */
-  public static void setProtocolNegotiatorFactory(
-      NettyChannelBuilder builder, ClientSdsProtocolNegotiatorFactory protocolNegotiator) {
-    InternalNettyChannelBuilder.setProtocolNegotiatorFactory(builder, protocolNegotiator);
   }
 
   /**
@@ -118,6 +122,7 @@ public final class SdsProtocolNegotiators {
   }
 
   private static final class ClientSdsProtocolNegotiator implements ProtocolNegotiator {
+
     final Cfg cfg;
 
     // private final ObjectPool<SdsClient> sdsClientPool;
@@ -148,6 +153,7 @@ public final class SdsProtocolNegotiators {
   }
 
   private static final class ClientSdsHandler extends ChannelHandlerAdapter {
+
     // private final SdsClient sdsClient;
     private final GrpcHttp2ConnectionHandler grpcHandler;
     private final Cfg cfg;
@@ -174,7 +180,8 @@ public final class SdsProtocolNegotiators {
       // instead of using cfg.getTrustChainInputStream() to trustManager we use
       // SdsTrustManagerFactory
       // TODO: debug the issues with SdsKeyManagerFactory: it is not workign and is giving us
-      // SSLHandshakeException: error:10000410:SSL routines:OPENSSL_internal:SSLV3_ALERT_HANDSHAKE_FAILURE
+      // SSLHandshakeException:
+      // error:10000410:SSL routines:OPENSSL_internal:SSLV3_ALERT_HANDSHAKE_FAILURE
       SslContext sslContext = null;
       try {
         sslContext =
@@ -192,24 +199,16 @@ public final class SdsProtocolNegotiators {
     }
   }
 
-  /**
-   * Creates a protocol negotiator for SDS on the server side.
-   */
-  public static ProtocolNegotiator serverSdsProtocolNegotiator() {
-
-
-    return new ServerSdsProtocolNegotiator();
-  }
-
   @SuppressWarnings("unused")
   private static final class ServerSdsHandler extends ChannelHandlerAdapter {
+
     // private final SdsClient sdsClient;
     private final GrpcHttp2ConnectionHandler grpcHandler;
     private final Cfg cfg;
 
     ServerSdsHandler(
-            /*SdsClient sdsClient,*/ GrpcHttp2ConnectionHandler grpcHandler,
-                                     Cfg cfg) {
+        /*SdsClient sdsClient,*/ GrpcHttp2ConnectionHandler grpcHandler,
+        Cfg cfg) {
       // this.sdsClient = sdsClient;
       this.grpcHandler = grpcHandler;
       this.cfg = cfg;
@@ -234,12 +233,11 @@ public final class SdsProtocolNegotiators {
                 SslContextBuilder.forServer()
 */
 
-
         sslContext =
-                GrpcSslContexts.forClient()
-                        .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
-                        .keyManager(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
-                        .build();
+            GrpcSslContexts.forClient()
+                .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
+                .keyManager(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
+                .build();
       } catch (SSLException | FileNotFoundException e) {
         throw new RuntimeException(e);
       }

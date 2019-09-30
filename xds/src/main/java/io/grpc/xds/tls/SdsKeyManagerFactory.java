@@ -16,35 +16,43 @@
 
 package io.grpc.xds.tls;
 
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.KeyManagerFactorySpi;
-import java.security.KeyStore;
 import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyStore;
 import java.security.KeyStoreException;
-import javax.net.ssl.ManagerFactoryParameters;
 import java.security.NoSuchAlgorithmException;
 import java.security.Provider;
 import java.security.UnrecoverableKeyException;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.KeyManagerFactorySpi;
+import javax.net.ssl.ManagerFactoryParameters;
 
 
 public class SdsKeyManagerFactory extends KeyManagerFactory {
-  protected SdsKeyManagerFactory(
-          KeyManagerFactorySpi factorySpi, Provider provider, String algorithm) {
-    super(factorySpi, provider, algorithm);
-  }
 
   private static final Provider PROVIDER = new Provider("", 0.0, "") {
     private static final long serialVersionUID = -2680540247105807895L;
   };
 
+  protected SdsKeyManagerFactory(
+      KeyManagerFactorySpi factorySpi, Provider provider, String algorithm) {
+    super(factorySpi, provider, algorithm);
+  }
+
+  /**
+   * Constructor for SdsKeyManagerFactory.
+   *
+   * @param privateKey  filename containing key
+   * @param certChain   filename containing certchain
+   */
   public SdsKeyManagerFactory(String privateKey, String certChain) {
     this(new SdsKeyManagerFactorySpi(privateKey, certChain), null,
-            null);
+        null);
     System.out.println("SdsKeyManagerFactory ctor");
   }
 
   public static final class SdsKeyManagerFactorySpi extends KeyManagerFactorySpi {
+
     KeyManager[] keyManagers = new KeyManager[1];
 
     public SdsKeyManagerFactorySpi(String privateKey, String certChain) {
@@ -54,11 +62,13 @@ public class SdsKeyManagerFactory extends KeyManagerFactory {
 
     @Override
     protected void engineInit(KeyStore keyStore, char[] chars)
-        throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException {}
+        throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException {
+    }
 
     @Override
     protected void engineInit(ManagerFactoryParameters managerFactoryParameters)
-        throws InvalidAlgorithmParameterException {}
+        throws InvalidAlgorithmParameterException {
+    }
 
     @Override
     protected KeyManager[] engineGetKeyManagers() {
