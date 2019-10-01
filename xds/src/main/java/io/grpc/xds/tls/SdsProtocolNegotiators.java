@@ -275,6 +275,10 @@ public final class SdsProtocolNegotiators {
         /*SdsClient sdsClient,*/ GrpcHttp2ConnectionHandler grpcHandler,
         Cfg cfg) {
       super(new ChannelHandlerAdapter() {
+        @Override
+        public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+          ctx.pipeline().remove(this);
+        }
       });
       // this.sdsClient = sdsClient;
       this.grpcHandler = grpcHandler;
@@ -324,13 +328,14 @@ public final class SdsProtocolNegotiators {
           + " passing new key & trust managers to a new SslContext");
       System.out.println(" last modified of keyFile:"
           + cfg.key + " is " + new Date(new File(cfg.key).lastModified()));
-      ctx.pipeline().addBefore(ctx.name(), null, new LoggingHandler(LogLevel.WARN){
+      /*ctx.pipeline().addBefore(ctx.name(), null, new LoggingHandler(LogLevel.WARN){
         @Override
         public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
           //new Throwable("mine").printStackTrace();
           super.close(ctx, promise);
         }
       });
+      */
 
       boolean blocking = false;
 
