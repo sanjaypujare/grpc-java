@@ -16,6 +16,11 @@
 
 package io.grpc.xds.tls;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.grpc.netty.GrpcHttp2ConnectionHandler;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.InternalNettyChannelBuilder;
@@ -35,7 +40,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Date;
+import java.util.concurrent.Executors;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
 
 /**
@@ -67,7 +75,19 @@ public final class SdsProtocolNegotiators {
     return new ServerSdsProtocolNegotiator(cfg);
   }
 
+  public static class CfgStreams {
+    public InputStream keyCertChain;
+    public InputStream key;
+    public InputStream trustChain;
+    public Exception exception;
+  }
+
+  /**
+   * for now we use this to simulate the xDS info such as SdsSecretConfig.
+   */
   public static class Cfg {
+    static ListeningExecutorService executorService =
+        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
 
     public String keyCertChain;
     public String key;
@@ -83,6 +103,37 @@ public final class SdsProtocolNegotiators {
 
     public InputStream getTrustChainInputStream() throws FileNotFoundException {
       return new FileInputStream(trustChain);
+    }
+
+    /**
+     * returns a ListenableFuture to compute all 3.
+     */
+    public ListenableFuture<CfgStreams> getAll3() {
+      final CfgStreams cfgStreams = new CfgStreams();
+      return executorService.submit(new Runnable() {
+        @Override
+        public void run() {
+          logger.info("Cfg.getAll3 inside run()");
+          try {
+            cfgStreams.key = getKeyInputStream();
+          } catch (FileNotFoundException e) {
+            cfgStreams.exception = e;
+            logger.log(Level.SEVERE, "getKeyInputStream", e);
+          }
+          try {
+            cfgStreams.keyCertChain = getKeyCertChainInputStream();
+          } catch (FileNotFoundException e) {
+            cfgStreams.exception = e;
+            logger.log(Level.SEVERE, "getKeyCertChainInputStream", e);
+          }
+          try {
+            cfgStreams.trustChain = getTrustChainInputStream();
+          } catch (FileNotFoundException e) {
+            cfgStreams.exception = e;
+            logger.log(Level.SEVERE, "getTrustChainInputStream", e);
+          }
+        }
+      }, cfgStreams);
     }
   }
 
@@ -220,6 +271,7 @@ public final class SdsProtocolNegotiators {
 
     @Override
     public void handlerAdded(final ChannelHandlerContext ctx) {
+
       /*SdsSecretConfig sdsConfig = grpcHandler.getEagAttributes().get(SDS_CONFIG_KEY);
       if (sdsConfig == null) {
         ctx.fireExceptionCaught(Status.UNAVAILABLE.withDescription(
@@ -231,27 +283,63 @@ public final class SdsProtocolNegotiators {
 
       // instead of using cfg.getTrustChainInputStream() to trustManager we use
       // SdsTrustManagerFactory
-      SslContext sslContext = null;
-      try {
-        /*sslContext =
+      System.out.println("from ServerSdsHandler.handlerAdded:"
+          + " passing new key & trust managers to a new SslContext");
+      System.out.println(" last modified of keyFile:"
+          + cfg.key + " is " + new Date(new File(cfg.key).lastModified()));
+
+      boolean blocking = true;
+
+      if (blocking) {
+        SslContext sslContext = null;
+        try {
+                  /*sslContext =
                 SslContextBuilder.forServer()
 */
-        System.out.println("from ServerSdsHandler.handlerAdded:"
-            + " passing new key & trust managers to a new SslContext");
-        System.out.println(" last modified of keyFile:"
-            + cfg.key + " is " + new Date(new File(cfg.key).lastModified()));
-        sslContext =
-                GrpcSslContexts.forServer(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
-                .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
-                .build();
-      } catch (SSLException | FileNotFoundException e) {
-        throw new RuntimeException(e);
+          System.out.println("from ServerSdsHandler.handlerAdded:"
+              + " passing new key & trust managers to a new SslContext");
+          System.out.println(" last modified of keyFile:"
+              + cfg.key + " is " + new Date(new File(cfg.key).lastModified()));
+          sslContext =
+              GrpcSslContexts.forServer(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
+                  .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
+                  .build();
+        } catch (SSLException | FileNotFoundException e) {
+          throw new RuntimeException(e);
+        }
+        ChannelHandler handler = InternalProtocolNegotiators
+            .serverTls(sslContext)
+            .newHandler(grpcHandler);
+        // Delegate rest of handshake to TLS handler
+        ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
+      } else {
+        ListenableFuture<CfgStreams> future = cfg.getAll3();
+        Futures.addCallback(future, new FutureCallback<CfgStreams>() {
+
+          @Override
+          public void onSuccess(@Nullable CfgStreams cfgStreams) {
+            logger.info("onSuccess inside ServerSdsHandler.handlerAdded called");
+            SslContext sslContext = null;
+            try {
+              sslContext = GrpcSslContexts.forServer(cfgStreams.keyCertChain, cfgStreams.key)
+                  .trustManager(new SdsTrustManagerFactory(cfgStreams.trustChain))
+                  .build();
+            } catch (SSLException e) {
+              ctx.fireExceptionCaught(e); // TODO: probably want to convert to a Status
+            }
+            ChannelHandler handler = InternalProtocolNegotiators
+                .serverTls(sslContext)
+                .newHandler(grpcHandler);
+            // Delegate rest of handshake to TLS handler
+            ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            ctx.fireExceptionCaught(t); // TODO: probably want to convert to a Status
+          }
+        }, ctx.executor());
       }
-      ChannelHandler handler = InternalProtocolNegotiators
-          .serverTls(sslContext)
-          .newHandler(grpcHandler);
-      // Delegate rest of handshake to TLS handler
-      ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
     }
   }
 
