@@ -23,6 +23,8 @@ import io.grpc.examples.helloworld.HelloRequest;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
+import io.grpc.xds.tls.SdsProtocolNegotiators;
+import io.grpc.xds.tls.SdsServerBuilder;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
@@ -55,23 +57,19 @@ public class HelloWorldServerTls {
         this.trustCertCollectionFilePath = trustCertCollectionFilePath;
     }
 
-    private SslContextBuilder getSslContextBuilder() {
-        SslContextBuilder sslClientContextBuilder = SslContextBuilder.forServer(new File(certChainFilePath),
-                new File(privateKeyFilePath));
-        if (trustCertCollectionFilePath != null) {
-            sslClientContextBuilder.trustManager(new File(trustCertCollectionFilePath));
-            sslClientContextBuilder.clientAuth(ClientAuth.REQUIRE);
-        }
-        return GrpcSslContexts.configure(sslClientContextBuilder);
-    }
-
     private void start() throws IOException {
-        server = NettyServerBuilder.forPort(port)
-                .addService(new GreeterImpl())
-                .sslContext(getSslContextBuilder().build())
-                .build()
-                .start();
-        logger.info("Server started, listening on " + port);
+        SdsProtocolNegotiators.Cfg myCfg = new SdsProtocolNegotiators.Cfg();
+
+        myCfg.keyCertChain = certChainFilePath;
+        myCfg.key = privateKeyFilePath;
+        myCfg.trustChain = trustCertCollectionFilePath;
+    	server = SdsServerBuilder.forPort(port)
+    	   .cfg(myCfg)
+    	   .addService(new GreeterImpl())
+    	   .build()
+    	   .start();
+
+        logger.info("SdsServer started, listening on " + port);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {

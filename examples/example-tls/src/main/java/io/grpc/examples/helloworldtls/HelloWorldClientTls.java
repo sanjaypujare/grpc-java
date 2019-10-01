@@ -21,15 +21,9 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.examples.helloworld.GreeterGrpc;
 import io.grpc.examples.helloworld.HelloReply;
 import io.grpc.examples.helloworld.HelloRequest;
-import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.xds.tls.SdsProtocolNegotiators;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -43,20 +37,6 @@ public class HelloWorldClientTls {
 
     private final ManagedChannel channel;
     private final GreeterGrpc.GreeterBlockingStub blockingStub;
-
-
-    private static SslContext buildSslContext(String trustCertCollectionFilePath,
-                                              String clientCertChainFilePath,
-                                              String clientPrivateKeyFilePath) throws SSLException {
-        SslContextBuilder builder = GrpcSslContexts.forClient();
-        if (trustCertCollectionFilePath != null) {
-            builder.trustManager(new File(trustCertCollectionFilePath));
-        }
-        if (clientCertChainFilePath != null && clientPrivateKeyFilePath != null) {
-            builder.keyManager(new File(clientCertChainFilePath), new File(clientPrivateKeyFilePath));
-        }
-        return builder.build();
-    }
 
     /**
      * Construct client connecting to HelloWorld server at {@code host:port}.
@@ -128,10 +108,10 @@ public class HelloWorldClientTls {
      */
     public static void main(String[] args) throws Exception {
 
-        if (args.length < 2 || args.length == 4 || args.length > 5) {
+        if (args.length < 2 || args.length == 4 || args.length > 6) {
             System.out.println("USAGE: HelloWorldClientTls host port [trustCertCollectionFilePath " +
-                    "[clientCertChainFilePath clientPrivateKeyFilePath]]\n  Note: clientCertChainFilePath and " +
-                    "clientPrivateKeyFilePath are only needed if mutual auth is desired.");
+                    "[clientCertChainFilePath clientPrivateKeyFilePath]] count\n  Note: clientCertChainFilePath and " +
+                    "clientPrivateKeyFilePath are only needed if mutual auth is desired. call is made count times");
             System.exit(0);
         }
 
@@ -143,8 +123,16 @@ public class HelloWorldClientTls {
                         args[2], args[3], args[4]);
         }
 
+        int count = 1;
+        if (args.length > 5) {
+        	count = Integer.parseInt(args[5]);
+        }
+        
         try {
-            client.greet(args[0]);
+        	for (int i = 0; i < count; i++) {
+        		client.greet(args[0]);
+        		Thread.sleep(1500L);
+        	}
         } finally {
             client.shutdown();
         }

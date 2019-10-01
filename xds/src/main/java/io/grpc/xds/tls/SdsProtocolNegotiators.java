@@ -29,9 +29,12 @@ import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.AsciiString;
+
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.util.Date;
 import java.util.logging.Logger;
 import javax.net.ssl.SSLException;
 
@@ -57,10 +60,11 @@ public final class SdsProtocolNegotiators {
 
   /**
    * Creates a protocol negotiator for SDS on the server side.
+   * TODO: do the necessary stuff here
    */
-  public static ProtocolNegotiator serverSdsProtocolNegotiator() {
+  public static ProtocolNegotiator serverSdsProtocolNegotiator(Cfg cfg) {
 
-    return new ServerSdsProtocolNegotiator();
+    return new ServerSdsProtocolNegotiator(cfg);
   }
 
   public static class Cfg {
@@ -232,16 +236,17 @@ public final class SdsProtocolNegotiators {
         /*sslContext =
                 SslContextBuilder.forServer()
 */
-
+        System.out.println("from ServerSdsHandler.handlerAdded: passing new key & trust managers to a new SslContext");
+        System.out.println(" last modified of keyFile:" + cfg.key + " is " +
+                new Date(new File(cfg.key).lastModified()));
         sslContext =
-            GrpcSslContexts.forClient()
+                GrpcSslContexts.forServer(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
                 .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
-                .keyManager(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
                 .build();
       } catch (SSLException | FileNotFoundException e) {
         throw new RuntimeException(e);
       }
-      ChannelHandler handler = InternalProtocolNegotiators.tls(sslContext).newHandler(grpcHandler);
+      ChannelHandler handler = InternalProtocolNegotiators.serverTls(sslContext).newHandler(grpcHandler);
       // Delegate rest of handshake to TLS handler
       ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
     }
@@ -249,19 +254,27 @@ public final class SdsProtocolNegotiators {
 
   private static final class ServerSdsProtocolNegotiator implements ProtocolNegotiator {
 
+    final Cfg cfg;
+
+    public ServerSdsProtocolNegotiator(Cfg cfg) {
+      this.cfg = cfg;
+    }
+
     @Override
     public AsciiString scheme() {
-      return null;
+      return SCHEME;
     }
 
     @Override
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
-      return null;
+      System.out.println("from ServerSdsProtocolNegotiator newHandler 9/30");
+      return new ServerSdsHandler(/*sdsClient,*/ grpcHandler, cfg);
     }
 
     @Override
     public void close() {
-
+      // sdsClient = sdsClientPool.returnObject(sdsClient);
+      System.out.println("from ServerSdsProtocolNegotiator close 9/30");
     }
   }
 }

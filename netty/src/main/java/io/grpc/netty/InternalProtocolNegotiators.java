@@ -68,6 +68,32 @@ public final class InternalProtocolNegotiators {
   }
 
   /**
+   * Similar to tls above but for server side
+   */
+  public static InternalProtocolNegotiator.ProtocolNegotiator serverTls(SslContext sslContext) {
+    final io.grpc.netty.ProtocolNegotiator negotiator = ProtocolNegotiators.serverTls(sslContext);
+    final class ServerTlsNegotiator implements InternalProtocolNegotiator.ProtocolNegotiator {
+
+      @Override
+      public AsciiString scheme() {
+        return negotiator.scheme();
+      }
+
+      @Override
+      public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
+        return negotiator.newHandler(grpcHandler);
+      }
+
+      @Override
+      public void close() {
+        negotiator.close();
+      }
+    }
+
+    return new ServerTlsNegotiator();
+  }
+
+  /**
    * Internal version of {@link WaitUntilActiveHandler}.
    */
   public static ChannelHandler waitUntilActiveHandler(ChannelHandler next) {

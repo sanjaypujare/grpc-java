@@ -32,6 +32,7 @@ import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -48,11 +49,14 @@ public final class SdsServerBuilder extends ServerBuilder<SdsServerBuilder> {
   private SdsServerBuilder(NettyServerBuilder nettyDelegate) {
     this.delegate = nettyDelegate;
   }
+  private SdsProtocolNegotiators.Cfg cfg;
 
   /**
    * Creates a gRPC server builder for the given port.
    */
   public static SdsServerBuilder forPort(int port) {
+    logger.setLevel(Level.ALL);
+    logger.info("SdsServerBuilder.forPort with " + port);
     NettyServerBuilder nettyDelegate = NettyServerBuilder.forAddress(new InetSocketAddress(port));
     return new SdsServerBuilder(nettyDelegate);
   }
@@ -129,10 +133,16 @@ public final class SdsServerBuilder extends ServerBuilder<SdsServerBuilder> {
     return this;
   }
 
+  public SdsServerBuilder cfg(@Nullable SdsProtocolNegotiators.Cfg cfg) {
+    this.cfg = cfg;
+    return this;
+  }
+
   @Override
   public Server build() {
+    logger.info("SdsServerBuilder.build called");
     delegate.protocolNegotiator(
-        SdsProtocolNegotiators.serverSdsProtocolNegotiator());
+        SdsProtocolNegotiators.serverSdsProtocolNegotiator(cfg));
     return delegate.build();
   }
 }
