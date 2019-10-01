@@ -32,6 +32,10 @@ import io.grpc.netty.NettyChannelBuilder;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.AsciiString;
 
@@ -39,7 +43,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -259,7 +265,7 @@ public final class SdsProtocolNegotiators {
   }
 
   @SuppressWarnings("unused")
-  private static final class ServerSdsHandler extends ChannelHandlerAdapter {
+  private static final class ServerSdsHandler extends InternalProtocolNegotiators.ProtocolNegotiationHandler {
 
     // private final SdsClient sdsClient;
     private final GrpcHttp2ConnectionHandler grpcHandler;
@@ -268,13 +274,40 @@ public final class SdsProtocolNegotiators {
     ServerSdsHandler(
         /*SdsClient sdsClient,*/ GrpcHttp2ConnectionHandler grpcHandler,
         Cfg cfg) {
+      super(new ChannelHandlerAdapter() {
+      });
       // this.sdsClient = sdsClient;
       this.grpcHandler = grpcHandler;
       this.cfg = cfg;
     }
 
+    private static class BufferReadsHandler extends ChannelInboundHandlerAdapter {
+      private final List<Object> reads = new ArrayList<>();
+      private boolean readComplete;
+
+      @Override
+      public void channelRead(ChannelHandlerContext ctx, Object msg) {
+        reads.add(msg);
+      }
+
+      @Override
+      public void channelReadComplete(ChannelHandlerContext ctx) {
+        readComplete = true;
+      }
+
+      @Override
+      public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+        for (Object msg : reads) {
+          super.channelRead(ctx, msg);
+        }
+        if (readComplete) {
+          super.channelReadComplete(ctx);
+        }
+      }
+    }
+
     @Override
-    public void handlerAdded(final ChannelHandlerContext ctx) {
+    protected void handlerAdded0(final ChannelHandlerContext ctx) {
 
       /*SdsSecretConfig sdsConfig = grpcHandler.getEagAttributes().get(SDS_CONFIG_KEY);
       if (sdsConfig == null) {
@@ -291,6 +324,13 @@ public final class SdsProtocolNegotiators {
           + " passing new key & trust managers to a new SslContext");
       System.out.println(" last modified of keyFile:"
           + cfg.key + " is " + new Date(new File(cfg.key).lastModified()));
+      ctx.pipeline().addBefore(ctx.name(), null, new LoggingHandler(LogLevel.WARN){
+        @Override
+        public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
+          //new Throwable("mine").printStackTrace();
+          super.close(ctx, promise);
+        }
+      });
 
       boolean blocking = false;
 
@@ -300,10 +340,6 @@ public final class SdsProtocolNegotiators {
                   /*sslContext =
                 SslContextBuilder.forServer()
 */
-          System.out.println("from ServerSdsHandler.handlerAdded:"
-              + " passing new key & trust managers to a new SslContext");
-          System.out.println(" last modified of keyFile:"
-              + cfg.key + " is " + new Date(new File(cfg.key).lastModified()));
           sslContext =
               GrpcSslContexts.forServer(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
                   .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
@@ -317,6 +353,12 @@ public final class SdsProtocolNegotiators {
         // Delegate rest of handshake to TLS handler
         ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
       } else {
+        // from /google3/java/com/google/net/grpc/loas/ServerAuthorizationHandler.java
+        // we need to buffer the input until we have successfully finished the callback
+        // to set the SSl context
+        final BufferReadsHandler bufferReads = new BufferReadsHandler();
+        ctx.pipeline().addBefore(ctx.name(), null, bufferReads);
+
         ListenableFuture<CfgStreams> future = cfg.getAll3();
         Futures.addCallback(future, new FutureCallback<CfgStreams>() {
 
@@ -331,17 +373,25 @@ public final class SdsProtocolNegotiators {
                   .build();
             } catch (SSLException e) {
               ctx.fireExceptionCaught(e); // TODO: probably want to convert to a Status
+              logger.log(Level.SEVERE, "SSLException received:", e);
               return;
             }
             ChannelHandler handler = InternalProtocolNegotiators
                 .serverTls(sslContext)
                 .newHandler(grpcHandler);
             // Delegate rest of handshake to TLS handler
-            ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
+            //ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
+            //logger.info("calling addAfter");
+            ctx.pipeline().addAfter(ctx.name(), null, handler);
+            // we need to now remove bufferReadHandler,again from ServerAuthorizationHandler.java
+            //logger.info("calling fireProtocolNegotiationEvent");
+            fireProtocolNegotiationEvent(ctx);
+            ctx.pipeline().remove(bufferReads);
           }
 
           @Override
           public void onFailure(Throwable t) {
+            logger.log(Level.SEVERE, "inside onFailure: ", t);
             ctx.fireExceptionCaught(t); // TODO: probably want to convert to a Status
           }
         }, ctx.executor());
