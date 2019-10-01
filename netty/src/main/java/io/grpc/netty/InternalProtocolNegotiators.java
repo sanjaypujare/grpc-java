@@ -68,7 +68,7 @@ public final class InternalProtocolNegotiators {
   }
 
   /**
-   * Similar to tls above but for server side
+   * Similar to tls above but for server side.
    */
   public static InternalProtocolNegotiator.ProtocolNegotiator serverTls(SslContext sslContext) {
     final io.grpc.netty.ProtocolNegotiator negotiator = ProtocolNegotiators.serverTls(sslContext);

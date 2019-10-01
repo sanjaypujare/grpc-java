@@ -45,11 +45,12 @@ public final class SdsServerBuilder extends ServerBuilder<SdsServerBuilder> {
   @SuppressWarnings("unused")
   private static final Logger logger = Logger.getLogger(SdsServerBuilder.class.getName());
   private final NettyServerBuilder delegate;
+  private SdsProtocolNegotiators.Cfg cfg;
 
   private SdsServerBuilder(NettyServerBuilder nettyDelegate) {
     this.delegate = nettyDelegate;
   }
-  private SdsProtocolNegotiators.Cfg cfg;
+
 
   /**
    * Creates a gRPC server builder for the given port.

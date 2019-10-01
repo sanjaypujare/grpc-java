@@ -236,9 +236,10 @@ public final class SdsProtocolNegotiators {
         /*sslContext =
                 SslContextBuilder.forServer()
 */
-        System.out.println("from ServerSdsHandler.handlerAdded: passing new key & trust managers to a new SslContext");
-        System.out.println(" last modified of keyFile:" + cfg.key + " is " +
-                new Date(new File(cfg.key).lastModified()));
+        System.out.println("from ServerSdsHandler.handlerAdded:"
+            + " passing new key & trust managers to a new SslContext");
+        System.out.println(" last modified of keyFile:"
+            + cfg.key + " is " + new Date(new File(cfg.key).lastModified()));
         sslContext =
                 GrpcSslContexts.forServer(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
                 .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
@@ -246,7 +247,9 @@ public final class SdsProtocolNegotiators {
       } catch (SSLException | FileNotFoundException e) {
         throw new RuntimeException(e);
       }
-      ChannelHandler handler = InternalProtocolNegotiators.serverTls(sslContext).newHandler(grpcHandler);
+      ChannelHandler handler = InternalProtocolNegotiators
+          .serverTls(sslContext)
+          .newHandler(grpcHandler);
       // Delegate rest of handshake to TLS handler
       ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
     }
