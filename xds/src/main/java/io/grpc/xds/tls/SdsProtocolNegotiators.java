@@ -40,6 +40,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Date;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -109,11 +110,13 @@ public final class SdsProtocolNegotiators {
      * returns a ListenableFuture to compute all 3.
      */
     public ListenableFuture<CfgStreams> getAll3() {
-      final CfgStreams cfgStreams = new CfgStreams();
-      return executorService.submit(new Runnable() {
+      //final Throwable t = new Throwable();
+      return executorService.submit(new Callable<CfgStreams>() {
         @Override
-        public void run() {
+        public CfgStreams call() {
           logger.info("Cfg.getAll3 inside run()");
+          final CfgStreams cfgStreams = new CfgStreams();
+          //t.printStackTrace();
           try {
             cfgStreams.key = getKeyInputStream();
           } catch (FileNotFoundException e) {
@@ -132,8 +135,9 @@ public final class SdsProtocolNegotiators {
             cfgStreams.exception = e;
             logger.log(Level.SEVERE, "getTrustChainInputStream", e);
           }
+          return cfgStreams;
         }
-      }, cfgStreams);
+      });
     }
   }
 
@@ -320,13 +324,14 @@ public final class SdsProtocolNegotiators {
           public void onSuccess(@Nullable CfgStreams cfgStreams) {
             logger.info("onSuccess inside ServerSdsHandler.handlerAdded called:"
                     + cfgStreams.keyCertChain + " : " + cfgStreams.key + " : " + cfgStreams.trustChain);
-            SslContext sslContext = null;
+            SslContext sslContext;
             try {
               sslContext = GrpcSslContexts.forServer(cfgStreams.keyCertChain, cfgStreams.key)
                   .trustManager(new SdsTrustManagerFactory(cfgStreams.trustChain))
                   .build();
             } catch (SSLException e) {
               ctx.fireExceptionCaught(e); // TODO: probably want to convert to a Status
+              return;
             }
             ChannelHandler handler = InternalProtocolNegotiators
                 .serverTls(sslContext)
