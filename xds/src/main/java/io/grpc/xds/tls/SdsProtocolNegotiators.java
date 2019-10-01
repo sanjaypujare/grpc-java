@@ -288,7 +288,7 @@ public final class SdsProtocolNegotiators {
       System.out.println(" last modified of keyFile:"
           + cfg.key + " is " + new Date(new File(cfg.key).lastModified()));
 
-      boolean blocking = true;
+      boolean blocking = false;
 
       if (blocking) {
         SslContext sslContext = null;
@@ -318,7 +318,8 @@ public final class SdsProtocolNegotiators {
 
           @Override
           public void onSuccess(@Nullable CfgStreams cfgStreams) {
-            logger.info("onSuccess inside ServerSdsHandler.handlerAdded called");
+            logger.info("onSuccess inside ServerSdsHandler.handlerAdded called:"
+                    + cfgStreams.keyCertChain + " : " + cfgStreams.key + " : " + cfgStreams.trustChain);
             SslContext sslContext = null;
             try {
               sslContext = GrpcSslContexts.forServer(cfgStreams.keyCertChain, cfgStreams.key)
