@@ -25,7 +25,7 @@ import io.grpc.Grpc;
 /**
  * Special attributes that are only useful to gRPC in the XDS context.
  */
-final class XdsAttributes {
+public final class XdsAttributes {
   /**
    * Attribute key for SdsSecretConfig of a subchannel.
    */
