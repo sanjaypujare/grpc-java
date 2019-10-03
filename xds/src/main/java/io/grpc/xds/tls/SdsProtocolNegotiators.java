@@ -208,7 +208,14 @@ public final class SdsProtocolNegotiators {
 
     @Override
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
-      return new ClientSdsHandler(/*sdsClient,*/ grpcHandler, cfg);
+      boolean async = true;
+      if (async) {
+        System.out.println("Going for AsyncClientSdsHandler");
+        return new AsyncClientSdsHandler(grpcHandler, cfg);
+      } else {
+        System.out.println("Going for (sync) ClientSdsHandler");
+        return new ClientSdsHandler(/*sdsClient,*/ grpcHandler, cfg);
+      }
     }
 
     @Override
@@ -217,6 +224,94 @@ public final class SdsProtocolNegotiators {
     }
   }
 
+  // this is the async implementation
+  private static final class AsyncClientSdsHandler extends InternalProtocolNegotiators.ProtocolNegotiationHandler {
+    private final GrpcHttp2ConnectionHandler grpcHandler;
+    private final Cfg cfg;
+
+    AsyncClientSdsHandler(
+        GrpcHttp2ConnectionHandler grpcHandler,
+        Cfg cfg) {
+      super(new ChannelHandlerAdapter() {
+        @Override
+        public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+          ctx.pipeline().remove(this);
+        }
+      });
+      this.grpcHandler = grpcHandler;
+      this.cfg = cfg;
+      System.out.println("inside AsyncClientSdsHandler ctor - this is async Handler");
+    }
+
+    // TODO: use the common one that is inside ServerSdsHandler
+    private static class BufferReadsHandler extends ChannelInboundHandlerAdapter {
+      private final List<Object> reads = new ArrayList<>();
+      private boolean readComplete;
+
+      @Override
+      public void channelRead(ChannelHandlerContext ctx, Object msg) {
+        reads.add(msg);
+      }
+
+      @Override
+      public void channelReadComplete(ChannelHandlerContext ctx) {
+        readComplete = true;
+      }
+
+      @Override
+      public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+        for (Object msg : reads) {
+          super.channelRead(ctx, msg);
+        }
+        if (readComplete) {
+          super.channelReadComplete(ctx);
+        }
+      }
+    }
+
+    @Override
+    protected void handlerAdded0(final ChannelHandlerContext ctx) {
+      // from /google3/java/com/google/net/grpc/loas/ServerAuthorizationHandler.java
+      // we need to buffer the input until we have successfully finished the callback
+      // to set the SSl context
+      System.out.println("entering AsyncClientSdsHandler.handlerAdded0 - about to invoke async task");
+      final BufferReadsHandler bufferReads = new BufferReadsHandler();
+      ctx.pipeline().addBefore(ctx.name(), null, bufferReads);
+
+      ctx.executor().execute(new Runnable() {
+        @Override
+        public void run() {
+          System.out.println("inside AsyncClientSdsHandler.handlerAdded0 - creating SslContext");
+          SslContext sslContext = null;
+          try {
+            sslContext =
+                GrpcSslContexts.forClient()
+                    .trustManager(new SdsTrustManagerFactory(cfg.getTrustChainInputStream()))
+                    .keyManager(cfg.getKeyCertChainInputStream(), cfg.getKeyInputStream())
+                    //.keyManager(new SdsKeyManagerFactory(cfg.key, cfg.keyCertChain))
+                    .build();
+          } catch (SSLException | FileNotFoundException e) {
+            System.out.println("received exception:" + e);
+            throw new RuntimeException(e);
+          }
+          ChannelHandler handler = InternalProtocolNegotiators
+              .serverTls(sslContext)
+              .newHandler(grpcHandler);
+          // Delegate rest of handshake to TLS handler
+          //ctx.pipeline().replace(ServerSdsHandler.this, null, handler);
+          //logger.info("calling addAfter");
+          ctx.pipeline().addAfter(ctx.name(), null, handler);
+          // we need to now remove bufferReadHandler,again from ServerAuthorizationHandler.java
+          //logger.info("calling fireProtocolNegotiationEvent");
+          fireProtocolNegotiationEvent(ctx);
+          ctx.pipeline().remove(bufferReads);
+        }
+      });
+      System.out.println("returning from AsyncClientSdsHandler.handlerAdded0 - after async task creation");
+    }
+  }
+
+  // this is the synchronous Sds handler
   private static final class ClientSdsHandler extends ChannelHandlerAdapter {
 
     // private final SdsClient sdsClient;
@@ -229,6 +324,7 @@ public final class SdsProtocolNegotiators {
       // this.sdsClient = sdsClient;
       this.grpcHandler = grpcHandler;
       this.cfg = cfg;
+      System.out.println("inside ClientSdsHandler ctor - this is synchronous Handler");
     }
 
     @Override
@@ -247,6 +343,7 @@ public final class SdsProtocolNegotiators {
       // TODO: debug the issues with SdsKeyManagerFactory: it is not workign and is giving us
       // SSLHandshakeException:
       // error:10000410:SSL routines:OPENSSL_internal:SSLV3_ALERT_HANDSHAKE_FAILURE
+      System.out.println("inside handlerAdded - doing synchronous processing - creating SslContext");
       SslContext sslContext = null;
       try {
         sslContext =
@@ -285,6 +382,8 @@ public final class SdsProtocolNegotiators {
       this.cfg = cfg;
     }
 
+    // TODO: move this class outside and share with others that need this
+    //  e.g. AsyncClientSdsHandler
     private static class BufferReadsHandler extends ChannelInboundHandlerAdapter {
       private final List<Object> reads = new ArrayList<>();
       private boolean readComplete;
