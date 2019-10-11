@@ -29,6 +29,12 @@ import io.netty.handler.ssl.SslContext;
 @Internal
 public final class TlsContextManager {
 
+  private static TlsContextManager instance;
+
+  private TlsContextManager() {
+
+  }
+
   /**
    * Finds an existing SecretProvider or creates it if it doesn't exist.
    * Used for retrieving a server-side SslContext
@@ -47,5 +53,13 @@ public final class TlsContextManager {
       UpstreamTlsContext upstreamTlsContext) {
     // TODO(sanjaypujare): implementation of SecretProvider<SslContext>
     return null;
+  }
+
+  /** Gets the ContextManager singleton. */
+  public static synchronized TlsContextManager getInstance() {
+    if (instance == null) {
+      instance = new TlsContextManager();
+    }
+    return instance;
   }
 }
