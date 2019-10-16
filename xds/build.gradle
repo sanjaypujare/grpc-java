@@ -61,6 +61,16 @@ jar {
     classifier = 'original'
 }
 
+// Inform IDEs like IntelliJ IDEA, Eclipse or NetBeans about the generated code.
+sourceSets {
+    main {
+        java {
+            srcDirs 'build/generated/source/proto/test/grpc'
+            srcDirs 'build/generated/source/proto/test/java'
+        }
+    }
+}
+
 shadowJar {
     classifier = null
     dependencies {

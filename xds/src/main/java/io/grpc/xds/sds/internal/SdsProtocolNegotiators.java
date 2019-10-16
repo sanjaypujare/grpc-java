@@ -50,9 +50,20 @@ public final class SdsProtocolNegotiators {
   private static final class ClientSdsProtocolNegotiatorFactory
       implements InternalNettyChannelBuilder.ProtocolNegotiatorFactory {
 
+    // temporary until we have CDS implemented
+    UpstreamTlsContext tempTlsContext;
+
+    ClientSdsProtocolNegotiatorFactory() {
+      tempTlsContext = null;
+    }
+
+    ClientSdsProtocolNegotiatorFactory(UpstreamTlsContext upstreamTlsContext) {
+      this.tempTlsContext = upstreamTlsContext;
+    }
+
     @Override
     public InternalProtocolNegotiator.ProtocolNegotiator buildProtocolNegotiator() {
-      final ClientSdsProtocolNegotiator negotiator = new ClientSdsProtocolNegotiator();
+      final ClientSdsProtocolNegotiator negotiator = new ClientSdsProtocolNegotiator(tempTlsContext);
       final class LocalSdsNegotiator implements InternalProtocolNegotiator.ProtocolNegotiator {
 
         @Override
@@ -77,6 +88,13 @@ public final class SdsProtocolNegotiators {
 
   private static final class ClientSdsProtocolNegotiator implements ProtocolNegotiator {
 
+    // temporary until CDS implemented
+    UpstreamTlsContext tempTlsContext;
+
+    ClientSdsProtocolNegotiator(UpstreamTlsContext upstreamTlsContext) {
+      this.tempTlsContext = upstreamTlsContext;
+    }
+
     @Override
     public AsciiString scheme() {
       return SCHEME;
@@ -84,8 +102,10 @@ public final class SdsProtocolNegotiators {
 
     @Override
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
-      UpstreamTlsContext upstreamTlsContext =
-          grpcHandler.getEagAttributes().get(XdsAttributes.ATTR_UPSTREAM_TLS_CONTEXT);
+      UpstreamTlsContext upstreamTlsContext = tempTlsContext;
+
+         // the following will be uncommented once CDS implemented
+         // grpcHandler.getEagAttributes().get(XdsAttributes.ATTR_UPSTREAM_TLS_CONTEXT);
       if (tlsContextIsEmpty(upstreamTlsContext)) {
         return InternalProtocolNegotiators.plaintext().newHandler(grpcHandler);
       }
@@ -167,6 +187,17 @@ public final class SdsProtocolNegotiators {
 
   private static final class ServerSdsProtocolNegotiator implements ProtocolNegotiator {
 
+    // this is temporary until we have plumbing implemented with LDS
+    private DownstreamTlsContext tempDownstreamTlsContext;
+
+    ServerSdsProtocolNegotiator(DownstreamTlsContext downstreamTlsContext) {
+      this.tempDownstreamTlsContext = downstreamTlsContext;
+    }
+
+    ServerSdsProtocolNegotiator() {
+      this.tempDownstreamTlsContext = null;
+    }
+
     @Override
     public AsciiString scheme() {
       return SCHEME;
@@ -174,8 +205,10 @@ public final class SdsProtocolNegotiators {
 
     @Override
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
-      DownstreamTlsContext downstreamTlsContext =
-          grpcHandler.getEagAttributes().get(XdsAttributes.ATTR_DOWNSTREAM_TLS_CONTEXT);
+      DownstreamTlsContext downstreamTlsContext = tempDownstreamTlsContext;
+
+          // following will be uncommented once we have LDS plumbing implemented
+          //grpcHandler.getEagAttributes().get(XdsAttributes.ATTR_DOWNSTREAM_TLS_CONTEXT);
 
       if (tlsContextIsEmpty(downstreamTlsContext)) {
         return InternalProtocolNegotiators.serverPlaintext().newHandler(grpcHandler);
@@ -244,8 +277,20 @@ public final class SdsProtocolNegotiators {
         builder, new ClientSdsProtocolNegotiatorFactory());
   }
 
+  // temporary...
+  public static void setProtocolNegotiatorFactory(NettyChannelBuilder builder,
+                                                  UpstreamTlsContext tempTlsContext) {
+    InternalNettyChannelBuilder.setProtocolNegotiatorFactory(
+            builder, new ClientSdsProtocolNegotiatorFactory(tempTlsContext));
+  }
+
   /** Creates an SDS based {@link ProtocolNegotiator} for a server. */
   public static ProtocolNegotiator serverProtocolNegotiator() {
     return new ServerSdsProtocolNegotiator();
+  }
+
+  /** TODO: temporary one until LDS implemented */
+  public static ProtocolNegotiator serverProtocolNegotiator(DownstreamTlsContext downstreamTlsContext) {
+    return new ServerSdsProtocolNegotiator(downstreamTlsContext);
   }
 }
