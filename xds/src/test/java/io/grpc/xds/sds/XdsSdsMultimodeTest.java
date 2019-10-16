@@ -16,12 +16,16 @@
 
 package io.grpc.xds.sds;
 
+import com.google.protobuf.BoolValue;
+import io.envoyproxy.envoy.api.v2.auth.*;
+import io.envoyproxy.envoy.api.v2.core.DataSource;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
 import io.grpc.examples.helloworld.GreeterGrpc;
 import io.grpc.examples.helloworld.HelloReply;
 import io.grpc.examples.helloworld.HelloRequest;
+import io.grpc.internal.testing.TestUtils;
 import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import org.junit.Test;
@@ -37,7 +41,7 @@ import static com.google.common.truth.Truth.assertThat;
  * for plaintext mode.
  */
 @RunWith(JUnit4.class)
-public class XdsSdsPlaintextTest {
+public class XdsSdsMultimodeTest {
 
   @Test
   public void buildsPlaintextClientServer() throws IOException {
@@ -64,6 +68,68 @@ public class XdsSdsPlaintextTest {
     HelloReply response = blockingStub.sayHello(request);
     return response.getMessage();
   }
+
+  /**
+   * TLS channel - no mTLS
+   */
+  @Test
+  public void buildsTlsClientServer() throws IOException {
+    String server1Pem = TestUtils.loadCert("server1.pem").getAbsolutePath();
+    String server1Key = TestUtils.loadCert("server1.key").getAbsolutePath();
+
+    // TlsCert but no certCa
+    TlsCertificate tlsCert =
+            TlsCertificate.newBuilder()
+            .setPrivateKey(DataSource.newBuilder().setFilename(server1Key).build())
+            .setCertificateChain(DataSource.newBuilder().setFilename(server1Pem).build())
+            .build();
+
+    // commonTlsContext
+    CommonTlsContext commonTlsContext =
+            CommonTlsContext.newBuilder()
+            .addTlsCertificates(tlsCert)
+            .build();
+
+    // build the DownstreamTlsContext
+    DownstreamTlsContext tlsContext =
+            DownstreamTlsContext.newBuilder()
+            .setCommonTlsContext(commonTlsContext)
+            .setRequireClientCertificate(BoolValue.of(false))
+            .build();
+
+    XdsServerBuilder serverBuilder
+            = XdsServerBuilder.forPort(8080)
+            .addService(new GreeterImpl())
+            .tlsContext(tlsContext);
+    Server server = serverBuilder.build();
+    server.start();
+
+    // now build the client channel
+    // client only needs trustCa
+    String trustCa = TestUtils.loadCert("ca.pem").getAbsolutePath();
+    CertificateValidationContext certContext =
+            CertificateValidationContext.newBuilder()
+                    .setTrustedCa(DataSource.newBuilder().setFilename(trustCa).build())
+                    .build();
+
+    // commonTlsContext
+    CommonTlsContext commonTlsContext1 =
+            CommonTlsContext.newBuilder()
+                    .setValidationContext(certContext)
+                    .build();
+
+    UpstreamTlsContext tlsContext1 =
+            UpstreamTlsContext.newBuilder()
+                    .setCommonTlsContext(commonTlsContext1)
+                    .build();
+
+    XdsChannelBuilder builder = XdsChannelBuilder.forTarget("localhost:8080").tlsContext(tlsContext1);
+    ManagedChannel channel = builder.build();
+    GreeterGrpc.GreeterBlockingStub blockingStub = GreeterGrpc.newBlockingStub(channel);
+    String resp = greet("buddy", blockingStub);
+    assertThat(resp).isEqualTo("Hello buddy");
+  }
+
 
   static class GreeterImpl extends GreeterGrpc.GreeterImplBase {
 

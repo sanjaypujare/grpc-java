@@ -62,10 +62,16 @@ public class TlsCertificateSecretProviderMapTest {
       SecretProvider.Callback<TlsCertificateStore> {
 
     TlsCertificateStore updatedSecret;
+    Throwable throwable;
 
     @Override
     public void updateSecret(TlsCertificateStore secret) {
       updatedSecret = secret;
+    }
+
+    @Override
+    public void onException(Throwable throwable) {
+      this.throwable = throwable;
     }
   }
 

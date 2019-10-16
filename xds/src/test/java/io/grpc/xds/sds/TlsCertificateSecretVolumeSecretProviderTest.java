@@ -95,6 +95,12 @@ public class TlsCertificateSecretVolumeSecretProviderTest {
       public void updateSecret(TlsCertificateStore secret) {
         listenerRun = true;
       }
+
+      @Override
+      public void onException(Throwable throwable) {
+
+      }
+
     }, MoreExecutors.directExecutor());
     assertThat(listenerRun).isTrue();
   }
@@ -130,6 +136,11 @@ public class TlsCertificateSecretVolumeSecretProviderTest {
       @Override
       public void updateSecret(TlsCertificateStore secret) {
         listenerRun = true;
+      }
+
+      @Override
+      public void onException(Throwable throwable) {
+
       }
     }, MoreExecutors.directExecutor());
     assertThat(listenerRun).isFalse();

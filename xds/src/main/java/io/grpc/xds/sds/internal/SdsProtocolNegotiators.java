@@ -37,6 +37,8 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.util.AsciiString;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Provides client and server side gRPC {@link ProtocolNegotiator}s that use SDS to provide the SSL
@@ -44,6 +46,8 @@ import java.util.List;
  */
 @Internal
 public final class SdsProtocolNegotiators {
+
+  private static final Logger logger = Logger.getLogger(SdsProtocolNegotiators.class.getName());
 
   private static final AsciiString SCHEME = AsciiString.of("https");
 
@@ -181,6 +185,12 @@ public final class SdsProtocolNegotiators {
           // Delegate rest of handshake to TLS handler
           ctx.pipeline().replace(ClientSdsHandler.this, null, handler);
         }
+
+        @Override
+        public void onException(Throwable throwable) {
+          logger.log(Level.SEVERE, "onException", throwable);
+          ctx.fireExceptionCaught(throwable);
+        }
       }, ctx.executor());
     }
   }
@@ -266,6 +276,12 @@ public final class SdsProtocolNegotiators {
           ctx.pipeline().addAfter(ctx.name(), null, handler);
           fireProtocolNegotiationEvent(ctx);
           ctx.pipeline().remove(bufferReads);
+        }
+
+        @Override
+        public void onException(Throwable throwable) {
+          logger.log(Level.SEVERE, "onException", throwable);
+          ctx.fireExceptionCaught(throwable);
         }
       }, ctx.executor());
     }

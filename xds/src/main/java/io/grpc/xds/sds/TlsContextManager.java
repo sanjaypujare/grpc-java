@@ -16,6 +16,7 @@
 
 package io.grpc.xds.sds;
 
+import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.grpc.Internal;
@@ -42,7 +43,10 @@ public final class TlsContextManager {
   public SecretProvider<SslContext> findOrCreateServerSslContextProvider(
       DownstreamTlsContext downstreamTlsContext) {
     // TODO(sanjaypujare): implementation of SecretProvider<SslContext>
-    return null;
+    CommonTlsContext commonTlsContext = downstreamTlsContext.getCommonTlsContext();
+    return SslContextSecretVolumeSecretProvider
+            .getProviderForServer(commonTlsContext.getTlsCertificates(0),
+                    commonTlsContext.getValidationContext());
   }
 
   /**
@@ -52,7 +56,12 @@ public final class TlsContextManager {
   public SecretProvider<SslContext> findOrCreateClientSslContextProvider(
       UpstreamTlsContext upstreamTlsContext) {
     // TODO(sanjaypujare): implementation of SecretProvider<SslContext>
-    return null;
+    CommonTlsContext commonTlsContext = upstreamTlsContext.getCommonTlsContext();
+    return SslContextSecretVolumeSecretProvider
+            .getProviderForClient(commonTlsContext.getTlsCertificatesCount() > 0 ?
+                    commonTlsContext.getTlsCertificates(0) : null,
+                    commonTlsContext.getValidationContext());
+
   }
 
   /** Gets the ContextManager singleton. */
