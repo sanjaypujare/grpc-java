@@ -86,7 +86,15 @@ public final class SdsProtocolNegotiators {
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
       UpstreamTlsContext upstreamTlsContext =
           grpcHandler.getEagAttributes().get(XdsAttributes.ATTR_UPSTREAM_TLS_CONTEXT);
+      if (tlsContextIsEmpty(upstreamTlsContext)) {
+        return InternalProtocolNegotiators.plaintext().newHandler(grpcHandler);
+      }
       return new ClientSdsHandler(grpcHandler, upstreamTlsContext);
+    }
+
+    private static boolean tlsContextIsEmpty(UpstreamTlsContext upstreamTlsContext) {
+      // TODO(sanjaypujare): check upstreamTlsContext even if non-null
+      return upstreamTlsContext == null;
     }
 
     @Override
@@ -168,7 +176,17 @@ public final class SdsProtocolNegotiators {
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
       DownstreamTlsContext downstreamTlsContext =
           grpcHandler.getEagAttributes().get(XdsAttributes.ATTR_DOWNSTREAM_TLS_CONTEXT);
+
+      if (tlsContextIsEmpty(downstreamTlsContext)) {
+        return InternalProtocolNegotiators.serverPlaintext().newHandler(grpcHandler);
+      }
+
       return new ServerSdsHandler(grpcHandler, downstreamTlsContext);
+    }
+
+    private static boolean tlsContextIsEmpty(DownstreamTlsContext downstreamTlsContext) {
+      // TODO(sanjaypujare): check downstreamTlsContext even if non-null
+      return downstreamTlsContext == null;
     }
 
     @Override

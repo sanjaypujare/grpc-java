@@ -97,6 +97,58 @@ public final class InternalProtocolNegotiators {
   }
 
   /**
+   * Returns a {@link ProtocolNegotiator} for plaintext client channel.
+   */
+  public static InternalProtocolNegotiator.ProtocolNegotiator plaintext() {
+    final io.grpc.netty.ProtocolNegotiator negotiator = ProtocolNegotiators.plaintext();
+    final class PlaintextNegotiator implements InternalProtocolNegotiator.ProtocolNegotiator {
+
+      @Override
+      public AsciiString scheme() {
+        return negotiator.scheme();
+      }
+
+      @Override
+      public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
+        return negotiator.newHandler(grpcHandler);
+      }
+
+      @Override
+      public void close() {
+        negotiator.close();
+      }
+    }
+
+    return new PlaintextNegotiator();
+  }
+
+  /**
+   * Returns a {@link ProtocolNegotiator} for plaintext server channel.
+   */
+  public static InternalProtocolNegotiator.ProtocolNegotiator serverPlaintext() {
+    final io.grpc.netty.ProtocolNegotiator negotiator = ProtocolNegotiators.serverPlaintext();
+    final class ServerPlaintextNegotiator implements InternalProtocolNegotiator.ProtocolNegotiator {
+
+      @Override
+      public AsciiString scheme() {
+        return negotiator.scheme();
+      }
+
+      @Override
+      public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
+        return negotiator.newHandler(grpcHandler);
+      }
+
+      @Override
+      public void close() {
+        negotiator.close();
+      }
+    }
+
+    return new ServerPlaintextNegotiator();
+  }
+
+  /**
    * Internal version of {@link WaitUntilActiveHandler}.
    */
   public static ChannelHandler waitUntilActiveHandler(ChannelHandler next) {
