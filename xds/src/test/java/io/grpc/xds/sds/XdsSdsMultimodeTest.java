@@ -134,7 +134,7 @@ public class XdsSdsMultimodeTest {
    * mTLS - both client and server auth
    */
   @Test
-  public void buildsMtlsClientServer() throws IOException {
+  public void buildsMtlsClientServer() throws IOException, InterruptedException {
     String server1Pem = TestUtils.loadCert("server1.pem").getAbsolutePath();
     String server1Key = TestUtils.loadCert("server1.key").getAbsolutePath();
     String trustCa = TestUtils.loadCert("ca.pem").getAbsolutePath();
@@ -171,6 +171,7 @@ public class XdsSdsMultimodeTest {
             .tlsContext(tlsContext);
     Server server = serverBuilder.build();
     server.start();
+    //server.awaitTermination();;
 
     // now build the client channel
     String clientPem = TestUtils.loadCert("client.pem").getAbsolutePath();
@@ -195,13 +196,49 @@ public class XdsSdsMultimodeTest {
                     .setCommonTlsContext(commonTlsContext1)
                     .build();
 
-    XdsChannelBuilder builder = XdsChannelBuilder.forTarget("localhost:8080").tlsContext(tlsContext1);
+    XdsChannelBuilder builder = XdsChannelBuilder.forTarget("localhost:50440").tlsContext(tlsContext1);
     ManagedChannel channel = builder.build();
     GreeterGrpc.GreeterBlockingStub blockingStub = GreeterGrpc.newBlockingStub(channel);
     String resp = greet("buddy", blockingStub);
     assertThat(resp).isEqualTo("Hello buddy");
   }
 
+  @Test
+  public void buildsMtlsClientOnly() throws IOException, InterruptedException {
+    String clientPem = TestUtils.loadCert("client.pem").getAbsolutePath();
+    String clientKey = TestUtils.loadCert("client.key").getAbsolutePath();
+    String trustCa = TestUtils.loadCert("ca.pem").getAbsolutePath();
+
+    CertificateValidationContext certContext =
+            CertificateValidationContext.newBuilder()
+                    .setTrustedCa(DataSource.newBuilder().setFilename(trustCa).build())
+                    .build();
+
+    // TlsCert
+    TlsCertificate tlsCert1 =
+            TlsCertificate.newBuilder()
+                    .setPrivateKey(DataSource.newBuilder().setFilename(clientKey).build())
+                    .setCertificateChain(DataSource.newBuilder().setFilename(clientPem).build())
+                    .build();
+
+    // commonTlsContext
+    CommonTlsContext commonTlsContext1 =
+            CommonTlsContext.newBuilder()
+                    .addTlsCertificates(tlsCert1)
+                    .setValidationContext(certContext)
+                    .build();
+
+    UpstreamTlsContext tlsContext1 =
+            UpstreamTlsContext.newBuilder()
+                    .setCommonTlsContext(commonTlsContext1)
+                    .build();
+
+    XdsChannelBuilder builder = XdsChannelBuilder.forTarget("foo.test.google.com.au:50440").tlsContext(tlsContext1); // foo.test.google.com.au
+    ManagedChannel channel = builder.build();
+    GreeterGrpc.GreeterBlockingStub blockingStub = GreeterGrpc.newBlockingStub(channel);
+    String resp = greet("buddy", blockingStub);
+    assertThat(resp).isEqualTo("Hello buddy");
+  }
 
 
   static class GreeterImpl extends GreeterGrpc.GreeterImplBase {

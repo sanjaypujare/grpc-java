@@ -183,7 +183,10 @@ public final class SdsProtocolNegotiators {
           ChannelHandler handler =
               InternalProtocolNegotiators.tls(sslContext).newHandler(grpcHandler);
           // Delegate rest of handshake to TLS handler
-          ctx.pipeline().replace(ClientSdsHandler.this, null, handler);
+          //ctx.pipeline().replace(ClientSdsHandler.this, null, handler);
+          ctx.pipeline().addAfter(ctx.name(), null, handler);
+          fireProtocolNegotiationEvent(ctx);
+          ctx.pipeline().remove(bufferReads);
         }
 
         @Override
