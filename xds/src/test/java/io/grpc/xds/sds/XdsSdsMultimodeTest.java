@@ -58,12 +58,13 @@ public class XdsSdsMultimodeTest {
     GreeterGrpc.GreeterBlockingStub blockingStub = GreeterGrpc.newBlockingStub(channel);
     String resp = greet("buddy", blockingStub);
     assertThat(resp).isEqualTo("Hello buddy");
+    server.shutdownNow();
   }
 
   /**
    * Say hello to server.
    */
-  public String greet(String name, GreeterGrpc.GreeterBlockingStub blockingStub) {
+  private static String greet(String name, GreeterGrpc.GreeterBlockingStub blockingStub) {
     HelloRequest request = HelloRequest.newBuilder().setName(name).build();
     HelloReply response = blockingStub.sayHello(request);
     return response.getMessage();
@@ -123,11 +124,14 @@ public class XdsSdsMultimodeTest {
                     .setCommonTlsContext(commonTlsContext1)
                     .build();
 
-    XdsChannelBuilder builder = XdsChannelBuilder.forTarget("localhost:8080").tlsContext(tlsContext1);
+    XdsChannelBuilder builder = XdsChannelBuilder.forTarget("localhost:8080")
+            .tlsContext(tlsContext1)
+            .overrideAuthority("foo.test.google.fr");
     ManagedChannel channel = builder.build();
     GreeterGrpc.GreeterBlockingStub blockingStub = GreeterGrpc.newBlockingStub(channel);
     String resp = greet("buddy", blockingStub);
     assertThat(resp).isEqualTo("Hello buddy");
+    server.shutdownNow();
   }
 
   /**
@@ -171,7 +175,6 @@ public class XdsSdsMultimodeTest {
             .tlsContext(tlsContext);
     Server server = serverBuilder.build();
     server.start();
-    //server.awaitTermination();;
 
     // now build the client channel
     String clientPem = TestUtils.loadCert("client.pem").getAbsolutePath();
@@ -196,52 +199,17 @@ public class XdsSdsMultimodeTest {
                     .setCommonTlsContext(commonTlsContext1)
                     .build();
 
-    XdsChannelBuilder builder = XdsChannelBuilder.forTarget("localhost:50440").tlsContext(tlsContext1);
+    XdsChannelBuilder builder = XdsChannelBuilder.forTarget("localhost:8080")
+            .tlsContext(tlsContext1)
+            .overrideAuthority("foo.test.google.fr");
     ManagedChannel channel = builder.build();
     GreeterGrpc.GreeterBlockingStub blockingStub = GreeterGrpc.newBlockingStub(channel);
     String resp = greet("buddy", blockingStub);
     assertThat(resp).isEqualTo("Hello buddy");
+    server.shutdownNow();
   }
 
-  @Test
-  public void buildsMtlsClientOnly() throws IOException, InterruptedException {
-    String clientPem = TestUtils.loadCert("client.pem").getAbsolutePath();
-    String clientKey = TestUtils.loadCert("client.key").getAbsolutePath();
-    String trustCa = TestUtils.loadCert("ca.pem").getAbsolutePath();
-
-    CertificateValidationContext certContext =
-            CertificateValidationContext.newBuilder()
-                    .setTrustedCa(DataSource.newBuilder().setFilename(trustCa).build())
-                    .build();
-
-    // TlsCert
-    TlsCertificate tlsCert1 =
-            TlsCertificate.newBuilder()
-                    .setPrivateKey(DataSource.newBuilder().setFilename(clientKey).build())
-                    .setCertificateChain(DataSource.newBuilder().setFilename(clientPem).build())
-                    .build();
-
-    // commonTlsContext
-    CommonTlsContext commonTlsContext1 =
-            CommonTlsContext.newBuilder()
-                    .addTlsCertificates(tlsCert1)
-                    .setValidationContext(certContext)
-                    .build();
-
-    UpstreamTlsContext tlsContext1 =
-            UpstreamTlsContext.newBuilder()
-                    .setCommonTlsContext(commonTlsContext1)
-                    .build();
-
-    XdsChannelBuilder builder = XdsChannelBuilder.forTarget("foo.test.google.com.au:50440").tlsContext(tlsContext1); // foo.test.google.com.au
-    ManagedChannel channel = builder.build();
-    GreeterGrpc.GreeterBlockingStub blockingStub = GreeterGrpc.newBlockingStub(channel);
-    String resp = greet("buddy", blockingStub);
-    assertThat(resp).isEqualTo("Hello buddy");
-  }
-
-
-  static class GreeterImpl extends GreeterGrpc.GreeterImplBase {
+  private static class GreeterImpl extends GreeterGrpc.GreeterImplBase {
 
     @Override
     public void sayHello(HelloRequest req, StreamObserver<HelloReply> responseObserver) {
