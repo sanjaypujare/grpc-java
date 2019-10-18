@@ -182,8 +182,8 @@ public final class SdsProtocolNegotiators {
         public void updateSecret(SslContext sslContext) {
           ChannelHandler handler =
               InternalProtocolNegotiators.tls(sslContext).newHandler(grpcHandler);
+
           // Delegate rest of handshake to TLS handler
-          //ctx.pipeline().replace(ClientSdsHandler.this, null, handler);
           ctx.pipeline().addAfter(ctx.name(), null, handler);
           fireProtocolNegotiationEvent(ctx);
           ctx.pipeline().remove(bufferReads);
@@ -253,7 +253,6 @@ public final class SdsProtocolNegotiators {
           ctx.pipeline().remove(this);
         }
       });
-      // this.sdsClient = sdsClient;
       this.grpcHandler = grpcHandler;
       this.downstreamTlsContext = downstreamTlsContext;
     }
@@ -274,8 +273,8 @@ public final class SdsProtocolNegotiators {
           ChannelHandler handler = InternalProtocolNegotiators
               .serverTls(sslContext)
               .newHandler(grpcHandler);
-          // Delegate rest of handshake to TLS handler
 
+          // Delegate rest of handshake to TLS handler
           ctx.pipeline().addAfter(ctx.name(), null, handler);
           fireProtocolNegotiationEvent(ctx);
           ctx.pipeline().remove(bufferReads);

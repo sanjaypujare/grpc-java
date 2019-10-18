@@ -16,25 +16,27 @@
 
 package io.grpc.xds.sds;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
+
 import com.google.protobuf.BoolValue;
-import io.envoyproxy.envoy.api.v2.auth.*;
+import io.envoyproxy.envoy.api.v2.auth.CertificateValidationContext;
+import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext;
+import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
+import io.envoyproxy.envoy.api.v2.auth.TlsCertificate;
+import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.core.DataSource;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
-import io.grpc.StatusRuntimeException;
 import io.grpc.examples.helloworld.GreeterGrpc;
 import io.grpc.examples.helloworld.HelloReply;
 import io.grpc.examples.helloworld.HelloRequest;
 import io.grpc.internal.testing.TestUtils;
-import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-
-import static com.google.common.truth.Truth.assertThat;
 
 /**
  * Unit tests for {@link XdsChannelBuilder} and {@link XdsServerBuilder}
@@ -71,7 +73,7 @@ public class XdsSdsMultimodeTest {
   }
 
   /**
-   * TLS channel - no mTLS
+   * TLS channel - no mTLS.
    */
   @Test
   public void buildsTlsClientServer() throws IOException {
@@ -135,7 +137,7 @@ public class XdsSdsMultimodeTest {
   }
 
   /**
-   * mTLS - both client and server auth
+   * mTLS - both client and server auth.
    */
   @Test
   public void buildsMtlsClientServer() throws IOException, InterruptedException {
