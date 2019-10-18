@@ -16,6 +16,7 @@
 
 package io.grpc.xds.sds.internal;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.grpc.Internal;
@@ -90,7 +91,8 @@ public final class SdsProtocolNegotiators {
     }
   }
 
-  private static final class ClientSdsProtocolNegotiator implements ProtocolNegotiator {
+  @VisibleForTesting
+  static final class ClientSdsProtocolNegotiator implements ProtocolNegotiator {
 
     // temporary until CDS implemented
     UpstreamTlsContext tempTlsContext;
