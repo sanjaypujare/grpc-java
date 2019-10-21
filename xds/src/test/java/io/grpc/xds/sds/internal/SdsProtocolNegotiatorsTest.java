@@ -23,10 +23,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Strings;
-import io.envoyproxy.envoy.api.v2.auth.CertificateValidationContext;
-import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext;
-import io.envoyproxy.envoy.api.v2.auth.TlsCertificate;
-import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
+import io.envoyproxy.envoy.api.v2.auth.*;
 import io.envoyproxy.envoy.api.v2.core.DataSource;
 import io.grpc.Attributes;
 import io.grpc.InternalChannelz.Security;
@@ -48,6 +45,7 @@ import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import io.netty.util.internal.ObjectUtil;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -89,6 +87,54 @@ public class SdsProtocolNegotiatorsTest {
     ChannelHandler newHandler = pn.newHandler(grpcHandler);
     assertThat(newHandler).isNotNull();
     assertThat(newHandler.toString()).contains("io.grpc.xds.sds.internal.SdsProtocolNegotiators$ClientSdsHandler");
+  }
+
+  @Test
+  public void clientSdsHandler_addLast() throws IOException {
+    UpstreamTlsContext upstreamTlsContext =
+            buildUpstreamTlsContextFromFilenames(CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE);
+
+    SdsProtocolNegotiators.ClientSdsHandler clientSdsHandler =
+            new SdsProtocolNegotiators.ClientSdsHandler(grpcHandler, upstreamTlsContext);
+    pipeline.addLast(clientSdsHandler);
+    channelHandlerCtx = pipeline.context(clientSdsHandler);
+    assertNotNull(channelHandlerCtx);  // clientSdsHandler ctx is non-null since we just added it
+
+    // kick off protocol negotiation. (from io.grpc.netty.WriteBufferingAndExceptionHandler.handlerAdded)
+    pipeline.fireUserEventTriggered(InternalProtocolNegotiationEvent.getDefault());
+    channel.runPendingTasks(); // need this for tasks to execute on eventLoop
+    channelHandlerCtx = pipeline.context(clientSdsHandler);
+    assertThat(channelHandlerCtx).isNull();
+
+    // pipeline should have SslHandler and ClientTlsHandler
+    List<String> hNames = pipeline.names();
+    assertThat(hNames.size()).isEqualTo(3);
+    assertThat(hNames.get(0)).isEqualTo("SslHandler#0");
+    assertThat(hNames.get(1)).isEqualTo("ProtocolNegotiators$ClientTlsHandler#0");
+  }
+
+  @Test
+  public void serverSdsHandler_addLast() throws IOException {
+    DownstreamTlsContext downstreamTlsContext =
+            buildDownstreamTlsContextFromFilenames(SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE);
+
+    SdsProtocolNegotiators.ServerSdsHandler serverSdsHandler =
+            new SdsProtocolNegotiators.ServerSdsHandler(grpcHandler, downstreamTlsContext);
+    pipeline.addLast(serverSdsHandler);
+    channelHandlerCtx = pipeline.context(serverSdsHandler);
+    assertNotNull(channelHandlerCtx);  // serverSdsHandler ctx is non-null since we just added it
+
+    // kick off protocol negotiation. (from io.grpc.netty.WriteBufferingAndExceptionHandler.handlerAdded)
+    pipeline.fireUserEventTriggered(InternalProtocolNegotiationEvent.getDefault());
+    channel.runPendingTasks(); // need this for tasks to execute on eventLoop
+    channelHandlerCtx = pipeline.context(serverSdsHandler);
+    assertThat(channelHandlerCtx).isNull();
+
+    // pipeline should have SslHandler and ClientTlsHandler
+    List<String> hNames = pipeline.names();
+    assertThat(hNames.size()).isEqualTo(3);
+    assertThat(hNames.get(0)).isEqualTo("SslHandler#0");
+    assertThat(hNames.get(1)).isEqualTo("ProtocolNegotiators$ServerTlsHandler#0");
   }
 
   // logic from tlsHandler_userEventTriggeredSslEvent_supportedProtocolH2
@@ -136,6 +182,15 @@ public class SdsProtocolNegotiatorsTest {
     return upstreamTlsContext;
   }
 
+  /** Helper method to build DownstreamTlsContext for above tests. Called from other classes as well. */
+  static DownstreamTlsContext buildDownstreamTlsContext(CommonTlsContext commonTlsContext) {
+    DownstreamTlsContext downstreamTlsContext =
+            DownstreamTlsContext.newBuilder()
+                    .setCommonTlsContext(commonTlsContext)
+                    .build();
+    return downstreamTlsContext;
+  }
+
   private static final class FakeGrpcHttp2ConnectionHandler extends GrpcHttp2ConnectionHandler {
 
     static FakeGrpcHttp2ConnectionHandler newHandler() {
@@ -176,6 +231,14 @@ public class SdsProtocolNegotiatorsTest {
   private static String getTempFileNameForResourcesFile(String resFile) throws IOException {
     return Strings.isNullOrEmpty(resFile) ? null : TestUtils.loadCert(resFile).getAbsolutePath();
   }
+
+  /** Helper method to build UpstreamTlsContext for above tests. Called from other classes as well. */
+  static DownstreamTlsContext buildDownstreamTlsContextFromFilenames(String privateKey, String certChain,
+                                                                 String trustCa) throws IOException {
+    return buildDownstreamTlsContext(buildCommonTlsContextFromFilenames(privateKey, certChain,
+            trustCa));
+  }
+
 
   /** Helper method to build UpstreamTlsContext for above tests. Called from other classes as well. */
   static UpstreamTlsContext buildUpstreamTlsContextFromFilenames(String privateKey, String certChain,

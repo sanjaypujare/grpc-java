@@ -242,7 +242,8 @@ public final class SdsProtocolNegotiators {
     public void close() {}
   }
 
-  private static final class ServerSdsHandler
+  @VisibleForTesting
+  static final class ServerSdsHandler
       extends InternalProtocolNegotiators.ProtocolNegotiationHandler {
     private final GrpcHttp2ConnectionHandler grpcHandler;
     private final DownstreamTlsContext downstreamTlsContext;
