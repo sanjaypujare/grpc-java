@@ -17,6 +17,7 @@
 package io.grpc.xds.sds;
 
 import io.grpc.Internal;
+import io.grpc.internal.SharedResourcePool;
 import java.util.concurrent.Executor;
 
 /**
@@ -26,9 +27,14 @@ import java.util.concurrent.Executor;
  * dynamic.
  */
 @Internal
-public interface SecretProvider<T> {
+public abstract class SecretProvider<T> {
+  private SharedResourcePool<SecretProvider<T>> myPool;
 
-  interface Callback<T> {
+  void setSharedResourcePool(SharedResourcePool<SecretProvider<T>> pool) {
+    this.myPool = pool;
+  }
+
+  public static interface Callback<T> {
     /** Informs callee of new/updated secret. */
     void updateSecret(T secret);
 
@@ -36,9 +42,13 @@ public interface SecretProvider<T> {
     void onException(Throwable throwable);
   }
 
+  public SecretProvider<T> returnSecretProvider() {
+    return myPool.returnObject(this);
+  }
+
   /**
    * Registers a callback on the given executor. The callback will run when secret becomes available
    * or immediately if the result is already available.
    */
-  void addCallback(Callback<T> callback, Executor executor);
+  public abstract void addCallback(Callback<T> callback, Executor executor);
 }

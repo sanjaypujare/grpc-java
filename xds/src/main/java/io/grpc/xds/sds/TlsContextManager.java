@@ -19,6 +19,8 @@ package io.grpc.xds.sds;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.grpc.Internal;
+import io.grpc.internal.SharedResourceHolder.Resource;
+import io.grpc.internal.SharedResourcePool;
 import io.netty.handler.ssl.SslContext;
 
 /**
@@ -43,15 +45,61 @@ public final class TlsContextManager {
     return instance;
   }
 
+  private static SecretProvider<SslContext> getSecretProviderFromResource(Resource<SecretProvider<SslContext>> resource) {
+    SharedResourcePool<SecretProvider<SslContext>> secretProviderSharedResourcePool = SharedResourcePool
+        .forResource(resource);
+    SecretProvider<SslContext> retVal = secretProviderSharedResourcePool.getObject();
+    retVal.setSharedResourcePool(secretProviderSharedResourcePool);
+    return retVal;
+  }
+
   /** Creates a SecretProvider. Used for retrieving a server-side SslContext. */
   public SecretProvider<SslContext> findOrCreateServerSslContextProvider(
       DownstreamTlsContext downstreamTlsContext) {
-    return SslContextSecretVolumeSecretProvider.getProviderForServer(downstreamTlsContext);
+    return getSecretProviderFromResource(new ServerSecretProviderResource(downstreamTlsContext));
   }
 
   /** Creates a SecretProvider. Used for retrieving a client-side SslContext. */
   public SecretProvider<SslContext> findOrCreateClientSslContextProvider(
       UpstreamTlsContext upstreamTlsContext) {
-    return SslContextSecretVolumeSecretProvider.getProviderForClient(upstreamTlsContext);
+    return getSecretProviderFromResource(new ClientSecretProviderResource(upstreamTlsContext));
+  }
+
+  private static class ServerSecretProviderResource implements Resource<SecretProvider<SslContext>> {
+
+    private DownstreamTlsContext downstreamTlsContext;
+
+    public ServerSecretProviderResource(DownstreamTlsContext downstreamTlsContext) {
+      this.downstreamTlsContext = downstreamTlsContext;
+    }
+
+    @Override
+    public SecretProvider<SslContext> create() {
+      return SslContextSecretVolumeSecretProvider.getProviderForServer(downstreamTlsContext);
+    }
+
+    @Override
+    public void close(SecretProvider<SslContext> instance) {
+      // TODO: when we have SDS secret provider, close the SDS streams on the instance
+    }
+  }
+
+  private static class ClientSecretProviderResource implements Resource<SecretProvider<SslContext>> {
+
+    private UpstreamTlsContext upstreamTlsContext;
+
+    public ClientSecretProviderResource(UpstreamTlsContext upstreamTlsContext) {
+      this.upstreamTlsContext = upstreamTlsContext;
+    }
+
+    @Override
+    public SecretProvider<SslContext> create() {
+      return SslContextSecretVolumeSecretProvider.getProviderForClient(upstreamTlsContext);
+    }
+
+    @Override
+    public void close(SecretProvider<SslContext> instance) {
+      // TODO: when we have SDS secret provider, close the SDS streams on the instance
+    }
   }
 }
