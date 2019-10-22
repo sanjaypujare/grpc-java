@@ -16,12 +16,12 @@
 
 package io.grpc.xds.sds;
 
+import com.google.common.base.Objects;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.grpc.Internal;
-import io.grpc.internal.SharedResourceHolder.Resource;
-import io.grpc.internal.SharedResourcePool;
 import io.netty.handler.ssl.SslContext;
+import io.grpc.xds.sds.SdsSharedResourceHolder.Resource;
 
 /**
  * Class to manage secrets used to create SSL contexts - this effectively manages SSL contexts
@@ -35,7 +35,9 @@ public final class TlsContextManager {
 
   private static TlsContextManager instance;
 
-  private TlsContextManager() {}
+  private TlsContextManager() {
+    holder = new SdsSharedResourceHolder<>();
+  }
 
   /** Gets the ContextManager singleton. */
   public static synchronized TlsContextManager getInstance() {
@@ -45,9 +47,9 @@ public final class TlsContextManager {
     return instance;
   }
 
-  private static SecretProvider<SslContext> getSecretProviderFromResource(Resource<SecretProvider<SslContext>> resource) {
-    SharedResourcePool<SecretProvider<SslContext>> secretProviderSharedResourcePool = SharedResourcePool
-        .forResource(resource);
+  private SecretProvider<SslContext> getSecretProviderFromResource(Resource<SecretProvider<SslContext>> resource) {
+    SdsSharedResourcePool<SecretProvider<SslContext>> secretProviderSharedResourcePool = SdsSharedResourcePool
+        .forResource(resource, holder);
     SecretProvider<SslContext> retVal = secretProviderSharedResourcePool.getObject();
     retVal.setSharedResourcePool(secretProviderSharedResourcePool);
     return retVal;
@@ -65,6 +67,8 @@ public final class TlsContextManager {
     return getSecretProviderFromResource(new ClientSecretProviderResource(upstreamTlsContext));
   }
 
+  final private SdsSharedResourceHolder<SecretProvider<SslContext>> holder;
+
   private static class ServerSecretProviderResource implements Resource<SecretProvider<SslContext>> {
 
     private DownstreamTlsContext downstreamTlsContext;
@@ -81,6 +85,19 @@ public final class TlsContextManager {
     @Override
     public void close(SecretProvider<SslContext> instance) {
       // TODO: when we have SDS secret provider, close the SDS streams on the instance
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (!(o instanceof ServerSecretProviderResource)) return false;
+      ServerSecretProviderResource that = (ServerSecretProviderResource) o;
+      return Objects.equal(downstreamTlsContext, that.downstreamTlsContext);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(downstreamTlsContext);
     }
   }
 

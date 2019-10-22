@@ -17,7 +17,6 @@
 package io.grpc.xds.sds;
 
 import io.grpc.Internal;
-import io.grpc.internal.SharedResourcePool;
 import java.util.concurrent.Executor;
 
 /**
@@ -28,9 +27,9 @@ import java.util.concurrent.Executor;
  */
 @Internal
 public abstract class SecretProvider<T> {
-  private SharedResourcePool<SecretProvider<T>> myPool;
+  private SdsSharedResourcePool<SecretProvider<T>> myPool;
 
-  void setSharedResourcePool(SharedResourcePool<SecretProvider<T>> pool) {
+  void setSharedResourcePool(SdsSharedResourcePool<SecretProvider<T>> pool) {
     this.myPool = pool;
   }
 
@@ -42,7 +41,7 @@ public abstract class SecretProvider<T> {
     void onException(Throwable throwable);
   }
 
-  public SecretProvider<T> returnSecretProvider() {
+  public SecretProvider<T> returnObject() {
     return myPool.returnObject(this);
   }
 
