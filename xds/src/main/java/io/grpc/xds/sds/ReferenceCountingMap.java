@@ -20,13 +20,16 @@ import com.google.common.base.Preconditions;
 import io.grpc.internal.GrpcUtil;
 import io.grpc.internal.LogExceptionRunnable;
 
-import java.util.logging.Logger;
 import javax.annotation.concurrent.ThreadSafe;
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * A holder for shared resource singletons.
@@ -43,12 +46,12 @@ import java.util.concurrent.TimeUnit;
  * <p>Resources are ref-counted and shut down after a delay when the ref-count reaches zero.
  */
 @ThreadSafe
-public final class SdsSharedResourceHolder<T> {
-  private static final Logger logger = Logger.getLogger(SdsSharedResourceHolder.class.getName());
+public final class ReferenceCountingMap<K, T extends Closeable> {
+  private static final Logger logger = Logger.getLogger(ReferenceCountingMap.class.getName());
 
   static final long DESTROY_DELAY_SECONDS = 1;
 
-  SdsSharedResourceHolder() {
+  ReferenceCountingMap() {
     this(new ScheduledExecutorFactory() {
       @Override
       public ScheduledExecutorService createScheduledExecutor() {
@@ -58,17 +61,16 @@ public final class SdsSharedResourceHolder<T> {
     });
   }
 
-  private final HashMap<Resource<T>, Instance> instances;
+  private final HashMap<K, Instance> instances;
 
   private final ScheduledExecutorFactory destroyerFactory;
 
   private ScheduledExecutorService destroyer;
 
   // Visible to tests that would need to create instances of the holder.
-  SdsSharedResourceHolder(ScheduledExecutorFactory destroyerFactory) {
+  ReferenceCountingMap(ScheduledExecutorFactory destroyerFactory) {
     this.destroyerFactory = destroyerFactory;
     instances = new HashMap<>();
-    logger.info("in SdsSharedResourceHolder ctor, sizeof instances=" + instances.size());
   }
 
   /**
@@ -77,7 +79,7 @@ public final class SdsSharedResourceHolder<T> {
    *
    * @param resource the singleton object that identifies the requested static resource
    */
-  public T get(Resource<T> resource) {
+  public T get(Resource<K, T> resource) {
     return getInternal(resource);
   }
 
@@ -95,7 +97,7 @@ public final class SdsSharedResourceHolder<T> {
    *
    * @return a null which the caller can use to clear the reference to that instance.
    */
-  public T release(final Resource<T> resource, final T instance) {
+  public T release(final Resource<K, T> resource, final T instance) {
     return releaseInternal(resource, instance);
   }
 
@@ -105,41 +107,33 @@ public final class SdsSharedResourceHolder<T> {
    * @see #get(Resource)
    */
   @SuppressWarnings("unchecked")
-  synchronized T getInternal(Resource<T> resource) {
-    logger.info("entering getInternal, sizeof instances=" + instances.size());
-    Instance instance = instances.get(resource);
+  synchronized T getInternal(Resource<K, T> resource) {
+    Instance instance = instances.get(resource.getKey());
     if (instance == null) {
       instance = new Instance(resource.create());
-      instances.put(resource, instance);
-      logger.info("refcount after ctor is " + instance.refcount);
+      instances.put(resource.getKey(), instance);
     }
     if (instance.destroyTask != null) {
       instance.destroyTask.cancel(false);
       instance.destroyTask = null;
     }
     instance.refcount++;
-    logger.info("refcount after ++ is =" + instance.refcount);
     return (T) instance.payload;
   }
 
   /**
    * Visible to unit tests.
    */
-  synchronized T releaseInternal(final Resource<T> resource, final T instance) {
-    System.out.println("enterting releaseInternal");
-    logger.info("enterting releaseInternal");
-    final Instance cached = instances.get(resource);
+  synchronized T releaseInternal(final Resource<K, T> resource, final T instance) {
+    final Instance cached = instances.get(resource.getKey());
     if (cached == null) {
       throw new IllegalArgumentException("No cached instance found for " + resource);
     }
     Preconditions.checkArgument(instance == cached.payload, "Releasing the wrong instance");
     Preconditions.checkState(cached.refcount > 0, "Refcount has already reached zero");
     cached.refcount--;
-    logger.info("refcount after -- is =" + cached.refcount);
     if (cached.refcount == 0) {
-      logger.info("inside the  if block");
       Preconditions.checkState(cached.destroyTask == null, "Destroy task already scheduled");
-      System.out.println("enterting refcount == 0");
       // Schedule a delayed task to destroy the resource.
       if (destroyer == null) {
         destroyer = destroyerFactory.createScheduledExecutor();
@@ -147,15 +141,15 @@ public final class SdsSharedResourceHolder<T> {
       cached.destroyTask = destroyer.schedule(new LogExceptionRunnable(new Runnable() {
         @Override
         public void run() {
-          System.out.println("started destroyTask");
-          synchronized (SdsSharedResourceHolder.this) {
+          synchronized (ReferenceCountingMap.this) {
             // Refcount may have gone up since the task was scheduled. Re-check it.
             if (cached.refcount == 0) {
-              System.out.println("refcount is still 0");
               try {
-                resource.close(instance);
+                cached.payload.close();
+              } catch (IOException e) {
+                logger.log(Level.SEVERE, "close", e);
               } finally {
-                instances.remove(resource);
+                instances.remove(resource.getKey());
                 if (instances.isEmpty()) {
                   destroyer.shutdown();
                   destroyer = null;
@@ -173,16 +167,13 @@ public final class SdsSharedResourceHolder<T> {
   /**
    * Defines a resource, and the way to create and destroy instances of it.
    */
-  public interface Resource<T> {
+  public interface Resource<K, T> {
     /**
      * Create a new instance of the resource.
      */
     T create();
 
-    /**
-     * Destroy the given instance.
-     */
-    void close(T instance);
+    K getKey();
   }
 
   interface ScheduledExecutorFactory {
@@ -190,11 +181,11 @@ public final class SdsSharedResourceHolder<T> {
   }
 
   private static class Instance {
-    final Object payload;
+    final Closeable payload;
     int refcount;
     ScheduledFuture<?> destroyTask;
 
-    Instance(Object payload) {
+    Instance(Closeable payload) {
       this.payload = payload;
       this.refcount = 0;
     }

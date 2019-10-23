@@ -17,6 +17,10 @@
 package io.grpc.xds.sds;
 
 import io.grpc.Internal;
+import io.netty.handler.ssl.SslContext;
+
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.concurrent.Executor;
 
 /**
@@ -26,11 +30,14 @@ import java.util.concurrent.Executor;
  * dynamic.
  */
 @Internal
-public abstract class SecretProvider<T> {
-  private SdsSharedResourcePool<SecretProvider<T>> myPool;
+public abstract class SecretProvider<T> implements Closeable {
+  private ReferenceCountingMap<Object, SecretProvider<T>> holder;
+  private ReferenceCountingMap.Resource<Object, SecretProvider<T>> resource;
 
-  void setSharedResourcePool(SdsSharedResourcePool<SecretProvider<T>> pool) {
-    this.myPool = pool;
+  void setSharedResourcePool(ReferenceCountingMap<Object, SecretProvider<T>> holder,
+                             ReferenceCountingMap.Resource<Object, SecretProvider<T>> resource) {
+    this.holder = holder;
+    this.resource = resource;
   }
 
   public static interface Callback<T> {
@@ -42,9 +49,12 @@ public abstract class SecretProvider<T> {
   }
 
   public SecretProvider<T> returnObject() {
-    return myPool.returnObject(this);
+    holder.release(resource, (SecretProvider<T>)this);
+    return null;
   }
 
+  @Override
+  public void close() { }
   /**
    * Registers a callback on the given executor. The callback will run when secret becomes available
    * or immediately if the result is already available.

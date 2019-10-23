@@ -16,13 +16,11 @@
 
 package io.grpc.xds.sds;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.grpc.Internal;
 import io.netty.handler.ssl.SslContext;
-import io.grpc.xds.sds.SdsSharedResourceHolder.Resource;
 import java.util.logging.Logger;
 
 /**
@@ -31,15 +29,16 @@ import java.util.logging.Logger;
  * SSL contexts/secrets and is not public API.
  * Currently it just creates a new SecretProvider for each call.
  */
-// TODO(sanjaypujare): implement a Map and ref-counting
 @Internal
 public final class TlsContextManager {
   private static final Logger logger = Logger.getLogger(TlsContextManager.class.getName());
 
   private static TlsContextManager instance;
 
+  final private ReferenceCountingMap<Object, SecretProvider<SslContext>> holder;
+
   private TlsContextManager() {
-    holder = new SdsSharedResourceHolder<>();
+    holder = new ReferenceCountingMap<>();
   }
 
   /*
@@ -50,18 +49,15 @@ public final class TlsContextManager {
 
   /** Gets the ContextManager singleton. */
   public static synchronized TlsContextManager getInstance() {
-    logger.info("TlsContextManager getInstance = " + instance);
     if (instance == null) {
       instance = new TlsContextManager();
     }
     return instance;
   }
 
-  private SecretProvider<SslContext> getSecretProviderFromResource(Resource<SecretProvider<SslContext>> resource) {
-    SdsSharedResourcePool<SecretProvider<SslContext>> secretProviderSharedResourcePool = SdsSharedResourcePool
-        .forResource(resource, holder);
-    SecretProvider<SslContext> retVal = secretProviderSharedResourcePool.getObject();
-    retVal.setSharedResourcePool(secretProviderSharedResourcePool);
+  private SecretProvider<SslContext> getSecretProviderFromResource(ReferenceCountingMap.Resource<Object, SecretProvider<SslContext>> resource) {
+    SecretProvider<SslContext> retVal = holder.get(resource);
+    retVal.setSharedResourcePool(holder, resource);
     return retVal;
   }
 
@@ -77,9 +73,7 @@ public final class TlsContextManager {
     return getSecretProviderFromResource(new ClientSecretProviderResource(upstreamTlsContext));
   }
 
-  final private SdsSharedResourceHolder<SecretProvider<SslContext>> holder;
-
-  private static class ServerSecretProviderResource implements Resource<SecretProvider<SslContext>> {
+  private static class ServerSecretProviderResource implements ReferenceCountingMap.Resource<Object, SecretProvider<SslContext>> {
 
     private DownstreamTlsContext downstreamTlsContext;
 
@@ -90,11 +84,6 @@ public final class TlsContextManager {
     @Override
     public SecretProvider<SslContext> create() {
       return SslContextSecretVolumeSecretProvider.getProviderForServer(downstreamTlsContext);
-    }
-
-    @Override
-    public void close(SecretProvider<SslContext> instance) {
-      // TODO: when we have SDS secret provider, close the SDS streams on the instance
     }
 
     @Override
@@ -109,9 +98,14 @@ public final class TlsContextManager {
     public int hashCode() {
       return Objects.hashCode(downstreamTlsContext);
     }
+
+    @Override
+    public Object getKey() {
+      return downstreamTlsContext;
+    }
   }
 
-  private static class ClientSecretProviderResource implements Resource<SecretProvider<SslContext>> {
+  private static class ClientSecretProviderResource implements ReferenceCountingMap.Resource<Object, SecretProvider<SslContext>> {
 
     private UpstreamTlsContext upstreamTlsContext;
 
@@ -125,8 +119,8 @@ public final class TlsContextManager {
     }
 
     @Override
-    public void close(SecretProvider<SslContext> instance) {
-      // TODO: when we have SDS secret provider, close the SDS streams on the instance
+    public Object getKey() {
+      return upstreamTlsContext;
     }
   }
 }
