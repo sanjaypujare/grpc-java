@@ -17,11 +17,10 @@
 package io.grpc.xds.sds;
 
 import io.grpc.Internal;
-import io.netty.handler.ssl.SslContext;
-
+import io.grpc.xds.sds.ReferenceCountingMap.ResourceDefinition;
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.concurrent.Executor;
+
 
 /**
  * A SecretProvider is a "container" or provider of a secret. This is used by gRPC-xds to access
@@ -30,14 +29,14 @@ import java.util.concurrent.Executor;
  * dynamic.
  */
 @Internal
-public abstract class SecretProvider<T> implements Closeable {
-  private ReferenceCountingMap<Object, SecretProvider<T>> holder;
-  private ReferenceCountingMap.Resource<Object, SecretProvider<T>> resource;
+public abstract class SecretProvider<K, T> implements Closeable {
+  private ReferenceCountingMap<Object, SecretProvider<K, T>> map;
+  private K key;
 
-  void setSharedResourcePool(ReferenceCountingMap<Object, SecretProvider<T>> holder,
-                             ReferenceCountingMap.Resource<Object, SecretProvider<T>> resource) {
-    this.holder = holder;
-    this.resource = resource;
+  void setSharedResourcePool(ReferenceCountingMap<Object, SecretProvider<K, T>> map,
+                             K key) {
+    this.map = map;
+    this.key = key;
   }
 
   public static interface Callback<T> {
@@ -48,8 +47,8 @@ public abstract class SecretProvider<T> implements Closeable {
     void onException(Throwable throwable);
   }
 
-  public SecretProvider<T> returnObject() {
-    holder.release(resource, (SecretProvider<T>)this);
+  public SecretProvider<K, T> returnObject() {
+    map.release(key, this);
     return null;
   }
 

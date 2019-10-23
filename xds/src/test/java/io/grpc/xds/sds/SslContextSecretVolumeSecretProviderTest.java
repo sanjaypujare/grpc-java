@@ -532,7 +532,7 @@ public class SslContextSecretVolumeSecretProviderTest {
    * a synchronous callback - so need to provide a listener.
    */
   private static TestCallback<SslContext> getValueThruCallback(
-      SecretProvider<SslContext> provider) {
+      SecretProvider<Object, SslContext> provider) {
     TestCallback<SslContext> testCallback = new TestCallback<>();
     provider.addCallback(testCallback, MoreExecutors.directExecutor());
     return testCallback;

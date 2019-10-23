@@ -32,18 +32,17 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * A holder for shared resource singletons.
+ * A map for reference counted shared resources.
  *
- * <p>Components like client channels and servers need certain resources, e.g. a thread pool, to
- * run. If the user has not provided such resources, these components will use a default one, which
- * is shared as a static resource. This class holds these default resources and manages their
+ * <p>This class is used to hold shared resources as reference counted objects and manages their
  * life-cycles.
  *
- * <p>A resource is identified by the reference of a {@link Resource} object, which is typically a
- * singleton, provided to the get() and release() methods. Each Resource object (not its class) maps
- * to an object cached in the holder.
+ * <p>A resource is identified by the reference of a {@link ResourceDefinition} object, which provides
+ * the getKey() and create() methods. The key from getKey() maps to the object stored in the map and
+ * create() is used to create the resource (object) in case it is not present in the map.
  *
- * <p>Resources are ref-counted and shut down after a delay when the ref-count reaches zero.
+ * <p>Resources are ref-counted and closed by calling {@link Closeable#close()} after a delay when
+ * the ref-count reaches zero.
  */
 @ThreadSafe
 public final class ReferenceCountingMap<K, T extends Closeable> {
@@ -61,7 +60,7 @@ public final class ReferenceCountingMap<K, T extends Closeable> {
     });
   }
 
-  private final HashMap<K, Instance> instances;
+  private final HashMap<K, Instance<T>> instances;
 
   private final ScheduledExecutorFactory destroyerFactory;
 
@@ -79,38 +78,37 @@ public final class ReferenceCountingMap<K, T extends Closeable> {
    *
    * @param resource the singleton object that identifies the requested static resource
    */
-  public T get(Resource<K, T> resource) {
+  public T get(ResourceDefinition<K, T> resource) {
     return getInternal(resource);
   }
 
   /**
    * Releases an instance of the given resource.
    *
-   * <p>The instance must have been obtained from {@link #get(Resource)}. Otherwise will throw
+   * <p>The instance must have been obtained from {@link #get(ResourceDefinition)}. Otherwise will throw
    * IllegalArgumentException.
    *
-   * <p>Caller must not release a reference more than once. It's advisory that you clear the
+   * <p>Caller must not release a reference more than once. It's advised that you clear the
    * reference to the instance with the null returned by this method.
    *
-   * @param resource the singleton Resource object that identifies the released static resource
+   * @param key the key that identifies the shared resource
    * @param instance the released static resource
    *
    * @return a null which the caller can use to clear the reference to that instance.
    */
-  public T release(final Resource<K, T> resource, final T instance) {
-    return releaseInternal(resource, instance);
+  public T release(final K key, final T instance) {
+    return releaseInternal(key, instance);
   }
 
   /**
-   * Visible to unit tests.
    *
-   * @see #get(Resource)
+   * @see #get(ResourceDefinition)
    */
   @SuppressWarnings("unchecked")
-  synchronized T getInternal(Resource<K, T> resource) {
-    Instance instance = instances.get(resource.getKey());
+  private synchronized T getInternal(ResourceDefinition<K, T> resource) {
+    Instance<T> instance = instances.get(resource.getKey());
     if (instance == null) {
-      instance = new Instance(resource.create());
+      instance = new Instance<>(resource.create());
       instances.put(resource.getKey(), instance);
     }
     if (instance.destroyTask != null) {
@@ -121,13 +119,10 @@ public final class ReferenceCountingMap<K, T extends Closeable> {
     return (T) instance.payload;
   }
 
-  /**
-   * Visible to unit tests.
-   */
-  synchronized T releaseInternal(final Resource<K, T> resource, final T instance) {
-    final Instance cached = instances.get(resource.getKey());
+  private synchronized T releaseInternal(final K key, final T instance) {
+    final Instance<T> cached = instances.get(key);
     if (cached == null) {
-      throw new IllegalArgumentException("No cached instance found for " + resource);
+      throw new IllegalArgumentException("No cached instance found for " + key);
     }
     Preconditions.checkArgument(instance == cached.payload, "Releasing the wrong instance");
     Preconditions.checkState(cached.refcount > 0, "Refcount has already reached zero");
@@ -149,7 +144,7 @@ public final class ReferenceCountingMap<K, T extends Closeable> {
               } catch (IOException e) {
                 logger.log(Level.SEVERE, "close", e);
               } finally {
-                instances.remove(resource.getKey());
+                instances.remove(key);
                 if (instances.isEmpty()) {
                   destroyer.shutdown();
                   destroyer = null;
@@ -165,14 +160,15 @@ public final class ReferenceCountingMap<K, T extends Closeable> {
   }
 
   /**
-   * Defines a resource, and the way to create and destroy instances of it.
+   * Defines a resource: identify it using a key and the way to create it.
    */
-  public interface Resource<K, T> {
+  public interface ResourceDefinition<K, T> {
     /**
      * Create a new instance of the resource.
      */
     T create();
 
+    /** returns the key to be used to identify the resource. */
     K getKey();
   }
 
@@ -180,12 +176,12 @@ public final class ReferenceCountingMap<K, T extends Closeable> {
     ScheduledExecutorService createScheduledExecutor();
   }
 
-  private static class Instance {
-    final Closeable payload;
+  private static class Instance<T extends Closeable> {
+    final T payload;
     int refcount;
     ScheduledFuture<?> destroyTask;
 
-    Instance(Closeable payload) {
+    Instance(T payload) {
       this.payload = payload;
       this.refcount = 0;
     }

@@ -43,7 +43,7 @@ public class TlsContextManagerTest {
         SslContextSecretVolumeSecretProviderTest.buildDownstreamTlsContextFromFilenames(
             SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, /* trustCa= */ null);
 
-    SecretProvider<SslContext> serverSecretProvider =
+    SecretProvider<Object, SslContext> serverSecretProvider =
         TlsContextManager.getInstance().findOrCreateServerSslContextProvider(downstreamTlsContext);
     assertThat(serverSecretProvider).isNotNull();
   }
@@ -54,7 +54,7 @@ public class TlsContextManagerTest {
         SslContextSecretVolumeSecretProviderTest.buildUpstreamTlsContextFromFilenames(
             /* privateKey= */null, /* certChain= */null, CA_PEM_FILE);
 
-    SecretProvider<SslContext> serverSecretProvider =
+    SecretProvider<Object, SslContext> serverSecretProvider =
         TlsContextManager.getInstance().findOrCreateClientSslContextProvider(upstreamTlsContext);
     assertThat(serverSecretProvider).isNotNull();
   }

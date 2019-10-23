@@ -16,12 +16,11 @@
 
 package io.grpc.xds.sds;
 
-import com.google.common.base.Objects;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.grpc.Internal;
 import io.netty.handler.ssl.SslContext;
-import java.util.logging.Logger;
+import io.grpc.xds.sds.ReferenceCountingMap.ResourceDefinition;
 
 /**
  * Class to manage secrets used to create SSL contexts - this effectively manages SSL contexts
@@ -31,14 +30,13 @@ import java.util.logging.Logger;
  */
 @Internal
 public final class TlsContextManager {
-  private static final Logger logger = Logger.getLogger(TlsContextManager.class.getName());
 
   private static TlsContextManager instance;
 
-  final private ReferenceCountingMap<Object, SecretProvider<SslContext>> holder;
+  final private ReferenceCountingMap<Object, SecretProvider<Object, SslContext>> referenceCountingMap;
 
   private TlsContextManager() {
-    holder = new ReferenceCountingMap<>();
+    referenceCountingMap = new ReferenceCountingMap<>();
   }
 
   /*
@@ -55,25 +53,25 @@ public final class TlsContextManager {
     return instance;
   }
 
-  private SecretProvider<SslContext> getSecretProviderFromResource(ReferenceCountingMap.Resource<Object, SecretProvider<SslContext>> resource) {
-    SecretProvider<SslContext> retVal = holder.get(resource);
-    retVal.setSharedResourcePool(holder, resource);
+  private SecretProvider<Object, SslContext> getSecretProviderFromResource(ReferenceCountingMap.ResourceDefinition<Object, SecretProvider<Object, SslContext>> resource) {
+    SecretProvider<Object, SslContext> retVal = referenceCountingMap.get(resource);
+    retVal.setSharedResourcePool(referenceCountingMap, resource.getKey());
     return retVal;
   }
 
   /** Creates a SecretProvider. Used for retrieving a server-side SslContext. */
-  public SecretProvider<SslContext> findOrCreateServerSslContextProvider(
+  public SecretProvider<Object, SslContext> findOrCreateServerSslContextProvider(
       DownstreamTlsContext downstreamTlsContext) {
     return getSecretProviderFromResource(new ServerSecretProviderResource(downstreamTlsContext));
   }
 
   /** Creates a SecretProvider. Used for retrieving a client-side SslContext. */
-  public SecretProvider<SslContext> findOrCreateClientSslContextProvider(
+  public SecretProvider<Object, SslContext> findOrCreateClientSslContextProvider(
       UpstreamTlsContext upstreamTlsContext) {
     return getSecretProviderFromResource(new ClientSecretProviderResource(upstreamTlsContext));
   }
 
-  private static class ServerSecretProviderResource implements ReferenceCountingMap.Resource<Object, SecretProvider<SslContext>> {
+  private static class ServerSecretProviderResource implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
 
     private DownstreamTlsContext downstreamTlsContext;
 
@@ -82,21 +80,8 @@ public final class TlsContextManager {
     }
 
     @Override
-    public SecretProvider<SslContext> create() {
+    public SecretProvider<Object, SslContext> create() {
       return SslContextSecretVolumeSecretProvider.getProviderForServer(downstreamTlsContext);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) return true;
-      if (!(o instanceof ServerSecretProviderResource)) return false;
-      ServerSecretProviderResource that = (ServerSecretProviderResource) o;
-      return Objects.equal(downstreamTlsContext, that.downstreamTlsContext);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(downstreamTlsContext);
     }
 
     @Override
@@ -105,7 +90,7 @@ public final class TlsContextManager {
     }
   }
 
-  private static class ClientSecretProviderResource implements ReferenceCountingMap.Resource<Object, SecretProvider<SslContext>> {
+  private static class ClientSecretProviderResource implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
 
     private UpstreamTlsContext upstreamTlsContext;
 
@@ -114,7 +99,7 @@ public final class TlsContextManager {
     }
 
     @Override
-    public SecretProvider<SslContext> create() {
+    public SecretProvider<Object, SslContext> create() {
       return SslContextSecretVolumeSecretProvider.getProviderForClient(upstreamTlsContext);
     }
 

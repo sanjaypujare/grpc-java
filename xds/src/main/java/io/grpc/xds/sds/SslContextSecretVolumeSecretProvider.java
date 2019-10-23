@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
  * An SslContext provider that uses file-based secrets (secret volume). Used for both server and
  * client SslContexts
  */
-final class SslContextSecretVolumeSecretProvider extends SecretProvider<SslContext> {
+final class SslContextSecretVolumeSecretProvider extends SecretProvider<Object, SslContext> {
 
   private static final Logger logger =
       Logger.getLogger(SslContextSecretVolumeSecretProvider.class.getName());
