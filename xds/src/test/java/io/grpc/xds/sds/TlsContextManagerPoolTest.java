@@ -17,14 +17,11 @@
 package io.grpc.xds.sds;
 
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
-import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.netty.handler.ssl.SslContext;
 import java.lang.reflect.Field;
-import java.util.logging.Logger;
+
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -68,17 +65,17 @@ public class TlsContextManagerPoolTest {
             TlsContextManager.getInstance().findOrCreateServerSslContextProvider(downstreamTlsContext1);
     assertThat(serverSecretProvider).isSameInstanceAs(serverSecretProvider2);
     // at this point refCount is 3
-    assertThat(serverSecretProvider.returnObject()).isNull();  // refCount is 2 after this
-    assertThat(serverSecretProvider.returnObject()).isNull();  // refCount is 1 after this
-    assertThat(serverSecretProvider.returnObject()).isNull();  // refCount is 0 after this
+    assertThat(serverSecretProvider.release()).isNull();  // refCount is 2 after this
+    assertThat(serverSecretProvider.release()).isNull();  // refCount is 1 after this
+    assertThat(serverSecretProvider.release()).isNull();  // refCount is 0 after this
     // wait for > SdsSharedResourceHolder.DESTROY_DELAY_SECONDS
     Thread.sleep(1500L);
     serverSecretProvider2 =
             TlsContextManager.getInstance().findOrCreateServerSslContextProvider(downstreamTlsContext1);
     assertThat(serverSecretProvider).isNotSameInstanceAs(serverSecretProvider2); // refCount is 1 now for serverSecretProvider2
-    assertThat(serverSecretProvider2.returnObject()).isNull();  // refCount is 0
+    assertThat(serverSecretProvider2.release()).isNull();  // refCount is 0
     try {
-      serverSecretProvider2.returnObject();
+      serverSecretProvider2.release();
       fail("Exception expected");
     } catch (IllegalStateException expected) {
       assertThat(expected)

@@ -47,7 +47,7 @@ public abstract class SecretProvider<K, T> implements Closeable {
     void onException(Throwable throwable);
   }
 
-  public SecretProvider<K, T> returnObject() {
+  public SecretProvider<K, T> release() {
     map.release(key, this);
     return null;
   }

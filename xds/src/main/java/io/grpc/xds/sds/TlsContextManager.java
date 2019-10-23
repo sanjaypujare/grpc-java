@@ -53,29 +53,30 @@ public final class TlsContextManager {
     return instance;
   }
 
-  private SecretProvider<Object, SslContext> getSecretProviderFromResource(ReferenceCountingMap.ResourceDefinition<Object, SecretProvider<Object, SslContext>> resource) {
-    SecretProvider<Object, SslContext> retVal = referenceCountingMap.get(resource);
-    retVal.setSharedResourcePool(referenceCountingMap, resource.getKey());
+  private SecretProvider<Object, SslContext> getSecretProviderFromResourceDefinition(
+          ResourceDefinition<Object, SecretProvider<Object, SslContext>> resourceDefinition) {
+    SecretProvider<Object, SslContext> retVal = referenceCountingMap.get(resourceDefinition);
+    retVal.setSharedResourcePool(referenceCountingMap, resourceDefinition.getKey());
     return retVal;
   }
 
   /** Creates a SecretProvider. Used for retrieving a server-side SslContext. */
   public SecretProvider<Object, SslContext> findOrCreateServerSslContextProvider(
       DownstreamTlsContext downstreamTlsContext) {
-    return getSecretProviderFromResource(new ServerSecretProviderResource(downstreamTlsContext));
+    return getSecretProviderFromResourceDefinition(new ServerResourceDefinition(downstreamTlsContext));
   }
 
   /** Creates a SecretProvider. Used for retrieving a client-side SslContext. */
   public SecretProvider<Object, SslContext> findOrCreateClientSslContextProvider(
       UpstreamTlsContext upstreamTlsContext) {
-    return getSecretProviderFromResource(new ClientSecretProviderResource(upstreamTlsContext));
+    return getSecretProviderFromResourceDefinition(new ClientResourceDefinition(upstreamTlsContext));
   }
 
-  private static class ServerSecretProviderResource implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
+  private static class ServerResourceDefinition implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
 
     private DownstreamTlsContext downstreamTlsContext;
 
-    public ServerSecretProviderResource(DownstreamTlsContext downstreamTlsContext) {
+    public ServerResourceDefinition(DownstreamTlsContext downstreamTlsContext) {
       this.downstreamTlsContext = downstreamTlsContext;
     }
 
@@ -90,11 +91,11 @@ public final class TlsContextManager {
     }
   }
 
-  private static class ClientSecretProviderResource implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
+  private static class ClientResourceDefinition implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
 
     private UpstreamTlsContext upstreamTlsContext;
 
-    public ClientSecretProviderResource(UpstreamTlsContext upstreamTlsContext) {
+    public ClientResourceDefinition(UpstreamTlsContext upstreamTlsContext) {
       this.upstreamTlsContext = upstreamTlsContext;
     }
 

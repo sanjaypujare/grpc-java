@@ -74,12 +74,10 @@ public final class ReferenceCountingMap<K, T extends Closeable> {
 
   /**
    * Try to get an existing instance of the given resource. If an instance does not exist, create a
-   * new one with the given factory.
-   *
-   * @param resource the singleton object that identifies the requested static resource
+   * new one with the given ResourceDefinition.
    */
-  public T get(ResourceDefinition<K, T> resource) {
-    return getInternal(resource);
+  public T get(ResourceDefinition<K, T> resourceDefinition) {
+    return getInternal(resourceDefinition);
   }
 
   /**
