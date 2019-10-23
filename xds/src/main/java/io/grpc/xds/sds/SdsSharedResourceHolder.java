@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import io.grpc.internal.GrpcUtil;
 import io.grpc.internal.LogExceptionRunnable;
 
+import java.util.logging.Logger;
 import javax.annotation.concurrent.ThreadSafe;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
@@ -43,6 +44,8 @@ import java.util.concurrent.TimeUnit;
  */
 @ThreadSafe
 public final class SdsSharedResourceHolder<T> {
+  private static final Logger logger = Logger.getLogger(SdsSharedResourceHolder.class.getName());
+
   static final long DESTROY_DELAY_SECONDS = 1;
 
   SdsSharedResourceHolder() {
@@ -55,8 +58,7 @@ public final class SdsSharedResourceHolder<T> {
     });
   }
 
-  private final HashMap<Resource<T>, Instance> instances =
-      new HashMap<>();
+  private final HashMap<Resource<T>, Instance> instances;
 
   private final ScheduledExecutorFactory destroyerFactory;
 
@@ -65,6 +67,8 @@ public final class SdsSharedResourceHolder<T> {
   // Visible to tests that would need to create instances of the holder.
   SdsSharedResourceHolder(ScheduledExecutorFactory destroyerFactory) {
     this.destroyerFactory = destroyerFactory;
+    instances = new HashMap<>();
+    logger.info("in SdsSharedResourceHolder ctor, sizeof instances=" + instances.size());
   }
 
   /**
@@ -102,16 +106,19 @@ public final class SdsSharedResourceHolder<T> {
    */
   @SuppressWarnings("unchecked")
   synchronized T getInternal(Resource<T> resource) {
+    logger.info("entering getInternal, sizeof instances=" + instances.size());
     Instance instance = instances.get(resource);
     if (instance == null) {
       instance = new Instance(resource.create());
       instances.put(resource, instance);
+      logger.info("refcount after ctor is " + instance.refcount);
     }
     if (instance.destroyTask != null) {
       instance.destroyTask.cancel(false);
       instance.destroyTask = null;
     }
     instance.refcount++;
+    logger.info("refcount after ++ is =" + instance.refcount);
     return (T) instance.payload;
   }
 
@@ -119,6 +126,8 @@ public final class SdsSharedResourceHolder<T> {
    * Visible to unit tests.
    */
   synchronized T releaseInternal(final Resource<T> resource, final T instance) {
+    System.out.println("enterting releaseInternal");
+    logger.info("enterting releaseInternal");
     final Instance cached = instances.get(resource);
     if (cached == null) {
       throw new IllegalArgumentException("No cached instance found for " + resource);
@@ -126,8 +135,11 @@ public final class SdsSharedResourceHolder<T> {
     Preconditions.checkArgument(instance == cached.payload, "Releasing the wrong instance");
     Preconditions.checkState(cached.refcount > 0, "Refcount has already reached zero");
     cached.refcount--;
+    logger.info("refcount after -- is =" + cached.refcount);
     if (cached.refcount == 0) {
+      logger.info("inside the  if block");
       Preconditions.checkState(cached.destroyTask == null, "Destroy task already scheduled");
+      System.out.println("enterting refcount == 0");
       // Schedule a delayed task to destroy the resource.
       if (destroyer == null) {
         destroyer = destroyerFactory.createScheduledExecutor();
@@ -135,9 +147,11 @@ public final class SdsSharedResourceHolder<T> {
       cached.destroyTask = destroyer.schedule(new LogExceptionRunnable(new Runnable() {
         @Override
         public void run() {
+          System.out.println("started destroyTask");
           synchronized (SdsSharedResourceHolder.this) {
             // Refcount may have gone up since the task was scheduled. Re-check it.
             if (cached.refcount == 0) {
+              System.out.println("refcount is still 0");
               try {
                 resource.close(instance);
               } finally {
@@ -182,6 +196,7 @@ public final class SdsSharedResourceHolder<T> {
 
     Instance(Object payload) {
       this.payload = payload;
+      this.refcount = 0;
     }
   }
 }

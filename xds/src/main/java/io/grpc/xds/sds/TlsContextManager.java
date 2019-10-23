@@ -16,12 +16,14 @@
 
 package io.grpc.xds.sds;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.grpc.Internal;
 import io.netty.handler.ssl.SslContext;
 import io.grpc.xds.sds.SdsSharedResourceHolder.Resource;
+import java.util.logging.Logger;
 
 /**
  * Class to manage secrets used to create SSL contexts - this effectively manages SSL contexts
@@ -32,6 +34,7 @@ import io.grpc.xds.sds.SdsSharedResourceHolder.Resource;
 // TODO(sanjaypujare): implement a Map and ref-counting
 @Internal
 public final class TlsContextManager {
+  private static final Logger logger = Logger.getLogger(TlsContextManager.class.getName());
 
   private static TlsContextManager instance;
 
@@ -39,8 +42,15 @@ public final class TlsContextManager {
     holder = new SdsSharedResourceHolder<>();
   }
 
+  /*
+  @VisibleForTesting
+  static synchronized void clearInstance() {
+    instance = null;
+  } */
+
   /** Gets the ContextManager singleton. */
   public static synchronized TlsContextManager getInstance() {
+    logger.info("TlsContextManager getInstance = " + instance);
     if (instance == null) {
       instance = new TlsContextManager();
     }

@@ -19,6 +19,9 @@ package io.grpc.xds.sds;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.netty.handler.ssl.SslContext;
+import java.lang.reflect.Field;
+import java.util.logging.Logger;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -31,15 +34,22 @@ import static org.junit.Assert.fail;
 /** Unit tests for {@link TlsContextManager}. */
 @RunWith(JUnit4.class)
 public class TlsContextManagerPoolTest {
+  private static final Logger logger = Logger.getLogger(TlsContextManagerPoolTest.class.getName());
 
   private static final String SERVER_1_PEM_FILE = "server1.pem";
   private static final String SERVER_1_KEY_FILE = "server1.key";
   private static final String CA_PEM_FILE = "ca.pem";
 
-  @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @Before
+  public void clearInstance() throws NoSuchFieldException, IllegalAccessException {
+    Field field = TlsContextManager.class.getDeclaredField("instance");
+    field.setAccessible(true);
+    field.set(null, null);
+  }
 
   @Test
   public void createServerSslContextProvider() throws InterruptedException {
+    //TlsContextManager.clearInstance();
     DownstreamTlsContext downstreamTlsContext =
         SslContextSecretVolumeSecretProviderTest.buildDownstreamTlsContextFromFilenames(
             SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, /* trustCa= */ null);
@@ -47,9 +57,12 @@ public class TlsContextManagerPoolTest {
     SecretProvider<SslContext> serverSecretProvider =
             TlsContextManager.getInstance().findOrCreateServerSslContextProvider(downstreamTlsContext);
     assertThat(serverSecretProvider).isNotNull();
+    logger.info("get#1 to serverSecretProvider");
+
 
     SecretProvider<SslContext> serverSecretProvider1 =
             TlsContextManager.getInstance().findOrCreateServerSslContextProvider(downstreamTlsContext);
+    logger.info("get#2 to serverSecretProvider1");
     assertThat(serverSecretProvider).isSameInstanceAs(serverSecretProvider1);
 
     DownstreamTlsContext downstreamTlsContext1 =
@@ -57,13 +70,16 @@ public class TlsContextManagerPoolTest {
                     SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, /* trustCa= */ null);
     SecretProvider<SslContext> serverSecretProvider2 =
             TlsContextManager.getInstance().findOrCreateServerSslContextProvider(downstreamTlsContext1);
+    logger.info("get#3 to serverSecretProvider2, at this point refCount should be 3");
     assertThat(serverSecretProvider).isSameInstanceAs(serverSecretProvider2);
     // at this point refCount is 3
-    assertThat(serverSecretProvider.returnObject()).isNull();  // refCount is 2
-    assertThat(serverSecretProvider.returnObject()).isNull();  // refCount is 1
-    assertThat(serverSecretProvider.returnObject()).isNull();  // refCount is 0
+    assertThat(serverSecretProvider.returnObject()).isNull();  // refCount is 2 after this
+    assertThat(serverSecretProvider.returnObject()).isNull();  // refCount is 1 after this
+    assertThat(serverSecretProvider.returnObject()).isNull();  // refCount is 0 after this
     // wait for > SdsSharedResourceHolder.DESTROY_DELAY_SECONDS
-    Thread.sleep(1500L);
+    logger.info("before delay: at this point refcount is expected to be 0");
+    Thread.sleep(4500L);
+    logger.info("after delay");
     serverSecretProvider2 =
             TlsContextManager.getInstance().findOrCreateServerSslContextProvider(downstreamTlsContext1);
     assertThat(serverSecretProvider).isNotSameInstanceAs(serverSecretProvider2); // refCount is 1 now for serverSecretProvider2
