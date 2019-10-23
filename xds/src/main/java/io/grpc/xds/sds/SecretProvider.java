@@ -39,6 +39,12 @@ public abstract class SecretProvider<K, T> implements Closeable {
     this.key = key;
   }
 
+  SecretProvider(ReferenceCountingMap<Object, SecretProvider<K, T>> map,
+                 K key) {
+    this.map = map;
+    this.key = key;
+  }
+
   public static interface Callback<T> {
     /** Informs callee of new/updated secret. */
     void updateSecret(T secret);

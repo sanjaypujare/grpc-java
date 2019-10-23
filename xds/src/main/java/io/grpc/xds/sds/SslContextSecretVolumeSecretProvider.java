@@ -59,7 +59,10 @@ final class SslContextSecretVolumeSecretProvider extends SecretProvider<Object, 
       @Nullable String privateKeyPassword,
       @Nullable String certificateChain,
       @Nullable CertificateValidationContext certContext,
+      ReferenceCountingMap<Object, SecretProvider<Object, SslContext>> map,
+      Object key,
       boolean server) {
+    super(map, key);
     this.privateKey = privateKey;
     this.privateKeyPassword = privateKeyPassword;
     this.certificateChain = certificateChain;
@@ -105,7 +108,8 @@ final class SslContextSecretVolumeSecretProvider extends SecretProvider<Object, 
   }
 
   static SslContextSecretVolumeSecretProvider getProviderForServer(
-      DownstreamTlsContext downstreamTlsContext) {
+      DownstreamTlsContext downstreamTlsContext,
+      ReferenceCountingMap<Object, SecretProvider<Object, SslContext>> map) {
     checkNotNull(downstreamTlsContext, "downstreamTlsContext");
     CommonTlsContext commonTlsContext = downstreamTlsContext.getCommonTlsContext();
     TlsCertificate tlsCertificate = null;
@@ -126,11 +130,14 @@ final class SslContextSecretVolumeSecretProvider extends SecretProvider<Object, 
         privateKeyPassword,
         tlsCertificate.getCertificateChain().getFilename(),
         certContext,
+        map,
+            downstreamTlsContext,
         /* server= */ true);
   }
 
   static SslContextSecretVolumeSecretProvider getProviderForClient(
-      UpstreamTlsContext upstreamTlsContext) {
+      UpstreamTlsContext upstreamTlsContext,
+      ReferenceCountingMap<Object, SecretProvider<Object, SslContext>> map) {
     checkNotNull(upstreamTlsContext, "upstreamTlsContext");
     CommonTlsContext commonTlsContext = upstreamTlsContext.getCommonTlsContext();
     CertificateValidationContext certContext = commonTlsContext.getValidationContext();
@@ -155,7 +162,7 @@ final class SslContextSecretVolumeSecretProvider extends SecretProvider<Object, 
       certificateChain = tlsCertificate.getCertificateChain().getFilename();
     }
     return new SslContextSecretVolumeSecretProvider(
-        privateKey, privateKeyPassword, certificateChain, certContext, /* server= */ false);
+        privateKey, privateKeyPassword, certificateChain, certContext, map, upstreamTlsContext, /* server= */ false);
   }
 
   @Override

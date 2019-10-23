@@ -72,7 +72,7 @@ public final class TlsContextManager {
     return getSecretProviderFromResourceDefinition(new ClientResourceDefinition(upstreamTlsContext));
   }
 
-  private static class ServerResourceDefinition implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
+  private class ServerResourceDefinition implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
 
     private DownstreamTlsContext downstreamTlsContext;
 
@@ -82,7 +82,7 @@ public final class TlsContextManager {
 
     @Override
     public SecretProvider<Object, SslContext> create() {
-      return SslContextSecretVolumeSecretProvider.getProviderForServer(downstreamTlsContext);
+      return SslContextSecretVolumeSecretProvider.getProviderForServer(downstreamTlsContext, referenceCountingMap);
     }
 
     @Override
@@ -91,7 +91,7 @@ public final class TlsContextManager {
     }
   }
 
-  private static class ClientResourceDefinition implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
+  private class ClientResourceDefinition implements ResourceDefinition<Object, SecretProvider<Object, SslContext>> {
 
     private UpstreamTlsContext upstreamTlsContext;
 
@@ -101,7 +101,7 @@ public final class TlsContextManager {
 
     @Override
     public SecretProvider<Object, SslContext> create() {
-      return SslContextSecretVolumeSecretProvider.getProviderForClient(upstreamTlsContext);
+      return SslContextSecretVolumeSecretProvider.getProviderForClient(upstreamTlsContext, referenceCountingMap);
     }
 
     @Override

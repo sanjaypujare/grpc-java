@@ -277,7 +277,7 @@ public class SslContextSecretVolumeSecretProviderTest {
     TlsCertificate tlsCert = TlsCertificate.getDefaultInstance();
     try {
       SslContextSecretVolumeSecretProvider.getProviderForServer(
-          buildDownstreamTlsContext(getCommonTlsContext(tlsCert, /* certContext= */ null)));
+          buildDownstreamTlsContext(getCommonTlsContext(tlsCert, /* certContext= */ null)), null);
       Assert.fail("no exception thrown");
     } catch (IllegalArgumentException expected) {
       assertThat(expected).hasMessageThat().isEqualTo("filename expected");
@@ -297,7 +297,7 @@ public class SslContextSecretVolumeSecretProviderTest {
             .build();
     try {
       SslContextSecretVolumeSecretProvider.getProviderForServer(
-          buildDownstreamTlsContext(getCommonTlsContext(tlsCert, certContext)));
+          buildDownstreamTlsContext(getCommonTlsContext(tlsCert, certContext)), null);
       Assert.fail("no exception thrown");
     } catch (IllegalArgumentException expected) {
       assertThat(expected.getMessage()).isEqualTo("filename expected");
@@ -309,7 +309,7 @@ public class SslContextSecretVolumeSecretProviderTest {
     CertificateValidationContext certContext = CertificateValidationContext.getDefaultInstance();
     try {
       SslContextSecretVolumeSecretProvider.getProviderForClient(
-          buildUpstreamTlsContext(getCommonTlsContext(/* tlsCertificate= */ null, certContext)));
+          buildUpstreamTlsContext(getCommonTlsContext(/* tlsCertificate= */ null, certContext)), null);
       Assert.fail("no exception thrown");
     } catch (IllegalArgumentException expected) {
       assertThat(expected).hasMessageThat().isEqualTo("certContext is required");
@@ -329,7 +329,7 @@ public class SslContextSecretVolumeSecretProviderTest {
             .build();
     try {
       SslContextSecretVolumeSecretProvider.getProviderForClient(
-          buildUpstreamTlsContext(getCommonTlsContext(tlsCert, certContext)));
+          buildUpstreamTlsContext(getCommonTlsContext(tlsCert, certContext)), null);
       Assert.fail("no exception thrown");
     } catch (IllegalArgumentException expected) {
       assertThat(expected).hasMessageThat().isEqualTo("filename expected");
@@ -349,7 +349,7 @@ public class SslContextSecretVolumeSecretProviderTest {
             .build();
     try {
       SslContextSecretVolumeSecretProvider.getProviderForClient(
-          buildUpstreamTlsContext(getCommonTlsContext(tlsCert, certContext)));
+          buildUpstreamTlsContext(getCommonTlsContext(tlsCert, certContext)), null);
       Assert.fail("no exception thrown");
     } catch (IllegalArgumentException expected) {
       assertThat(expected).hasMessageThat().isEqualTo("filename expected");
@@ -378,10 +378,10 @@ public class SslContextSecretVolumeSecretProviderTest {
     return server
         ? SslContextSecretVolumeSecretProvider.getProviderForServer(
         buildDownstreamTlsContextFromFilenames(
-            privateKeyFilename, certChainFilename, trustedCaFilename))
+            privateKeyFilename, certChainFilename, trustedCaFilename), null)
         : SslContextSecretVolumeSecretProvider.getProviderForClient(
             buildUpstreamTlsContextFromFilenames(
-                privateKeyFilename, certChainFilename, trustedCaFilename));
+                privateKeyFilename, certChainFilename, trustedCaFilename), null);
   }
 
   /**
