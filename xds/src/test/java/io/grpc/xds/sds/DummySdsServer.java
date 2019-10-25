@@ -17,22 +17,33 @@
 package io.grpc.xds.sds;
 
 
+import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
 import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
+import io.envoyproxy.envoy.api.v2.auth.Secret;
+import io.envoyproxy.envoy.api.v2.auth.TlsCertificate;
+import io.envoyproxy.envoy.api.v2.core.DataSource;
 import io.envoyproxy.envoy.service.discovery.v2.SecretDiscoveryServiceGrpc;
+import io.grpc.Server;
+import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
 
+import java.io.IOException;
+import java.util.logging.Logger;
+
 public class DummySdsServer {
+  private static final Logger logger = Logger.getLogger(DummySdsServer.class.getName());
 
   // key for UDS path in gRPC context metadata map.
-  private static final String udsPathKey = ":authority";
+  private static final String UDS_PATH_KEY = ":authority";
   // SecretTypeURL defines the type URL for Envoy secret proto.
-  private static final String SecretTypeURL = "type.googleapis.com/envoy.api.v2.auth.Secret";
+  private static final String SECRET_TYPE_URL = "type.googleapis.com/envoy.api.v2.auth.Secret";
   // SecretName defines the type of the secrets to fetch from the SDS server.
-  private static final String SecretName = "SPKI";
+  private static final String SECRET_NAME = "SPKI";
 
-  private static final class Secret {
-    Secret(String privateKey, String certificateChain) {
+  private static final class MySecret {
+    MySecret(String privateKey, String certificateChain) {
       this.privateKey = privateKey;
       this.certificateChain = certificateChain;
     }
@@ -41,8 +52,8 @@ public class DummySdsServer {
     String certificateChain;
   }
 
-  static Secret secrets[] = new Secret[] {
-      new Secret("-----BEGIN RSA PRIVATE KEY-----"
+  static MySecret secrets[] = new MySecret[] {
+      new MySecret("-----BEGIN RSA PRIVATE KEY-----"
           + "MIIEowIBAAKCAQEAtqwOeCRGd9H91ieHQmDX0KR6RHEVHxN6X3VsL8RXu8GtaULP"
           + "3IFmitbY2uLoVpdB4JxuDmuIDYbktqheLYD4g55klq13OInlEMtLk/u2H0Fvz70H"
           + "RjDFAfOqY8OTIjs2+iM1H5OFVNrKxSHao/wiqbU3ZOZHu7ts6jcLrh8O+P17KRRE"
@@ -91,7 +102,7 @@ public class DummySdsServer {
               + "hhZwPFxt/EVB0YISgMOnMHzmWmnNWRiDuI6eZxUx0L9B9sD4s7zrQYYQ1bV/CPYX"
               + "iwlodzJwNdfIBfD/AC/GdnaWow=="
               + "-----END CERTIFICATE-----"),
-      new Secret("-----BEGIN RSA PRIVATE KEY-----"
+      new MySecret("-----BEGIN RSA PRIVATE KEY-----"
           + "MIICXQIBAAKBgQDARNUJMFkWF0E6mbdz/nkydVC4TU2SgR95vhJhWpG6xKkCNoXk"
           + "JxNzXOmFUUIXQyq7FnIWACYuMrE2KXnomeCGP9A6M21lumNseYSLX3/b+ao4E6gi"
           + "mm1/Gp8C3FaoAs8Ep7VE+o2DMIfTIPJhFf6RBFPundGhEm8/gv+QObVhKQIDAQAB"
@@ -128,15 +139,21 @@ public class DummySdsServer {
 
   private static class SecretDiscoveryServiceImpl extends SecretDiscoveryServiceGrpc.SecretDiscoveryServiceImplBase {
 
+    final long startTime = System.nanoTime();
+
+    SecretDiscoveryServiceImpl() {
+
+    }
+
     /**
      *
      */
-    static class SdsStreamObserver<V> implements StreamObserver<V> {
+    static class SdsInboundStreamObserver<V> implements StreamObserver<V> {
 
 
       private final StreamObserver<DiscoveryResponse> responseObserver;
 
-      public SdsStreamObserver(StreamObserver<DiscoveryResponse> responseObserver) {
+      public SdsInboundStreamObserver(StreamObserver<DiscoveryResponse> responseObserver) {
         this.responseObserver = responseObserver;
       }
 
@@ -157,7 +174,7 @@ public class DummySdsServer {
     @Override
     public StreamObserver<DiscoveryRequest> streamSecrets(
         StreamObserver<DiscoveryResponse> responseObserver) {
-      return new SdsStreamObserver<>(responseObserver);
+      return new SdsInboundStreamObserver<>(responseObserver);
     }
 
     // unary call
@@ -165,11 +182,52 @@ public class DummySdsServer {
     public void fetchSecrets(DiscoveryRequest request,
         StreamObserver<DiscoveryResponse> responseObserver) {
 
+      DiscoveryResponse response = buildResponse(request.getResourceNames(0));
+      responseObserver.onNext(response);
+      responseObserver.onCompleted();
+    }
+
+    private DiscoveryResponse buildResponse(String resourceName) {
+      final String version = "" + ((System.nanoTime() - startTime) / 1000000L);
+
+      Secret secret = Secret.newBuilder()
+              .setName(resourceName)
+              .setTlsCertificate(getOneTlsCert())
+              .build();
+
+      ByteString data = secret.toByteString();
+      Any anyValue = Any.newBuilder()
+              .setTypeUrl(SECRET_TYPE_URL)
+              .setValue(data)
+              .build();
+      DiscoveryResponse response = DiscoveryResponse.newBuilder()
+              .setVersionInfo(version)
+              .setTypeUrl(SECRET_TYPE_URL)
+              .setResources(0, anyValue)
+              .build();
+      return response;
+    }
+
+    private TlsCertificate getOneTlsCert() {
+      int index = (int)Math.round(Math.random());
+      MySecret mySecret = secrets[index];
+      TlsCertificate tlsCertificate = TlsCertificate.newBuilder()
+              .setPrivateKey(DataSource.newBuilder().setInlineBytes(ByteString.copyFromUtf8(mySecret.privateKey)).build())
+              .setCertificateChain(DataSource.newBuilder().setInlineBytes(ByteString.copyFromUtf8(mySecret.certificateChain)).build())
+              .build();
+      return tlsCertificate;
     }
   }
 
-  public static void main(String[] args) {
+  private static Server createSdsServer() throws IOException {
+    NettyServerBuilder serverBuilder =
+            NettyServerBuilder.forPort(8080) // get unused port
+                    .addService(new SecretDiscoveryServiceImpl());
+    return serverBuilder.build().start();
+  }
 
+  public static void main(String[] args) throws IOException {
+    Server server = createSdsServer();
   }
 
 }
