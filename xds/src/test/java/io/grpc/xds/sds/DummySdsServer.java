@@ -19,6 +19,7 @@ package io.grpc.xds.sds;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.ProtocolStringList;
 import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
 import io.envoyproxy.envoy.api.v2.auth.Secret;
@@ -29,7 +30,10 @@ import io.grpc.Server;
 import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class DummySdsServer {
@@ -41,6 +45,9 @@ public class DummySdsServer {
   private static final String SECRET_TYPE_URL = "type.googleapis.com/envoy.api.v2.auth.Secret";
   // SecretName defines the type of the secrets to fetch from the SDS server.
   private static final String SECRET_NAME = "SPKI";
+
+  String currentVersion;
+  String lastRespondedNonce;
 
   private static final class MySecret {
     MySecret(String privateKey, String certificateChain) {
@@ -137,7 +144,7 @@ public class DummySdsServer {
               + "NWw1EW8TEwlFyuvCrlWQcg=="
               + "-----END CERTIFICATE-----")};
 
-  private static class SecretDiscoveryServiceImpl extends SecretDiscoveryServiceGrpc.SecretDiscoveryServiceImplBase {
+  private class SecretDiscoveryServiceImpl extends SecretDiscoveryServiceGrpc.SecretDiscoveryServiceImplBase {
 
     final long startTime = System.nanoTime();
 
@@ -148,9 +155,8 @@ public class DummySdsServer {
     /**
      *
      */
-    static class SdsInboundStreamObserver<V> implements StreamObserver<V> {
-
-
+    class SdsInboundStreamObserver implements StreamObserver<DiscoveryRequest> {
+      // this is outbound...
       private final StreamObserver<DiscoveryResponse> responseObserver;
 
       public SdsInboundStreamObserver(StreamObserver<DiscoveryResponse> responseObserver) {
@@ -158,15 +164,35 @@ public class DummySdsServer {
       }
 
       @Override
-      public void onNext(V value) {
+      public void onNext(DiscoveryRequest discoveryRequest) {
+        ProtocolStringList resourceNames = discoveryRequest.getResourceNamesList();
+        String version = discoveryRequest.getVersionInfo();
+        String nonce = discoveryRequest.getResponseNonce();
+
+        if (!currentVersion.equals(version)) {
+          // responseObserver.onError might close the call...
+          responseObserver.onError(new RuntimeException("incorrect version received:" + version));
+          return;
+        }
+        if (!lastRespondedNonce.equals(nonce)) {
+          // responseObserver.onError might close the call...
+          responseObserver.onError(new RuntimeException("incorrect nonce received:" + nonce));
+          return;
+        }
+        // TODO: is there a way to build a single DiscoveryResponse for all resource names?
+        for (String resourceName : resourceNames) {
+          responseObserver.onNext(buildResponse(resourceName));
+        }
       }
 
       @Override
       public void onError(Throwable t) {
+        logger.log(Level.SEVERE, "onError", t);
       }
 
       @Override
       public void onCompleted() {
+        responseObserver.onCompleted();
       }
     }
 
@@ -174,7 +200,7 @@ public class DummySdsServer {
     @Override
     public StreamObserver<DiscoveryRequest> streamSecrets(
         StreamObserver<DiscoveryResponse> responseObserver) {
-      return new SdsInboundStreamObserver<>(responseObserver);
+      return new SdsInboundStreamObserver(responseObserver);
     }
 
     // unary call
@@ -190,6 +216,7 @@ public class DummySdsServer {
     private DiscoveryResponse buildResponse(String resourceName) {
       final String version = "" + ((System.nanoTime() - startTime) / 1000000L);
 
+
       Secret secret = Secret.newBuilder()
               .setName(resourceName)
               .setTlsCertificate(getOneTlsCert())
@@ -202,9 +229,11 @@ public class DummySdsServer {
               .build();
       DiscoveryResponse response = DiscoveryResponse.newBuilder()
               .setVersionInfo(version)
+              .setNonce(getAndSaveNonce())
               .setTypeUrl(SECRET_TYPE_URL)
               .setResources(0, anyValue)
               .build();
+      currentVersion = version;
       return response;
     }
 
@@ -219,15 +248,27 @@ public class DummySdsServer {
     }
   }
 
-  private static Server createSdsServer() throws IOException {
+  private Server createSdsServer() throws IOException {
     NettyServerBuilder serverBuilder =
             NettyServerBuilder.forPort(8080) // get unused port
                     .addService(new SecretDiscoveryServiceImpl());
     return serverBuilder.build().start();
   }
 
-  public static void main(String[] args) throws IOException {
+  private void runServer() throws IOException {
     Server server = createSdsServer();
+  }
+
+  private String getAndSaveNonce() {
+    lastRespondedNonce = Long.toHexString(System.currentTimeMillis());
+    return lastRespondedNonce;
+  }
+
+  public static void main(String[] args) throws IOException {
+    DummySdsServer dummySdsServer = new DummySdsServer();
+    dummySdsServer.runServer();
+    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+    in.readLine();
   }
 
 }
