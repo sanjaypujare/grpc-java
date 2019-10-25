@@ -231,7 +231,7 @@ public class DummySdsServer {
               .setVersionInfo(version)
               .setNonce(getAndSaveNonce())
               .setTypeUrl(SECRET_TYPE_URL)
-              .setResources(0, anyValue)
+              .addResources(anyValue)
               .build();
       currentVersion = version;
       return response;
@@ -250,7 +250,7 @@ public class DummySdsServer {
 
   private Server createSdsServer() throws IOException {
     NettyServerBuilder serverBuilder =
-            NettyServerBuilder.forPort(8080) // get unused port
+            NettyServerBuilder.forPort(8080)
                     .addService(new SecretDiscoveryServiceImpl());
     return serverBuilder.build().start();
   }
