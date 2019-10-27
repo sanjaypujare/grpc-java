@@ -17,6 +17,7 @@
 package io.grpc.xds.sds;
 
 
+import com.google.common.base.Strings;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ProtocolStringList;
@@ -33,6 +34,13 @@ import io.grpc.stub.StreamObserver;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -153,35 +161,53 @@ public class DummySdsServer {
     }
 
     /**
-     *
+     * This is the inbound observer that sends us a request
      */
     class SdsInboundStreamObserver implements StreamObserver<DiscoveryRequest> {
       // this is outbound...
       private final StreamObserver<DiscoveryResponse> responseObserver;
+      ScheduledExecutorService periodicScheduler;
+      DiscoveryRequest lastGoodRequest;
+      ScheduledFuture<?> future;
 
       public SdsInboundStreamObserver(StreamObserver<DiscoveryResponse> responseObserver) {
         this.responseObserver = responseObserver;
+        periodicScheduler = Executors.newSingleThreadScheduledExecutor();
+        future = periodicScheduler.scheduleAtFixedRate(new Runnable() {
+          @Override
+          public void run() {
+            // generate a response every 30 seconds
+            try {
+              if (lastGoodRequest != null) {
+                ProtocolStringList resourceNames = lastGoodRequest.getResourceNamesList();
+                ArrayList<String> subset = new ArrayList<>();
+                // select a subset of resource names
+                for (Iterator<String> it = resourceNames.iterator(); it.hasNext(); ) {
+                  String cur = it.next();
+                  long randVal = Math.round(Math.random());
+                  if (randVal == 1L) {
+                    subset.add(cur);
+                  }
+                }
+                if (!subset.isEmpty()) {
+                  SdsInboundStreamObserver.this.responseObserver.onNext(
+                          buildResponse(currentVersion, lastRespondedNonce, subset));
+                }
+              }
+            } catch (Throwable t) {
+              logger.log(Level.SEVERE, "run", t);
+            }
+
+          }
+        }, 30L, 30L, TimeUnit.SECONDS);
       }
 
       @Override
       public void onNext(DiscoveryRequest discoveryRequest) {
-        ProtocolStringList resourceNames = discoveryRequest.getResourceNamesList();
-        String version = discoveryRequest.getVersionInfo();
-        String nonce = discoveryRequest.getResponseNonce();
-
-        if (!currentVersion.equals(version)) {
-          // responseObserver.onError might close the call...
-          responseObserver.onError(new RuntimeException("incorrect version received:" + version));
-          return;
-        }
-        if (!lastRespondedNonce.equals(nonce)) {
-          // responseObserver.onError might close the call...
-          responseObserver.onError(new RuntimeException("incorrect nonce received:" + nonce));
-          return;
-        }
-        // TODO: is there a way to build a single DiscoveryResponse for all resource names?
-        for (String resourceName : resourceNames) {
-          responseObserver.onNext(buildResponse(resourceName));
+        DiscoveryResponse discoveryResponse = buildResponse(discoveryRequest);
+        if (discoveryResponse != null) {
+          lastGoodRequest = discoveryRequest;
+          responseObserver.onNext(discoveryResponse);
         }
       }
 
@@ -208,15 +234,46 @@ public class DummySdsServer {
     public void fetchSecrets(DiscoveryRequest request,
         StreamObserver<DiscoveryResponse> responseObserver) {
 
-      DiscoveryResponse response = buildResponse(request.getResourceNames(0));
+      DiscoveryResponse response = buildResponse(request);
       responseObserver.onNext(response);
       responseObserver.onCompleted();
     }
 
-    private DiscoveryResponse buildResponse(String resourceName) {
+    private DiscoveryResponse buildResponse(DiscoveryRequest request) {
+      String requestVersion = request.getVersionInfo();
+      String requestNonce = request.getResponseNonce();
+      ProtocolStringList resourceNames = request.getResourceNamesList();
+      return buildResponse(requestVersion, requestNonce, resourceNames);
+    }
+
+    private DiscoveryResponse buildResponse(String requestVersion, String requestNonce,
+                                            List<String> resourceNames) {
+      // for stale version or nonce don't send a response
+      if (!Strings.isNullOrEmpty(requestVersion) && !requestVersion.equals(currentVersion)) {
+        logger.info("Stale version received: " + requestVersion);
+        return null;
+      }
+      if (!Strings.isNullOrEmpty(requestNonce) && !requestNonce.equals(lastRespondedNonce)) {
+        logger.info("Stale nonce received: " + requestNonce);
+        return null;
+      }
       final String version = "" + ((System.nanoTime() - startTime) / 1000000L);
 
+      DiscoveryResponse.Builder responseBuilder = DiscoveryResponse.newBuilder()
+              .setVersionInfo(version)
+              .setNonce(getAndSaveNonce())
+              .setTypeUrl(SECRET_TYPE_URL);
 
+      for (String resourceName : resourceNames) {
+        buildAndAddResource(responseBuilder, resourceName);
+      }
+      DiscoveryResponse response = responseBuilder
+              .build();
+      currentVersion = version;
+      return response;
+    }
+
+    private void buildAndAddResource(DiscoveryResponse.Builder responseBuilder, String resourceName) {
       Secret secret = Secret.newBuilder()
               .setName(resourceName)
               .setTlsCertificate(getOneTlsCert())
@@ -227,14 +284,7 @@ public class DummySdsServer {
               .setTypeUrl(SECRET_TYPE_URL)
               .setValue(data)
               .build();
-      DiscoveryResponse response = DiscoveryResponse.newBuilder()
-              .setVersionInfo(version)
-              .setNonce(getAndSaveNonce())
-              .setTypeUrl(SECRET_TYPE_URL)
-              .addResources(anyValue)
-              .build();
-      currentVersion = version;
-      return response;
+      responseBuilder.addResources(anyValue);
     }
 
     private TlsCertificate getOneTlsCert() {
