@@ -4,6 +4,7 @@ plugins {
 
     id "com.github.johnrengelman.shadow"
     id "com.google.protobuf"
+    id "application"
     id "ru.vyarus.animalsniffer"
 }
 
@@ -95,3 +96,25 @@ publishing {
     }
 }
 [publishMavenPublicationToMavenRepository, publishMavenPublicationToMavenLocal]*.onlyIf { false }
+
+startScripts.enabled = false
+
+task dummySdsServer(type: CreateStartScripts) {
+    mainClassName = 'io.grpc.xds.sds.DummySdsServer'
+    applicationName = 'dummy-sds-server'
+    outputDir = new File(project.buildDir, 'tmp')
+    classpath = startScripts.classpath
+}
+
+task dummySdsClient(type: CreateStartScripts) {
+    mainClassName = 'io.grpc.xds.sds.DummySdsClient'
+    applicationName = 'dummy-sds-client'
+    outputDir = new File(project.buildDir, 'tmp')
+    classpath = startScripts.classpath
+}
+
+applicationDistribution.into('bin') {
+    from(dummySdsServer)
+    from(dummySdsClient)
+    fileMode = 0755
+}

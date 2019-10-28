@@ -305,8 +305,8 @@ public class DummySdsServer {
     return serverBuilder.build().start();
   }
 
-  private void runServer() throws IOException {
-    Server server = createSdsServer();
+  private Server runServer() throws IOException {
+    return createSdsServer();
   }
 
   private String getAndSaveNonce() {
@@ -316,7 +316,8 @@ public class DummySdsServer {
 
   public static void main(String[] args) throws IOException {
     DummySdsServer dummySdsServer = new DummySdsServer();
-    dummySdsServer.runServer();
+    Server server = dummySdsServer.runServer();
+    logger.info("Started server, listerning on port:" + server.getPort());
     BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
     in.readLine();
   }
