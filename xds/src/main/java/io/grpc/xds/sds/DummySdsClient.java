@@ -74,18 +74,17 @@ public class DummySdsClient {
                         DiscoveryRequest req =
                                 getDiscoveryRequest(lastResponse != null ? lastResponse.getNonce() : "",
                                         lastResponse != null ? lastResponse.getVersionInfo() : "");
-                        logger.info("Sending req:" + new String(req.toByteString().toByteArray()));
                         requestStreamObserver.onNext(req);
                     } catch (Throwable t) {
                         logger.log(Level.SEVERE, "periodic req", t);
                     }
                 }
-            }, 2L, 120L, TimeUnit.SECONDS);
+            }, 2L, 105L, TimeUnit.SECONDS);
         }
 
         @Override
         public void onNext(DiscoveryResponse discoveryResponse) {
-            logger.info("onNext =" + new String(discoveryResponse.toByteString().toByteArray()));
+            logger.info("Received DiscoveryResponse in onNext()");
             lastResponse = discoveryResponse;
             try {
                 logDiscoveryResponse(discoveryResponse);
@@ -112,6 +111,7 @@ public class DummySdsClient {
         SecretDiscoveryServiceGrpc.SecretDiscoveryServiceStub stub =
                 buildBidiStub(8080);
 
+        logger.info("Start doStreaming to authority: " + stub.getChannel().authority());
         ResponseObserver responseObserver =
             new ResponseObserver();
         StreamObserver<DiscoveryRequest> requestStreamObserver =
@@ -128,7 +128,7 @@ public class DummySdsClient {
     private static void doUnaryBlocking() throws InvalidProtocolBufferException {
         SecretDiscoveryServiceGrpc.SecretDiscoveryServiceBlockingStub stub =
                 buildStub(8080);
-
+        logger.info("Start doUnaryBlocking to authority: " + stub.getChannel().authority());
         DiscoveryRequest request = getDiscoveryRequest("", "");
         DiscoveryResponse response =
             stub.fetchSecrets(request);
@@ -136,21 +136,27 @@ public class DummySdsClient {
     }
 
     private static void logDiscoveryResponse(DiscoveryResponse response) throws InvalidProtocolBufferException {
-        logger.info("DiscoveryResponse = " + response);
+        StringBuffer sb = new StringBuffer();
+        sb.append("Logging DiscoveryResponse(version, nonce): ").append(response.getVersionInfo())
+            .append(" , ").append(response.getNonce()).append("\n");
         List<Any> resources = response.getResourcesList();
         for (Any any : resources) {
             String typeUrl = any.getTypeUrl();
             Secret secret = Secret.parseFrom(any.getValue());
 
-            logger.info("typeUrl=" + typeUrl);
-            logger.info("secret.name=" + secret.getName());
+            //sb.append("           typeUrl=" + typeUrl).append("\n")
+            sb.append("           secret.name=" + secret.getName()).append("\n");
             TlsCertificate tlsCert = secret.getTlsCertificate();
-            logger.info("tlsCert.privateKey=" + tlsCert.getPrivateKey().getInlineBytes().toStringUtf8());
-            logger.info("tlsCert.certChain=" + tlsCert.getCertificateChain().getInlineBytes().toStringUtf8());
+            sb.append("               tlsCert.privateKey=" + tlsCert.getPrivateKey().getInlineBytes().toStringUtf8().substring(5, 40)).append("\n")
+                .append("               tlsCert.certChain=" + tlsCert.getCertificateChain().getInlineBytes().toStringUtf8().substring(5, 40)).append("\n");
         }
+        logger.info(sb.toString());
     }
 
     private static DiscoveryRequest getDiscoveryRequest(String nonce, String versionInfo) {
+        logger.info("Creating Discovery req (resources, version, response_nonce):" +
+            "(foo,bar,boom,gad), " + versionInfo + " , " +
+            nonce);
         return DiscoveryRequest.newBuilder()
                 .addResourceNames("foo")
                 .addResourceNames("bar")

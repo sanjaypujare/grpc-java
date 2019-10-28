@@ -178,6 +178,7 @@ public class DummySdsServer {
           public void run() {
             // generate a response every 30 seconds
             try {
+              logger.info("30-second executor woke up to send a DiscoveryResponse");
               if (lastGoodRequest != null) {
                 ProtocolStringList resourceNames = lastGoodRequest.getResourceNamesList();
                 ArrayList<String> subset = new ArrayList<>();
@@ -190,8 +191,10 @@ public class DummySdsServer {
                   }
                 }
                 if (!subset.isEmpty()) {
-                  SdsInboundStreamObserver.this.responseObserver.onNext(
-                          buildResponse(currentVersion, lastRespondedNonce, subset));
+                  logAndSendResponse(buildResponse(currentVersion, lastRespondedNonce, subset),
+                      subset);
+                } else {
+                  logger.info("subset is empty: not sending response...");
                 }
               }
             } catch (Throwable t) {
@@ -202,12 +205,24 @@ public class DummySdsServer {
         }, 30L, 30L, TimeUnit.SECONDS);
       }
 
+      private void logAndSendResponse(DiscoveryResponse discoveryResponse, List<String> resourceNames) {
+        logger.info("Sending DiscoveryResponse for resources, version, nonce:"
+            + resourceNames + " , "
+            + discoveryResponse.getVersionInfo() + " , "
+            + discoveryResponse.getNonce());
+        responseObserver.onNext(discoveryResponse);
+      }
+
       @Override
       public void onNext(DiscoveryRequest discoveryRequest) {
+        logger.info("Received new DiscoveryRequest for resources, version, response-nonce:"
+            + discoveryRequest.getResourceNamesList() + " , "
+            + discoveryRequest.getVersionInfo() + " , "
+            + discoveryRequest.getResponseNonce());
         DiscoveryResponse discoveryResponse = buildResponse(discoveryRequest);
         if (discoveryResponse != null) {
           lastGoodRequest = discoveryRequest;
-          responseObserver.onNext(discoveryResponse);
+          logAndSendResponse(discoveryResponse, discoveryRequest.getResourceNamesList());
         }
       }
 
