@@ -181,6 +181,11 @@ final class SecretVolumeSslContextProvider implements SslContextProvider {
   }
 
   @Override
+  public void close() {
+
+  }
+
+  @Override
   public void addCallback(final Callback callback, Executor executor) {
     checkNotNull(callback, "callback");
     checkNotNull(executor, "executor");

@@ -38,6 +38,8 @@ public interface SslContextProvider {
     void onException(Throwable throwable);
   }
 
+  public void close();
+
   /**
    * Registers a callback on the given executor. The callback will run when SslContext becomes
    * available or immediately if the result is already available.
