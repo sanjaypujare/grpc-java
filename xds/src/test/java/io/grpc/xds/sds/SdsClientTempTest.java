@@ -20,7 +20,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
+import io.envoyproxy.envoy.api.v2.core.ApiConfigSource;
 import io.envoyproxy.envoy.api.v2.core.ConfigSource;
+import io.envoyproxy.envoy.api.v2.core.GrpcService;
 import io.netty.handler.ssl.SslContext;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,8 +36,17 @@ public class SdsClientTempTest {
   @Test
   public void configSourceUdsTarget() {
     ConfigSource configSource = ConfigSource.newBuilder()
+        .setApiConfigSource(ApiConfigSource.newBuilder()
+                .setApiType(ApiConfigSource.ApiType.GRPC)
+                .addGrpcServices(GrpcService.newBuilder()
+                        .setGoogleGrpc(GrpcService.GoogleGrpc.newBuilder()
+                                .setTargetUri("unix:/tmp/uds_path")
+                                .build())
+                        .build())
+                .build())
         .build();
     SdsClientTemp sdsClientTemp = new SdsClientTemp(configSource);
+    assertThat(sdsClientTemp.udsTarget).isEqualTo("/tmp/uds_path");
   }
 
 }
