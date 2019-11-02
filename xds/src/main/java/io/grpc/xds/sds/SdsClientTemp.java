@@ -4,7 +4,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Strings;
-import com.google.protobuf.InvalidProtocolBufferException;
 import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
 import io.envoyproxy.envoy.api.v2.core.ApiConfigSource;
@@ -22,7 +21,6 @@ import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -40,6 +38,8 @@ public class SdsClientTemp {
   private ConfigSource configSource;
   String udsTarget;
   private SecretDiscoveryServiceGrpc.SecretDiscoveryServiceStub stub;
+  ResponseObserver responseObserver;
+  StreamObserver<DiscoveryRequest> requestObserver;
 
   /**
    * Starts resource discovery with SDS protocol. This should be the first method to be called in
@@ -48,11 +48,9 @@ public class SdsClientTemp {
   void start() {
     stub = buildBidiStub(udsTarget);
     logger.info("Start doStreaming to authority: " + stub.getChannel().authority());
-    ResponseObserver responseObserver =
-        new ResponseObserver();
-    StreamObserver<DiscoveryRequest> requestStreamObserver =
-        stub.streamSecrets(responseObserver);
-    responseObserver.requestStreamObserver = requestStreamObserver;
+    responseObserver = new ResponseObserver();
+    requestObserver = stub.streamSecrets(responseObserver);
+    /*
     synchronized (responseObserver) {
       while (!responseObserver.completed) {
         try {
@@ -62,6 +60,7 @@ public class SdsClientTemp {
         }
       }
     }
+     */
   }
 
   /**
@@ -145,7 +144,6 @@ public class SdsClientTemp {
    *
    */
   static class ResponseObserver implements StreamObserver<DiscoveryResponse> {
-    StreamObserver<DiscoveryRequest> requestStreamObserver;
     DiscoveryResponse lastResponse;
     ScheduledExecutorService periodicScheduler;
     boolean completed = false;
@@ -161,7 +159,7 @@ public class SdsClientTemp {
             DiscoveryRequest req =
                 getDiscoveryRequest(lastResponse != null ? lastResponse.getNonce() : "",
                     lastResponse != null ? lastResponse.getVersionInfo() : "");
-            requestStreamObserver.onNext(req);
+            requestObserver.onNext(req);
           } catch (Throwable t) {
             logger.log(Level.SEVERE, "periodic req", t);
           }
