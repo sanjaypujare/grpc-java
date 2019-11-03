@@ -48,11 +48,11 @@ public class DummySdsServer {
   private static final Logger logger = Logger.getLogger(DummySdsServer.class.getName());
 
   // key for UDS path in gRPC context metadata map.
-  private static final String UDS_PATH_KEY = ":authority";
+  //private static final String UDS_PATH_KEY = ":authority";
   // SecretTypeURL defines the type URL for Envoy secret proto.
   private static final String SECRET_TYPE_URL = "type.googleapis.com/envoy.api.v2.auth.Secret";
   // SecretName defines the type of the secrets to fetch from the SDS server.
-  private static final String SECRET_NAME = "SPKI";
+  //private static final String SECRET_NAME = "SPKI";
   private final String name;
 
   String currentVersion;
@@ -299,8 +299,8 @@ public class DummySdsServer {
     }
   }
 
-  private void runServer() throws IOException {
-    Server server =
+  void runServer() throws IOException {
+    Server unused =
             InProcessServerBuilder.forName(name)
                     .addService(new SecretDiscoveryServiceImpl()).directExecutor().build().start();
   }

@@ -8,7 +8,6 @@ import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
 import io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig;
 import io.envoyproxy.envoy.api.v2.auth.Secret;
-import io.envoyproxy.envoy.api.v2.auth.TlsCertificate;
 import io.envoyproxy.envoy.api.v2.core.ApiConfigSource;
 import io.envoyproxy.envoy.api.v2.core.ApiConfigSource.ApiType;
 import io.envoyproxy.envoy.api.v2.core.ConfigSource;
@@ -28,8 +27,6 @@ import io.netty.channel.unix.DomainSocketAddress;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -57,7 +54,7 @@ public class SdsClientTemp {
    * Starts resource discovery with SDS protocol. This should be the first method to be called in
    * this class. It should only be called once.
    */
-  void start() {
+  void startUsingChannel() {
     ManagedChannel channel = null;
     if (udsTarget.startsWith("unix:")) {
       EventLoopGroup elg = new EpollEventLoopGroup();
@@ -70,12 +67,11 @@ public class SdsClientTemp {
     } else {
       channel = InProcessChannelBuilder.forName(udsTarget).directExecutor().build();
     }
-    start(channel);
+    startUsingChannel(channel);
   }
 
-  void start(ManagedChannel channel) {
+  void startUsingChannel(ManagedChannel channel) {
     stub = SecretDiscoveryServiceGrpc.newStub(channel);
-    logger.info("Start doStreaming to authority: " + stub.getChannel().authority());
     responseObserver = new ResponseObserver();
     requestObserver = stub.streamSecrets(responseObserver);
     /*
@@ -138,6 +134,7 @@ public class SdsClientTemp {
         Strings.isNullOrEmpty(googleGrpc.getCredentialsFactoryName()), "No credentials supported in GoogleGrpc");
     String targetUri = googleGrpc.getTargetUri();
     checkArgument(!Strings.isNullOrEmpty(targetUri), "targetUri in GoogleGrpc is empty!");
+    this.configSource = configSource;
     udsTarget = targetUri;
   }
 
@@ -152,7 +149,11 @@ public class SdsClientTemp {
 
     @Override
     public void onNext(DiscoveryResponse discoveryResponse) {
-      logger.info("Received DiscoveryResponse in onNext()");
+      try {
+        processDiscoveryResponse(discoveryResponse);
+      } catch (InvalidProtocolBufferException e) {
+        logger.log(Level.SEVERE, "processDiscoveryResponse", e);
+      }
       lastResponse = discoveryResponse;
     }
 
@@ -171,10 +172,9 @@ public class SdsClientTemp {
   }
 
   private void processDiscoveryResponse(DiscoveryResponse response) throws InvalidProtocolBufferException {
-    logger.info("DiscoveryResponse = " + response);
     List<Any> resources = response.getResourcesList();
     for (Any any : resources) {
-      String typeUrl = any.getTypeUrl();
+      String unused = any.getTypeUrl();
       // todo: assert value of typeUrl
       processSecret(Secret.parseFrom(any.getValue()));
     }
@@ -212,7 +212,7 @@ public class SdsClientTemp {
     }
   }
 
-  HashMap<String, HashSet<SecretWatcher>> watcherMap =
+  final HashMap<String, HashSet<SecretWatcher>> watcherMap =
           new HashMap<>();
 
   /**

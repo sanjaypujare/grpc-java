@@ -17,18 +17,21 @@
 package io.grpc.xds.sds;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
-import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
-import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
+import io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig;
+import io.envoyproxy.envoy.api.v2.auth.Secret;
 import io.envoyproxy.envoy.api.v2.core.ApiConfigSource;
 import io.envoyproxy.envoy.api.v2.core.ConfigSource;
 import io.envoyproxy.envoy.api.v2.core.GrpcService;
-import io.grpc.ManagedChannel;
-import io.grpc.inprocess.InProcessChannelBuilder;
-import io.netty.handler.ssl.SslContext;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
+
+import java.io.IOException;
 
 /** Unit tests for {@link SdsClientTemp}. */
 @RunWith(JUnit4.class)
@@ -38,25 +41,50 @@ public class SdsClientTempTest {
 
   @Test
   public void configSourceUdsTarget() {
-    ConfigSource configSource = ConfigSource.newBuilder()
-        .setApiConfigSource(ApiConfigSource.newBuilder()
-                .setApiType(ApiConfigSource.ApiType.GRPC)
-                .addGrpcServices(GrpcService.newBuilder()
-                        .setGoogleGrpc(GrpcService.GoogleGrpc.newBuilder()
-                                .setTargetUri("unix:/tmp/uds_path")
-                                .build())
-                        .build())
-                .build())
-        .build();
+    ConfigSource configSource = buildConfigSource("unix:/tmp/uds_path");
     SdsClientTemp sdsClientTemp = new SdsClientTemp(configSource);
     assertThat(sdsClientTemp.udsTarget).isEqualTo("unix:/tmp/uds_path");
   }
 
+  private static ConfigSource buildConfigSource(String targetUri) {
+    return ConfigSource.newBuilder()
+        .setApiConfigSource(ApiConfigSource.newBuilder()
+                .setApiType(ApiConfigSource.ApiType.GRPC)
+                .addGrpcServices(GrpcService.newBuilder()
+                        .setGoogleGrpc(GrpcService.GoogleGrpc.newBuilder()
+                                .setTargetUri(targetUri)
+                                .build())
+                        .build())
+                .build())
+        .build();
+  }
+
+  /*
   private void buildInProcesschannel(String name) {
     ManagedChannel channel = InProcessChannelBuilder.forName(name).directExecutor().build();
     sdsClient = new SdsClientTemp();
-    sdsClient.start(channel);
-  }
+    sdsClient.startUsingChannel(channel);
+  } */
 
+
+  @Test
+  public void testSecretWatcher() throws IOException {
+    DummySdsServer server = new DummySdsServer("inproc");
+    server.runServer();
+    ConfigSource configSource = buildConfigSource("inproc");
+    SdsClientTemp client = new SdsClientTemp(configSource);
+    client.startUsingChannel();
+    SdsClientTemp.SecretWatcher mockWatcher = mock(SdsClientTemp.SecretWatcher.class);
+
+    SdsSecretConfig sdsSecretConfig = SdsSecretConfig.newBuilder()
+            .setSdsConfig(configSource)
+            .setName("name1")
+            .build();
+    client.watchSecret(sdsSecretConfig, mockWatcher);
+    ArgumentCaptor<Secret> secretCaptor = ArgumentCaptor.forClass(Secret.class);
+    verify(mockWatcher, times(1)).onSecretChanged(secretCaptor.capture());
+    Secret secret = secretCaptor.getValue();
+    assertThat(secret.getName()).isEqualTo("name1");
+  }
 
 }
