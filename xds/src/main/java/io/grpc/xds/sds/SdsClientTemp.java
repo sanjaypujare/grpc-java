@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -33,6 +32,7 @@ import io.envoyproxy.envoy.api.v2.core.ApiConfigSource.ApiType;
 import io.envoyproxy.envoy.api.v2.core.ConfigSource;
 import io.envoyproxy.envoy.api.v2.core.GrpcService;
 import io.envoyproxy.envoy.api.v2.core.GrpcService.GoogleGrpc;
+import io.envoyproxy.envoy.api.v2.core.Node;
 import io.envoyproxy.envoy.service.discovery.v2.SecretDiscoveryServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
@@ -69,6 +69,7 @@ public class SdsClientTemp {
   ResponseObserver responseObserver;
   StreamObserver<DiscoveryRequest> requestObserver;
   DiscoveryResponse lastResponse;
+  private final Node clientNode;
 
   /**
    * Starts resource discovery with SDS protocol. This should be the first method to be called in
@@ -115,9 +116,9 @@ public class SdsClientTemp {
   }
 
 
-  static synchronized SdsClientTemp getInstance(ConfigSource configSource) {
+  static synchronized SdsClientTemp getInstance(ConfigSource configSource, Node node) {
     if (instance == null) {
-      instance = new SdsClientTemp(configSource);
+      instance = new SdsClientTemp(configSource, node);
       return instance;
     }
     // check if apiConfigSource match
@@ -131,14 +132,11 @@ public class SdsClientTemp {
   /**
    * create the client with this apiConfigSource.
    */
-  SdsClientTemp(ConfigSource configSource) {
+  SdsClientTemp(ConfigSource configSource, Node node) {
     checkNotNull(configSource, "configSource");
-    // for now we support only Google grpc UDS
+    checkNotNull(node, "node");
     extractUdsTarget(configSource);
-  }
-
-  @VisibleForTesting
-  SdsClientTemp() {
+    this.clientNode = node;
   }
 
   void extractUdsTarget(ConfigSource configSource) {
@@ -279,10 +277,11 @@ public class SdsClientTemp {
     DiscoveryRequest req =
         DiscoveryRequest.newBuilder()
             .addResourceNames(name)
-                    .setTypeUrl(SECRET_TYPE_URL)
-                    .setResponseNonce(nonce)
-                    .setVersionInfo(versionInfo)
-                    .build();
+            .setTypeUrl(SECRET_TYPE_URL)
+            .setResponseNonce(nonce)
+            .setVersionInfo(versionInfo)
+            .setNode(clientNode)
+            .build();
     requestObserver.onNext(req);
   }
 

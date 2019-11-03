@@ -17,7 +17,13 @@
 package io.grpc.xds.sds;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig;
@@ -27,6 +33,8 @@ import io.envoyproxy.envoy.api.v2.core.ApiConfigSource;
 import io.envoyproxy.envoy.api.v2.core.ConfigSource;
 import io.envoyproxy.envoy.api.v2.core.DataSource;
 import io.envoyproxy.envoy.api.v2.core.GrpcService;
+import io.envoyproxy.envoy.api.v2.core.Node;
+
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,10 +49,14 @@ public class SdsClientTempTest {
 
   SdsClientTemp sdsClient;
 
+  Node node = Node.newBuilder()
+          .setId("sds-client-temp-test1")
+          .build();
+
   @Test
   public void configSourceUdsTarget() {
     ConfigSource configSource = buildConfigSource("unix:/tmp/uds_path");
-    SdsClientTemp sdsClientTemp = new SdsClientTemp(configSource);
+    SdsClientTemp sdsClientTemp = new SdsClientTemp(configSource, node);
     assertThat(sdsClientTemp.udsTarget).isEqualTo("unix:/tmp/uds_path");
   }
 
@@ -74,7 +86,7 @@ public class SdsClientTempTest {
     DummySdsServer server = new DummySdsServer("inproc", secretGetter);
     server.runServer();
     ConfigSource configSource = buildConfigSource("inproc");
-    SdsClientTemp client = new SdsClientTemp(configSource);
+    SdsClientTemp client = new SdsClientTemp(configSource, node);
     client.startUsingChannel();
     SdsClientTemp.SecretWatcher mockWatcher = mock(SdsClientTemp.SecretWatcher.class);
 
@@ -97,7 +109,8 @@ public class SdsClientTempTest {
     verify(mockWatcher, never()).onSecretChanged(any(Secret.class));
   }
 
-  private void secretWatcherVerification(SdsClientTemp.SecretWatcher mockWatcher, String secretName, int index) {
+  private void secretWatcherVerification(SdsClientTemp.SecretWatcher mockWatcher,
+                                         String secretName, int index) {
     ArgumentCaptor<Secret> secretCaptor = ArgumentCaptor.forClass(Secret.class);
     verify(mockWatcher, times(1)).onSecretChanged(secretCaptor.capture());
     Secret secret = secretCaptor.getValue();
