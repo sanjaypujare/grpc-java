@@ -16,6 +16,7 @@
 
 package io.grpc.xds.sds;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Strings;
 import com.google.protobuf.Any;
@@ -24,16 +25,12 @@ import com.google.protobuf.ProtocolStringList;
 import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
 import io.envoyproxy.envoy.api.v2.auth.Secret;
-import io.envoyproxy.envoy.api.v2.auth.TlsCertificate;
-import io.envoyproxy.envoy.api.v2.core.DataSource;
 import io.envoyproxy.envoy.service.discovery.v2.SecretDiscoveryServiceGrpc;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -44,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class DummySdsServer {
   private static final Logger logger = Logger.getLogger(DummySdsServer.class.getName());
@@ -66,7 +62,8 @@ public class DummySdsServer {
 
   final SecretGetter secretGetter;
 
-  private class SecretDiscoveryServiceImpl extends SecretDiscoveryServiceGrpc.SecretDiscoveryServiceImplBase {
+  private class SecretDiscoveryServiceImpl
+      extends SecretDiscoveryServiceGrpc.SecretDiscoveryServiceImplBase {
 
     final long startTime = System.nanoTime();
 
@@ -75,7 +72,7 @@ public class DummySdsServer {
     }
 
     /**
-     * This is the inbound observer that sends us a request
+     * This is the inbound observer that sends us a request.
      */
     class SdsInboundStreamObserver implements StreamObserver<DiscoveryRequest> {
       // this is outbound...
@@ -187,22 +184,19 @@ public class DummySdsServer {
       return response;
     }
 
-    private void buildAndAddResource(DiscoveryResponse.Builder responseBuilder, String resourceName) {
+    private void buildAndAddResource(
+        DiscoveryResponse.Builder responseBuilder, String resourceName) {
       /*Secret secret = Secret.newBuilder()
-              .setName(resourceName)
-              .setTlsCertificate(getOneTlsCert())
-              .build();
+             .setName(resourceName)
+             .setTlsCertificate(getOneTlsCert())
+             .build();
 
-       */
+      */
       Secret secret = secretGetter.getFor(resourceName);
       ByteString data = secret.toByteString();
-      Any anyValue = Any.newBuilder()
-              .setTypeUrl(SECRET_TYPE_URL)
-              .setValue(data)
-              .build();
+      Any anyValue = Any.newBuilder().setTypeUrl(SECRET_TYPE_URL).setValue(data).build();
       responseBuilder.addResources(anyValue);
     }
-
   }
 
   void runServer() throws IOException {
