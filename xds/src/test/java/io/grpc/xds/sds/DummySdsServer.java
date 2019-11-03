@@ -32,6 +32,7 @@ import io.grpc.stub.StreamObserver;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -55,6 +56,7 @@ public class DummySdsServer {
 
   String currentVersion;
   String lastRespondedNonce;
+  final SecretDiscoveryServiceImpl discoveryService;
 
   interface SecretGetter {
     Secret getFor(String name);
@@ -62,27 +64,35 @@ public class DummySdsServer {
 
   final SecretGetter secretGetter;
 
+  void generateAsyncResponse(String ... names) {
+    List<String> nameList = Arrays.asList(names);
+    discoveryService.inboundStreamObserver.generateAsyncResponse(nameList);
+  }
+
   private class SecretDiscoveryServiceImpl
       extends SecretDiscoveryServiceGrpc.SecretDiscoveryServiceImplBase {
 
     final long startTime = System.nanoTime();
+    SdsInboundStreamObserver inboundStreamObserver;
 
-    SecretDiscoveryServiceImpl() {
-
-    }
+    SecretDiscoveryServiceImpl() { }
 
     /**
      * This is the inbound observer that sends us a request.
      */
     class SdsInboundStreamObserver implements StreamObserver<DiscoveryRequest> {
       // this is outbound...
-      private final StreamObserver<DiscoveryResponse> responseObserver;
+      final StreamObserver<DiscoveryResponse> responseObserver;
       ScheduledExecutorService periodicScheduler;
       DiscoveryRequest lastGoodRequest;
       ScheduledFuture<?> future;
 
       public SdsInboundStreamObserver(StreamObserver<DiscoveryResponse> responseObserver) {
         this.responseObserver = responseObserver;
+        //setupPeriodicResponses();
+      }
+
+      private void setupPeriodicResponses() {
         periodicScheduler = Executors.newSingleThreadScheduledExecutor();
         future = periodicScheduler.scheduleAtFixedRate(new Runnable() {
           @Override
@@ -100,10 +110,7 @@ public class DummySdsServer {
                     subset.add(cur);
                   }
                 }
-                if (!subset.isEmpty()) {
-                  SdsInboundStreamObserver.this.responseObserver.onNext(
-                          buildResponse(currentVersion, lastRespondedNonce, subset));
-                }
+                generateAsyncResponse(subset);
               }
             } catch (Throwable t) {
               logger.log(Level.SEVERE, "run", t);
@@ -111,6 +118,13 @@ public class DummySdsServer {
 
           }
         }, 30L, 30L, TimeUnit.SECONDS);
+      }
+
+      private void generateAsyncResponse(List<String> nameList) {
+        if (!nameList.isEmpty()) {
+          SdsInboundStreamObserver.this.responseObserver.onNext(
+                  buildResponse(currentVersion, lastRespondedNonce, nameList));
+        }
       }
 
       @Override
@@ -137,7 +151,8 @@ public class DummySdsServer {
     @Override
     public StreamObserver<DiscoveryRequest> streamSecrets(
         StreamObserver<DiscoveryResponse> responseObserver) {
-      return new SdsInboundStreamObserver(responseObserver);
+      inboundStreamObserver = new SdsInboundStreamObserver(responseObserver);
+      return inboundStreamObserver;
     }
 
     // unary call
@@ -186,12 +201,7 @@ public class DummySdsServer {
 
     private void buildAndAddResource(
         DiscoveryResponse.Builder responseBuilder, String resourceName) {
-      /*Secret secret = Secret.newBuilder()
-             .setName(resourceName)
-             .setTlsCertificate(getOneTlsCert())
-             .build();
 
-      */
       Secret secret = secretGetter.getFor(resourceName);
       ByteString data = secret.toByteString();
       Any anyValue = Any.newBuilder().setTypeUrl(SECRET_TYPE_URL).setValue(data).build();
@@ -202,13 +212,14 @@ public class DummySdsServer {
   void runServer() throws IOException {
     Server unused =
             InProcessServerBuilder.forName(name)
-                    .addService(new SecretDiscoveryServiceImpl()).directExecutor().build().start();
+                    .addService(discoveryService).directExecutor().build().start();
   }
 
   DummySdsServer(String name, SecretGetter secretGetter) {
     checkNotNull(secretGetter, "secretGetter");
     this.name = name;
     this.secretGetter = secretGetter;
+    this.discoveryService = new SecretDiscoveryServiceImpl();
   }
 
   private String getAndSaveNonce() {

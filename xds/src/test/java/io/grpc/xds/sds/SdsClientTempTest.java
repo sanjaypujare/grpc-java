@@ -17,10 +17,7 @@
 package io.grpc.xds.sds;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.google.protobuf.ByteString;
 import io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig;
@@ -85,17 +82,32 @@ public class SdsClientTempTest {
 
     SdsSecretConfig sdsSecretConfig =
         SdsSecretConfig.newBuilder().setSdsConfig(configSource).setName("name1").build();
-    client.watchSecret(sdsSecretConfig, mockWatcher);
+    SdsClientTemp.SecretWatcherHandle handle = client.watchSecret(sdsSecretConfig, mockWatcher);
+    secretWatcherVerification(mockWatcher, "name1", 0);
+
+    reset(mockWatcher);
+    when(secretGetter.getFor("name1")).thenReturn(getOneTlsCertSecret("name1", 1));
+    server.generateAsyncResponse("name1");
+    secretWatcherVerification(mockWatcher, "name1", 1);
+
+    //cancelSecretWatch test
+    reset(mockWatcher);
+    client.cancelSecretWatch(handle);
+    server.generateAsyncResponse("name1");
+    verify(mockWatcher, never()).onSecretChanged(any(Secret.class));
+  }
+
+  private void secretWatcherVerification(SdsClientTemp.SecretWatcher mockWatcher, String secretName, int index) {
     ArgumentCaptor<Secret> secretCaptor = ArgumentCaptor.forClass(Secret.class);
     verify(mockWatcher, times(1)).onSecretChanged(secretCaptor.capture());
     Secret secret = secretCaptor.getValue();
-    assertThat(secret.getName()).isEqualTo("name1");
+    assertThat(secret.getName()).isEqualTo(secretName);
     assertThat(secret.hasTlsCertificate()).isTrue();
     TlsCertificate tlsCertificate = secret.getTlsCertificate();
     assertThat(tlsCertificate.getPrivateKey().getInlineBytes().toStringUtf8())
-        .isEqualTo(PRIVATE_KEYS[0]);
+        .isEqualTo(PRIVATE_KEYS[index]);
     assertThat(tlsCertificate.getCertificateChain().getInlineBytes().toStringUtf8())
-        .isEqualTo(CERTIFICATE_CHAINS[0]);
+        .isEqualTo(CERTIFICATE_CHAINS[index]);
   }
 
   private Secret getOneTlsCertSecret(String name, int index) {
