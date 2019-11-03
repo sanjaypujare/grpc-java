@@ -78,7 +78,7 @@ public class SdsClientTempTest {
     client.startUsingChannel();
     SdsClientTemp.SecretWatcher mockWatcher = mock(SdsClientTemp.SecretWatcher.class);
 
-    when(secretGetter.getFor("name1")).thenReturn(getOneTlsCertSecret("name1"));
+    when(secretGetter.getFor("name1")).thenReturn(getOneTlsCertSecret("name1", 0));
 
     SdsSecretConfig sdsSecretConfig = SdsSecretConfig.newBuilder()
             .setSdsConfig(configSource)
@@ -89,15 +89,17 @@ public class SdsClientTempTest {
     verify(mockWatcher, times(1)).onSecretChanged(secretCaptor.capture());
     Secret secret = secretCaptor.getValue();
     assertThat(secret.getName()).isEqualTo("name1");
+    assertThat(secret.hasTlsCertificate()).isTrue();
+    TlsCertificate tlsCertificate = secret.getTlsCertificate();
+    assertThat(tlsCertificate.getPrivateKey().getInlineBytes().toStringUtf8()).isEqualTo(PRIVATE_KEYS[0]);
+    assertThat(tlsCertificate.getCertificateChain().getInlineBytes().toStringUtf8()).isEqualTo(CERTIFICATE_CHAINS[0]);
   }
 
 
-  private Secret getOneTlsCertSecret(String name) {
-    int index = (int)Math.round(Math.random());
-    MySecret mySecret = secrets[index];
+  private Secret getOneTlsCertSecret(String name, int index) {
     TlsCertificate tlsCertificate = TlsCertificate.newBuilder()
-            .setPrivateKey(DataSource.newBuilder().setInlineBytes(ByteString.copyFromUtf8(mySecret.privateKey)).build())
-            .setCertificateChain(DataSource.newBuilder().setInlineBytes(ByteString.copyFromUtf8(mySecret.certificateChain)).build())
+            .setPrivateKey(DataSource.newBuilder().setInlineBytes(ByteString.copyFromUtf8(PRIVATE_KEYS[index])).build())
+            .setCertificateChain(DataSource.newBuilder().setInlineBytes(ByteString.copyFromUtf8(CERTIFICATE_CHAINS[index])).build())
             .build();
     return Secret.newBuilder()
             .setName(name)
@@ -105,18 +107,8 @@ public class SdsClientTempTest {
             .build();
   }
 
-  private static final class MySecret {
-    MySecret(String privateKey, String certificateChain) {
-      this.privateKey = privateKey;
-      this.certificateChain = certificateChain;
-    }
-
-    String privateKey;
-    String certificateChain;
-  }
-
-  static MySecret secrets[] = new MySecret[] {
-          new MySecret("-----BEGIN RSA PRIVATE KEY-----"
+  private static final String PRIVATE_KEYS[] = {
+          "-----BEGIN RSA PRIVATE KEY-----"
                   + "MIIEowIBAAKCAQEAtqwOeCRGd9H91ieHQmDX0KR6RHEVHxN6X3VsL8RXu8GtaULP"
                   + "3IFmitbY2uLoVpdB4JxuDmuIDYbktqheLYD4g55klq13OInlEMtLk/u2H0Fvz70H"
                   + "RjDFAfOqY8OTIjs2+iM1H5OFVNrKxSHao/wiqbU3ZOZHu7ts6jcLrh8O+P17KRRE"
@@ -143,29 +135,7 @@ public class SdsClientTempTest {
                   + "xcvcLWv3ZSpjpXSNwOBfdjdQirYFZQZtcAf9JxBkr0HaQ7w7MLxLp06O0YglH1Su"
                   + "XyPkmABFTunZEBnpCd9NFXgzM3jQGvSZJOj1n0ZALZ1BM9k54e62"
                   + "-----END RSA PRIVATE KEY-----",
-                  "-----BEGIN CERTIFICATE-----"
-                          + "MIIDnzCCAoegAwIBAgIJAI3dmBBDwTQCMA0GCSqGSIb3DQEBCwUAMIGLMQswCQYD"
-                          + "VQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTESMBAGA1UEBwwJU3Vubnl2YWxl"
-                          + "MQ4wDAYDVQQKDAVJc3RpbzENMAsGA1UECwwEVGVzdDEQMA4GA1UEAwwHUm9vdCBD"
-                          + "QTEiMCAGCSqGSIb3DQEJARYTdGVzdHJvb3RjYUBpc3Rpby5pbzAgFw0xODA1MDgx"
-                          + "OTQ5MjRaGA8yMTE4MDQxNDE5NDkyNFowWTELMAkGA1UEBhMCVVMxEzARBgNVBAgM"
-                          + "CkNhbGlmb3JuaWExEjAQBgNVBAcMCVN1bm55dmFsZTEOMAwGA1UECgwFSXN0aW8x"
-                          + "ETAPBgNVBAMMCElzdGlvIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC"
-                          + "AQEAtqwOeCRGd9H91ieHQmDX0KR6RHEVHxN6X3VsL8RXu8GtaULP3IFmitbY2uLo"
-                          + "VpdB4JxuDmuIDYbktqheLYD4g55klq13OInlEMtLk/u2H0Fvz70HRjDFAfOqY8OT"
-                          + "Ijs2+iM1H5OFVNrKxSHao/wiqbU3ZOZHu7ts6jcLrh8O+P17KRREaP7mapH1cETD"
-                          + "y/wA3qgE42ARfbO/0DPX2VQJuTewk1NJWQVdCkE7VWYR6F5PMTyBChT3lsqHalrL"
-                          + "EQCT5Ytcio+KPO6Y1qstrbFv++FAMQrthKlVcuPc6meOpszPjNqSQNCXpA99R6sl"
-                          + "AEzTSxmEpQrMUMPToHT6NRxs1wIDAQABozUwMzALBgNVHQ8EBAMCAgQwDAYDVR0T"
-                          + "BAUwAwEB/zAWBgNVHREEDzANggtjYS5pc3Rpby5pbzANBgkqhkiG9w0BAQsFAAOC"
-                          + "AQEAGpB9V2K7fEYYxmatjQLuNw0s+vKa5JkJrJO3H6Y1LAdKTJ3k7Cpr15zouM6d"
-                          + "5KogHfFHXPI6MU2ZKiiE38UPQ5Ha4D2XeuAwN64cDyN2emDnQ0UFNm+r4DY47jd3"
-                          + "jHq8I3reVSXeqoHcL0ViuGJRY3lrk8nmEo15vP1stmo5bBdnSlASDDjEjh1FHeXL"
-                          + "/Ha465WYESLcL4ps/xrcXN4JtV1nDGJVGy4WmusL+5D9nHC53/srZczZX3By48+Y"
-                          + "hhZwPFxt/EVB0YISgMOnMHzmWmnNWRiDuI6eZxUx0L9B9sD4s7zrQYYQ1bV/CPYX"
-                          + "iwlodzJwNdfIBfD/AC/GdnaWow=="
-                          + "-----END CERTIFICATE-----"),
-          new MySecret("-----BEGIN RSA PRIVATE KEY-----"
+          "-----BEGIN RSA PRIVATE KEY-----"
                   + "MIICXQIBAAKBgQDARNUJMFkWF0E6mbdz/nkydVC4TU2SgR95vhJhWpG6xKkCNoXk"
                   + "JxNzXOmFUUIXQyq7FnIWACYuMrE2KXnomeCGP9A6M21lumNseYSLX3/b+ao4E6gi"
                   + "mm1/Gp8C3FaoAs8Ep7VE+o2DMIfTIPJhFf6RBFPundGhEm8/gv+QObVhKQIDAQAB"
@@ -179,24 +149,51 @@ public class SdsClientTempTest {
                   + "6yWw8PywFHohzwEwUyLJIKpOnyoKGTiBsHGpXYvEk4hiEzwISzB4PutuQuRMfZM5"
                   + "LW/Pr6FSn6shivjTi3ITAkACMTBczBQ+chMBcTXDqyqwccQOIhupxani9wfZhsrm"
                   + "ZXbTTxnUZioQ2l/7IWa+K2O2NrWWT7b3KpCAob0bJsQz"
-                  + "-----END RSA PRIVATE KEY-----",
-                  "-----BEGIN CERTIFICATE-----"
-                          + "MIIDDDCCAnWgAwIBAgIJAPOCjrJP13nQMA0GCSqGSIb3DQEBCwUAMHYxCzAJBgNV"
-                          + "BAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1TYW4gRnJhbmNp"
-                          + "c2NvMQ0wCwYDVQQKEwRMeWZ0MRkwFwYDVQQLExBMeWZ0IEVuZ2luZWVyaW5nMRAw"
-                          + "DgYDVQQDEwdUZXN0IENBMB4XDTE3MDcwOTAxMzkzMloXDTE5MDcwOTAxMzkzMlow"
-                          + "ejELMAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNh"
-                          + "biBGcmFuY2lzY28xDTALBgNVBAoTBEx5ZnQxGTAXBgNVBAsTEEx5ZnQgRW5naW5l"
-                          + "ZXJpbmcxFDASBgNVBAMTC1Rlc3QgU2VydmVyMIGfMA0GCSqGSIb3DQEBAQUAA4GN"
-                          + "ADCBiQKBgQDARNUJMFkWF0E6mbdz/nkydVC4TU2SgR95vhJhWpG6xKkCNoXkJxNz"
-                          + "XOmFUUIXQyq7FnIWACYuMrE2KXnomeCGP9A6M21lumNseYSLX3/b+ao4E6gimm1/"
-                          + "Gp8C3FaoAs8Ep7VE+o2DMIfTIPJhFf6RBFPundGhEm8/gv+QObVhKQIDAQABo4Gd"
-                          + "MIGaMAwGA1UdEwEB/wQCMAAwCwYDVR0PBAQDAgXgMB0GA1UdJQQWMBQGCCsGAQUF"
-                          + "BwMCBggrBgEFBQcDATAeBgNVHREEFzAVghNzZXJ2ZXIxLmV4YW1wbGUuY29tMB0G"
-                          + "A1UdDgQWBBRCcUr8mIigWlR61OX/gmDY5vBV6jAfBgNVHSMEGDAWgBQ7eKRRTxaE"
-                          + "kxxIKHoMrSuWQcp9eTANBgkqhkiG9w0BAQsFAAOBgQAtn05e8U41heun5L7MKflv"
-                          + "tJM7w0whavdS8hLe63CxnS98Ap973mSiShKG+OxSJ0ClMWIZPy+KyC+T8yGIaynj"
-                          + "wEEuoSGRWmhzcMMnZWxqQyD95Fsx6mtdnq/DJxiYzmH76fALe/538j8pTcoygSGD"
-                          + "NWw1EW8TEwlFyuvCrlWQcg=="
-                          + "-----END CERTIFICATE-----")};
+                  + "-----END RSA PRIVATE KEY-----"
+  };
+
+  private static final String CERTIFICATE_CHAINS[] = {
+          "-----BEGIN CERTIFICATE-----"
+                  + "MIIDnzCCAoegAwIBAgIJAI3dmBBDwTQCMA0GCSqGSIb3DQEBCwUAMIGLMQswCQYD"
+                  + "VQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTESMBAGA1UEBwwJU3Vubnl2YWxl"
+                  + "MQ4wDAYDVQQKDAVJc3RpbzENMAsGA1UECwwEVGVzdDEQMA4GA1UEAwwHUm9vdCBD"
+                  + "QTEiMCAGCSqGSIb3DQEJARYTdGVzdHJvb3RjYUBpc3Rpby5pbzAgFw0xODA1MDgx"
+                  + "OTQ5MjRaGA8yMTE4MDQxNDE5NDkyNFowWTELMAkGA1UEBhMCVVMxEzARBgNVBAgM"
+                  + "CkNhbGlmb3JuaWExEjAQBgNVBAcMCVN1bm55dmFsZTEOMAwGA1UECgwFSXN0aW8x"
+                  + "ETAPBgNVBAMMCElzdGlvIENBMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC"
+                  + "AQEAtqwOeCRGd9H91ieHQmDX0KR6RHEVHxN6X3VsL8RXu8GtaULP3IFmitbY2uLo"
+                  + "VpdB4JxuDmuIDYbktqheLYD4g55klq13OInlEMtLk/u2H0Fvz70HRjDFAfOqY8OT"
+                  + "Ijs2+iM1H5OFVNrKxSHao/wiqbU3ZOZHu7ts6jcLrh8O+P17KRREaP7mapH1cETD"
+                  + "y/wA3qgE42ARfbO/0DPX2VQJuTewk1NJWQVdCkE7VWYR6F5PMTyBChT3lsqHalrL"
+                  + "EQCT5Ytcio+KPO6Y1qstrbFv++FAMQrthKlVcuPc6meOpszPjNqSQNCXpA99R6sl"
+                  + "AEzTSxmEpQrMUMPToHT6NRxs1wIDAQABozUwMzALBgNVHQ8EBAMCAgQwDAYDVR0T"
+                  + "BAUwAwEB/zAWBgNVHREEDzANggtjYS5pc3Rpby5pbzANBgkqhkiG9w0BAQsFAAOC"
+                  + "AQEAGpB9V2K7fEYYxmatjQLuNw0s+vKa5JkJrJO3H6Y1LAdKTJ3k7Cpr15zouM6d"
+                  + "5KogHfFHXPI6MU2ZKiiE38UPQ5Ha4D2XeuAwN64cDyN2emDnQ0UFNm+r4DY47jd3"
+                  + "jHq8I3reVSXeqoHcL0ViuGJRY3lrk8nmEo15vP1stmo5bBdnSlASDDjEjh1FHeXL"
+                  + "/Ha465WYESLcL4ps/xrcXN4JtV1nDGJVGy4WmusL+5D9nHC53/srZczZX3By48+Y"
+                  + "hhZwPFxt/EVB0YISgMOnMHzmWmnNWRiDuI6eZxUx0L9B9sD4s7zrQYYQ1bV/CPYX"
+                  + "iwlodzJwNdfIBfD/AC/GdnaWow=="
+                  + "-----END CERTIFICATE-----",
+          "-----BEGIN CERTIFICATE-----"
+                  + "MIIDDDCCAnWgAwIBAgIJAPOCjrJP13nQMA0GCSqGSIb3DQEBCwUAMHYxCzAJBgNV"
+                  + "BAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1TYW4gRnJhbmNp"
+                  + "c2NvMQ0wCwYDVQQKEwRMeWZ0MRkwFwYDVQQLExBMeWZ0IEVuZ2luZWVyaW5nMRAw"
+                  + "DgYDVQQDEwdUZXN0IENBMB4XDTE3MDcwOTAxMzkzMloXDTE5MDcwOTAxMzkzMlow"
+                  + "ejELMAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNh"
+                  + "biBGcmFuY2lzY28xDTALBgNVBAoTBEx5ZnQxGTAXBgNVBAsTEEx5ZnQgRW5naW5l"
+                  + "ZXJpbmcxFDASBgNVBAMTC1Rlc3QgU2VydmVyMIGfMA0GCSqGSIb3DQEBAQUAA4GN"
+                  + "ADCBiQKBgQDARNUJMFkWF0E6mbdz/nkydVC4TU2SgR95vhJhWpG6xKkCNoXkJxNz"
+                  + "XOmFUUIXQyq7FnIWACYuMrE2KXnomeCGP9A6M21lumNseYSLX3/b+ao4E6gimm1/"
+                  + "Gp8C3FaoAs8Ep7VE+o2DMIfTIPJhFf6RBFPundGhEm8/gv+QObVhKQIDAQABo4Gd"
+                  + "MIGaMAwGA1UdEwEB/wQCMAAwCwYDVR0PBAQDAgXgMB0GA1UdJQQWMBQGCCsGAQUF"
+                  + "BwMCBggrBgEFBQcDATAeBgNVHREEFzAVghNzZXJ2ZXIxLmV4YW1wbGUuY29tMB0G"
+                  + "A1UdDgQWBBRCcUr8mIigWlR61OX/gmDY5vBV6jAfBgNVHSMEGDAWgBQ7eKRRTxaE"
+                  + "kxxIKHoMrSuWQcp9eTANBgkqhkiG9w0BAQsFAAOBgQAtn05e8U41heun5L7MKflv"
+                  + "tJM7w0whavdS8hLe63CxnS98Ap973mSiShKG+OxSJ0ClMWIZPy+KyC+T8yGIaynj"
+                  + "wEEuoSGRWmhzcMMnZWxqQyD95Fsx6mtdnq/DJxiYzmH76fALe/538j8pTcoygSGD"
+                  + "NWw1EW8TEwlFyuvCrlWQcg=="
+                  + "-----END CERTIFICATE-----"
+  };
+
 }

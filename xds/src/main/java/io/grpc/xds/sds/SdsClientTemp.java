@@ -1,4 +1,24 @@
+/*
+ * Copyright 2019 The gRPC Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package io.grpc.xds.sds;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -30,7 +50,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.google.common.base.Preconditions.*;
+
 
 /**
  * temporary implementation of our SDS client. A more robust implementation will follow
@@ -104,12 +124,12 @@ public class SdsClientTemp {
     if (instance.configSource.equals(configSource)) {
       return instance;
     }
-    throw new UnsupportedOperationException("Multiple SdsClientTemp with different ApiConfigSource not supported");
+    throw new UnsupportedOperationException(
+            "Multiple SdsClientTemp with different ApiConfigSource not supported");
   }
 
   /**
    * create the client with this apiConfigSource.
-   * @param configSource
    */
   SdsClientTemp(ConfigSource configSource) {
     checkNotNull(configSource, "configSource");
@@ -122,16 +142,26 @@ public class SdsClientTemp {
   }
 
   void extractUdsTarget(ConfigSource configSource) {
-    checkArgument(configSource.hasApiConfigSource(), "only configSource with ApiConfigSource supported");
+    checkArgument(
+        configSource.hasApiConfigSource(), "only configSource with ApiConfigSource supported");
     ApiConfigSource apiConfigSource = configSource.getApiConfigSource();
-    checkArgument(ApiType.GRPC.equals(apiConfigSource.getApiType()), "only GRPC ApiConfigSource type supported");
-    checkArgument(apiConfigSource.getGrpcServicesCount() == 1, "expecting exactly 1 GrpcService in ApiConfigSource");
+    checkArgument(
+        ApiType.GRPC.equals(apiConfigSource.getApiType()),
+        "only GRPC ApiConfigSource type supported");
+    checkArgument(
+        apiConfigSource.getGrpcServicesCount() == 1,
+        "expecting exactly 1 GrpcService in ApiConfigSource");
     GrpcService grpcService = apiConfigSource.getGrpcServices(0);
-    checkArgument(grpcService.hasGoogleGrpc() && !grpcService.hasEnvoyGrpc(), "only GoogleGrpc expected in GrpcService");
+    checkArgument(
+        grpcService.hasGoogleGrpc() && !grpcService.hasEnvoyGrpc(),
+        "only GoogleGrpc expected in GrpcService");
     GoogleGrpc googleGrpc = grpcService.getGoogleGrpc();
     // for now don't support any credentials
-    checkArgument(!googleGrpc.hasChannelCredentials() && googleGrpc.getCallCredentialsCount() == 0 &&
-        Strings.isNullOrEmpty(googleGrpc.getCredentialsFactoryName()), "No credentials supported in GoogleGrpc");
+    checkArgument(
+        !googleGrpc.hasChannelCredentials()
+            && googleGrpc.getCallCredentialsCount() == 0
+            && Strings.isNullOrEmpty(googleGrpc.getCredentialsFactoryName()),
+        "No credentials supported in GoogleGrpc");
     String targetUri = googleGrpc.getTargetUri();
     checkArgument(!Strings.isNullOrEmpty(targetUri), "targetUri in GoogleGrpc is empty!");
     this.configSource = configSource;
@@ -139,7 +169,7 @@ public class SdsClientTemp {
   }
 
   /**
-   *
+   * Response observer for our client.
    */
   class ResponseObserver implements StreamObserver<DiscoveryResponse> {
     boolean completed = false;
@@ -171,7 +201,8 @@ public class SdsClientTemp {
     }
   }
 
-  private void processDiscoveryResponse(DiscoveryResponse response) throws InvalidProtocolBufferException {
+  private void processDiscoveryResponse(DiscoveryResponse response)
+       throws InvalidProtocolBufferException {
     List<Any> resources = response.getResourcesList();
     for (Any any : resources) {
       String unused = any.getTypeUrl();
@@ -221,7 +252,8 @@ public class SdsClientTemp {
   SecretWatcherHandle watchSecret(SdsSecretConfig sdsSecretConfig, SecretWatcher secretWatcher) {
     checkNotNull(sdsSecretConfig, "sdsSecretConfig");
     checkNotNull(secretWatcher, "secretWatcher");
-    checkArgument(sdsSecretConfig.getSdsConfig().equals(this.configSource), "expected configSource" + this.configSource);
+    checkArgument(sdsSecretConfig.getSdsConfig().equals(this.configSource),
+            "expected configSource" + this.configSource);
     String name = sdsSecretConfig.getName();
     synchronized (watcherMap) {
       HashSet<SecretWatcher> set = watcherMap.get(name);
@@ -245,12 +277,12 @@ public class SdsClientTemp {
       versionInfo = lastResponse.getVersionInfo();
     }
     DiscoveryRequest req =
-    DiscoveryRequest.newBuilder()
+        DiscoveryRequest.newBuilder()
             .addResourceNames(name)
-            .setTypeUrl(SECRET_TYPE_URL)
-            .setResponseNonce(nonce)
-            .setVersionInfo(versionInfo)
-            .build();
+                    .setTypeUrl(SECRET_TYPE_URL)
+                    .setResponseNonce(nonce)
+                    .setVersionInfo(versionInfo)
+                    .build();
     requestObserver.onNext(req);
   }
 
