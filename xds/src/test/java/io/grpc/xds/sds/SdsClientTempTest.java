@@ -98,8 +98,11 @@ public class SdsClientTempTest {
     SdsSecretConfig sdsSecretConfig =
         SdsSecretConfig.newBuilder().setSdsConfig(configSource).setName("name1").build();
     SdsClientTemp.SecretWatcherHandle handle = client.watchSecret(sdsSecretConfig, mockWatcher);
-    lastDiscoveryRequestVerification(server.discoveryService.lastGoodRequest,
-            "", "");
+    discoveryRequestVerification(server.discoveryService.lastGoodRequest,
+            "[name1]", "", "");
+    discoveryRequestVerification(server.discoveryService.lastRequestOnlyForAck,
+            "[name1]", server.lastResponse.getVersionInfo(),
+            server.lastResponse.getNonce());
     secretWatcherVerification(mockWatcher, "name1", 0);
 
     reset(mockWatcher);
@@ -114,8 +117,9 @@ public class SdsClientTempTest {
     verify(mockWatcher, never()).onSecretChanged(any(Secret.class));
   }
 
-  private void lastDiscoveryRequestVerification(DiscoveryRequest request,
-                                                String versionInfo, String responseNonce) {
+  private void discoveryRequestVerification(DiscoveryRequest request,
+                                            String resourceNames,
+                                            String versionInfo, String responseNonce) {
     assertThat(request).isNotNull();
     assertThat(request.getNode()).isEqualTo(node);
     assertThat(Arrays.toString(request.getResourceNamesList().toArray())).isEqualTo("[name1]");

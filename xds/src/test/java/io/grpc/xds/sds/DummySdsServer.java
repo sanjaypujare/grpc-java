@@ -77,6 +77,8 @@ public class DummySdsServer {
     final long startTime = System.nanoTime();
     SdsInboundStreamObserver inboundStreamObserver;
     DiscoveryRequest lastGoodRequest;
+    /** last discovery request that was only used as Ack since it contained no new things. */
+    DiscoveryRequest lastRequestOnlyForAck;
 
     SecretDiscoveryServiceImpl() { }
 
@@ -125,7 +127,7 @@ public class DummySdsServer {
       private void generateAsyncResponse(List<String> nameList) {
         if (!nameList.isEmpty()) {
           SdsInboundStreamObserver.this.responseObserver.onNext(
-                  buildResponse(currentVersion, lastRespondedNonce, nameList, true));
+                  buildResponse(currentVersion, lastRespondedNonce, nameList, true, null));
         }
       }
 
@@ -171,23 +173,24 @@ public class DummySdsServer {
       String requestVersion = request.getVersionInfo();
       String requestNonce = request.getResponseNonce();
       ProtocolStringList resourceNames = request.getResourceNamesList();
-      return buildResponse(requestVersion, requestNonce, resourceNames, false);
+      return buildResponse(requestVersion, requestNonce, resourceNames, false, request);
     }
 
     private DiscoveryResponse buildResponse(String requestVersion, String requestNonce,
-                                            List<String> resourceNames, boolean forcedAsync) {
+                                            List<String> resourceNames, boolean forcedAsync,
+                                            DiscoveryRequest request) {
       // for stale version or nonce don't send a response
       if (!Strings.isNullOrEmpty(requestVersion) && !requestVersion.equals(currentVersion)) {
-        logger.info("Stale version received: " + requestVersion);
         return null;
       }
       if (!Strings.isNullOrEmpty(requestNonce) && !requestNonce.equals(lastRespondedNonce)) {
-        logger.info("Stale nonce received: " + requestNonce);
         return null;
       }
       // check if any new resources are being requested...
       if (!forcedAsync && !isStrictSuperset(resourceNames, lastResourceNames)) {
-        logger.info("No new resources requested: " + resourceNames);
+        if (request != null) {
+          lastRequestOnlyForAck = request;
+        }
         return null;
       }
 
