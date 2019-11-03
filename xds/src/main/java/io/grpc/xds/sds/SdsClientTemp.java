@@ -1,11 +1,14 @@
 package io.grpc.xds.sds;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.protobuf.Any;
+import com.google.protobuf.InvalidProtocolBufferException;
 import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
+import io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig;
+import io.envoyproxy.envoy.api.v2.auth.Secret;
+import io.envoyproxy.envoy.api.v2.auth.TlsCertificate;
 import io.envoyproxy.envoy.api.v2.core.ApiConfigSource;
 import io.envoyproxy.envoy.api.v2.core.ApiConfigSource.ApiType;
 import io.envoyproxy.envoy.api.v2.core.ConfigSource;
@@ -13,16 +16,24 @@ import io.envoyproxy.envoy.api.v2.core.GrpcService;
 import io.envoyproxy.envoy.api.v2.core.GrpcService.GoogleGrpc;
 import io.envoyproxy.envoy.service.discovery.v2.SecretDiscoveryServiceGrpc;
 import io.grpc.ManagedChannel;
+import io.grpc.Status;
+import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.EpollDomainSocketChannel;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.unix.DomainSocketAddress;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static com.google.common.base.Preconditions.*;
 
 /**
  * temporary implementation of our SDS client. A more robust implementation will follow
@@ -40,13 +51,30 @@ public class SdsClientTemp {
   private SecretDiscoveryServiceGrpc.SecretDiscoveryServiceStub stub;
   ResponseObserver responseObserver;
   StreamObserver<DiscoveryRequest> requestObserver;
+  DiscoveryResponse lastResponse;
 
   /**
    * Starts resource discovery with SDS protocol. This should be the first method to be called in
    * this class. It should only be called once.
    */
   void start() {
-    stub = buildBidiStub(udsTarget);
+    ManagedChannel channel = null;
+    if (udsTarget.startsWith("unix:")) {
+      EventLoopGroup elg = new EpollEventLoopGroup();
+
+      channel =
+          NettyChannelBuilder.forAddress(new DomainSocketAddress(udsTarget.substring(5)))
+              .eventLoopGroup(elg)
+              .channelType(EpollDomainSocketChannel.class)
+              .build();
+    } else {
+      channel = InProcessChannelBuilder.forName(udsTarget).directExecutor().build();
+    }
+    start(channel);
+  }
+
+  void start(ManagedChannel channel) {
+    stub = SecretDiscoveryServiceGrpc.newStub(channel);
     logger.info("Start doStreaming to authority: " + stub.getChannel().authority());
     responseObserver = new ResponseObserver();
     requestObserver = stub.streamSecrets(responseObserver);
@@ -93,6 +121,10 @@ public class SdsClientTemp {
     extractUdsTarget(configSource);
   }
 
+  @VisibleForTesting
+  SdsClientTemp() {
+  }
+
   void extractUdsTarget(ConfigSource configSource) {
     checkArgument(configSource.hasApiConfigSource(), "only configSource with ApiConfigSource supported");
     ApiConfigSource apiConfigSource = configSource.getApiConfigSource();
@@ -106,66 +138,16 @@ public class SdsClientTemp {
         Strings.isNullOrEmpty(googleGrpc.getCredentialsFactoryName()), "No credentials supported in GoogleGrpc");
     String targetUri = googleGrpc.getTargetUri();
     checkArgument(!Strings.isNullOrEmpty(targetUri), "targetUri in GoogleGrpc is empty!");
-    checkArgument(targetUri.startsWith("unix:"), "targetUri should contain UDS path starting with 'unix:'");
-    udsTarget = targetUri.substring(5);
-  }
-
-  private static SecretDiscoveryServiceGrpc.SecretDiscoveryServiceStub buildBidiStub(
-      String udsTarget) {
-
-    EventLoopGroup elg = new EpollEventLoopGroup();
-
-    ManagedChannel channel = NettyChannelBuilder
-        .forAddress(new DomainSocketAddress(udsTarget))
-        .eventLoopGroup(elg)
-        .channelType(EpollDomainSocketChannel.class)
-        .build();
-    SecretDiscoveryServiceGrpc.SecretDiscoveryServiceStub bidiStub =
-        SecretDiscoveryServiceGrpc.newStub(channel);
-    return bidiStub;
-  }
-
-  private static DiscoveryRequest getDiscoveryRequest(String nonce, String versionInfo) {
-    logger.info("Creating Discovery req (resources, version, response_nonce):" +
-        "(foo,bar,boom,gad), " + versionInfo + " , " +
-        nonce);
-    return DiscoveryRequest.newBuilder()
-        .addResourceNames("foo")
-        .addResourceNames("bar")
-        .addResourceNames("boom")
-        .addResourceNames("gad")
-        .setTypeUrl(SECRET_TYPE_URL)
-        .setResponseNonce(nonce)
-        .setVersionInfo(versionInfo)
-        .build();
+    udsTarget = targetUri;
   }
 
   /**
    *
    */
-  static class ResponseObserver implements StreamObserver<DiscoveryResponse> {
-    DiscoveryResponse lastResponse;
-    ScheduledExecutorService periodicScheduler;
+  class ResponseObserver implements StreamObserver<DiscoveryResponse> {
     boolean completed = false;
 
     ResponseObserver() {
-      periodicScheduler = Executors.newSingleThreadScheduledExecutor();
-      /*
-      periodicScheduler.scheduleAtFixedRate(new Runnable() {
-        @Override
-        public void run() {
-          // generate a request
-          try {
-            DiscoveryRequest req =
-                getDiscoveryRequest(lastResponse != null ? lastResponse.getNonce() : "",
-                    lastResponse != null ? lastResponse.getVersionInfo() : "");
-            requestObserver.onNext(req);
-          } catch (Throwable t) {
-            logger.log(Level.SEVERE, "periodic req", t);
-          }
-        }
-      }, 2L, 105L, TimeUnit.SECONDS);
-       */
     }
 
     @Override
@@ -188,4 +170,99 @@ public class SdsClientTemp {
     }
   }
 
+  private void processDiscoveryResponse(DiscoveryResponse response) throws InvalidProtocolBufferException {
+    logger.info("DiscoveryResponse = " + response);
+    List<Any> resources = response.getResourcesList();
+    for (Any any : resources) {
+      String typeUrl = any.getTypeUrl();
+      // todo: assert value of typeUrl
+      processSecret(Secret.parseFrom(any.getValue()));
+    }
+  }
+
+  private void processSecret(Secret secret) {
+    final HashSet<SecretWatcher> secretWatchers = watcherMap.get(secret.getName());
+    if (secretWatchers != null) {
+      for (SecretWatcher secretWatcher : secretWatchers) {
+        secretWatcher.onSecretChanged(secret);
+      }
+    } else {
+      // why are we getting responses for resource names we don't have watchers for?
+    }
+  }
+
+
+  /**
+   * Secret watcher interface.
+   */
+  interface SecretWatcher {
+
+    void onSecretChanged(Secret secretUpdate);
+
+    void onError(Status error);
+  }
+
+  static class SecretWatcherHandle {
+    final String name;
+    final SecretWatcher secretWatcher;
+
+    SecretWatcherHandle(String name, SecretWatcher secretWatcher) {
+      this.name = name;
+      this.secretWatcher = secretWatcher;
+    }
+  }
+
+  HashMap<String, HashSet<SecretWatcher>> watcherMap =
+          new HashMap<>();
+
+  /**
+   * Registers a secret watcher for the given SdsSecretConfig.
+   */
+  SecretWatcherHandle watchSecret(SdsSecretConfig sdsSecretConfig, SecretWatcher secretWatcher) {
+    checkNotNull(sdsSecretConfig, "sdsSecretConfig");
+    checkNotNull(secretWatcher, "secretWatcher");
+    checkArgument(sdsSecretConfig.getSdsConfig().equals(this.configSource), "expected configSource" + this.configSource);
+    String name = sdsSecretConfig.getName();
+    synchronized (watcherMap) {
+      HashSet<SecretWatcher> set = watcherMap.get(name);
+      if (set == null) {
+        set = new HashSet<>();
+        watcherMap.put(name, set);
+      }
+      set.add(secretWatcher);
+    }
+    sendDiscoveryRequestOnStream(name);
+    return new SecretWatcherHandle(name, secretWatcher);
+  }
+
+  private void sendDiscoveryRequestOnStream(String name) {
+
+    String nonce = "";
+    String versionInfo = "";
+
+    if (lastResponse != null) {
+      nonce = lastResponse.getNonce();
+      versionInfo = lastResponse.getVersionInfo();
+    }
+    DiscoveryRequest req =
+    DiscoveryRequest.newBuilder()
+            .addResourceNames(name)
+            .setTypeUrl(SECRET_TYPE_URL)
+            .setResponseNonce(nonce)
+            .setVersionInfo(versionInfo)
+            .build();
+    requestObserver.onNext(req);
+  }
+
+  /**
+   * Unregisters the given endpoints watcher.
+   */
+  void cancelSecretWatch(SecretWatcherHandle secretWatcherHandle) {
+    checkNotNull(secretWatcherHandle, "secretWatcherHandle");
+    synchronized (watcherMap) {
+      HashSet<SecretWatcher> set = watcherMap.get(secretWatcherHandle.name);
+      checkState(set != null, "watcher not found");
+      checkState(set.remove(secretWatcherHandle.secretWatcher), "watcher not found");
+    }
+  }
 }

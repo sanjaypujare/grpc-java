@@ -23,6 +23,8 @@ import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.core.ApiConfigSource;
 import io.envoyproxy.envoy.api.v2.core.ConfigSource;
 import io.envoyproxy.envoy.api.v2.core.GrpcService;
+import io.grpc.ManagedChannel;
+import io.grpc.inprocess.InProcessChannelBuilder;
 import io.netty.handler.ssl.SslContext;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,6 +34,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SdsClientTempTest {
 
+  SdsClientTemp sdsClient;
 
   @Test
   public void configSourceUdsTarget() {
@@ -46,7 +49,14 @@ public class SdsClientTempTest {
                 .build())
         .build();
     SdsClientTemp sdsClientTemp = new SdsClientTemp(configSource);
-    assertThat(sdsClientTemp.udsTarget).isEqualTo("/tmp/uds_path");
+    assertThat(sdsClientTemp.udsTarget).isEqualTo("unix:/tmp/uds_path");
   }
+
+  private void buildInProcesschannel(String name) {
+    ManagedChannel channel = InProcessChannelBuilder.forName(name).directExecutor().build();
+    sdsClient = new SdsClientTemp();
+    sdsClient.start(channel);
+  }
+
 
 }
