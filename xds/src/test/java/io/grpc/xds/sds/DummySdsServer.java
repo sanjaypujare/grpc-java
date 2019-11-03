@@ -56,6 +56,8 @@ public class DummySdsServer {
 
   String currentVersion;
   String lastRespondedNonce;
+  DiscoveryResponse lastResponse;
+  List<String> lastResourceNames;
   final SecretDiscoveryServiceImpl discoveryService;
 
   interface SecretGetter {
@@ -69,11 +71,12 @@ public class DummySdsServer {
     discoveryService.inboundStreamObserver.generateAsyncResponse(nameList);
   }
 
-  private class SecretDiscoveryServiceImpl
+  class SecretDiscoveryServiceImpl
       extends SecretDiscoveryServiceGrpc.SecretDiscoveryServiceImplBase {
 
     final long startTime = System.nanoTime();
     SdsInboundStreamObserver inboundStreamObserver;
+    DiscoveryRequest lastGoodRequest;
 
     SecretDiscoveryServiceImpl() { }
 
@@ -84,7 +87,6 @@ public class DummySdsServer {
       // this is outbound...
       final StreamObserver<DiscoveryResponse> responseObserver;
       ScheduledExecutorService periodicScheduler;
-      DiscoveryRequest lastGoodRequest;
       ScheduledFuture<?> future;
 
       public SdsInboundStreamObserver(StreamObserver<DiscoveryResponse> responseObserver) {
@@ -123,7 +125,7 @@ public class DummySdsServer {
       private void generateAsyncResponse(List<String> nameList) {
         if (!nameList.isEmpty()) {
           SdsInboundStreamObserver.this.responseObserver.onNext(
-                  buildResponse(currentVersion, lastRespondedNonce, nameList));
+                  buildResponse(currentVersion, lastRespondedNonce, nameList, true));
         }
       }
 
@@ -169,11 +171,11 @@ public class DummySdsServer {
       String requestVersion = request.getVersionInfo();
       String requestNonce = request.getResponseNonce();
       ProtocolStringList resourceNames = request.getResourceNamesList();
-      return buildResponse(requestVersion, requestNonce, resourceNames);
+      return buildResponse(requestVersion, requestNonce, resourceNames, false);
     }
 
     private DiscoveryResponse buildResponse(String requestVersion, String requestNonce,
-                                            List<String> resourceNames) {
+                                            List<String> resourceNames, boolean forcedAsync) {
       // for stale version or nonce don't send a response
       if (!Strings.isNullOrEmpty(requestVersion) && !requestVersion.equals(currentVersion)) {
         logger.info("Stale version received: " + requestVersion);
@@ -183,6 +185,12 @@ public class DummySdsServer {
         logger.info("Stale nonce received: " + requestNonce);
         return null;
       }
+      // check if any new resources are being requested...
+      if (!forcedAsync && !isStrictSuperset(resourceNames, lastResourceNames)) {
+        logger.info("No new resources requested: " + resourceNames);
+        return null;
+      }
+
       final String version = "" + ((System.nanoTime() - startTime) / 1000000L);
 
       DiscoveryResponse.Builder responseBuilder = DiscoveryResponse.newBuilder()
@@ -196,6 +204,8 @@ public class DummySdsServer {
       DiscoveryResponse response = responseBuilder
               .build();
       currentVersion = version;
+      lastResponse = response;
+      lastResourceNames = resourceNames;
       return response;
     }
 
@@ -207,6 +217,17 @@ public class DummySdsServer {
       Any anyValue = Any.newBuilder().setTypeUrl(SECRET_TYPE_URL).setValue(data).build();
       responseBuilder.addResources(anyValue);
     }
+  }
+
+  private boolean isStrictSuperset(List<String> resourceNames, List<String> lastResourceNames) {
+    if (resourceNames == null || resourceNames.isEmpty()) {
+      return false;
+    }
+    if (lastResourceNames == null || lastResourceNames.isEmpty()) {
+      return true;
+    }
+    return resourceNames.containsAll(lastResourceNames)
+            && !lastResourceNames.containsAll(resourceNames);
   }
 
   void runServer() throws IOException {

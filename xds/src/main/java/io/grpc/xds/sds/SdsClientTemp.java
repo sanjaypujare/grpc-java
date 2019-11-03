@@ -44,6 +44,8 @@ import io.netty.channel.epoll.EpollDomainSocketChannel;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.unix.DomainSocketAddress;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -75,7 +77,7 @@ public class SdsClientTemp {
    * Starts resource discovery with SDS protocol. This should be the first method to be called in
    * this class. It should only be called once.
    */
-  void startUsingChannel() {
+  void start() {
     ManagedChannel channel = null;
     if (udsTarget.startsWith("unix:")) {
       EventLoopGroup elg = new EpollEventLoopGroup();
@@ -91,7 +93,7 @@ public class SdsClientTemp {
     startUsingChannel(channel);
   }
 
-  void startUsingChannel(ManagedChannel channel) {
+  private void startUsingChannel(ManagedChannel channel) {
     stub = SecretDiscoveryServiceGrpc.newStub(channel);
     responseObserver = new ResponseObserver();
     requestObserver = stub.streamSecrets(responseObserver);
@@ -182,7 +184,6 @@ public class SdsClientTemp {
       } catch (InvalidProtocolBufferException e) {
         logger.log(Level.SEVERE, "processDiscoveryResponse", e);
       }
-      lastResponse = discoveryResponse;
     }
 
     @Override
@@ -202,11 +203,17 @@ public class SdsClientTemp {
   private void processDiscoveryResponse(DiscoveryResponse response)
        throws InvalidProtocolBufferException {
     List<Any> resources = response.getResourcesList();
+    ArrayList<String> resourceNames = new ArrayList<>();
     for (Any any : resources) {
       String unused = any.getTypeUrl();
       // todo: assert value of typeUrl
-      processSecret(Secret.parseFrom(any.getValue()));
+      Secret secret = Secret.parseFrom(any.getValue());
+      resourceNames.add(secret.getName());
+      processSecret(secret);
     }
+    lastResponse = response;
+    // send ACK
+    sendDiscoveryRequestOnStream(resourceNames);
   }
 
   private void processSecret(Secret secret) {
@@ -265,8 +272,11 @@ public class SdsClientTemp {
     return new SecretWatcherHandle(name, secretWatcher);
   }
 
-  private void sendDiscoveryRequestOnStream(String name) {
+  private void sendDiscoveryRequestOnStream(String ... names) {
+    sendDiscoveryRequestOnStream(Arrays.asList(names));
+  }
 
+  private void sendDiscoveryRequestOnStream(List<String> names) {
     String nonce = "";
     String versionInfo = "";
 
@@ -274,14 +284,17 @@ public class SdsClientTemp {
       nonce = lastResponse.getNonce();
       versionInfo = lastResponse.getVersionInfo();
     }
-    DiscoveryRequest req =
+    DiscoveryRequest.Builder builder =
         DiscoveryRequest.newBuilder()
-            .addResourceNames(name)
             .setTypeUrl(SECRET_TYPE_URL)
             .setResponseNonce(nonce)
             .setVersionInfo(versionInfo)
-            .setNode(clientNode)
-            .build();
+            .setNode(clientNode);
+
+    for (String name : names) {
+      builder.addResourceNames(name);
+    }
+    DiscoveryRequest req = builder.build();
     requestObserver.onNext(req);
   }
 

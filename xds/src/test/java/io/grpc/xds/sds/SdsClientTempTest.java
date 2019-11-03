@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
+import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig;
 import io.envoyproxy.envoy.api.v2.auth.Secret;
 import io.envoyproxy.envoy.api.v2.auth.TlsCertificate;
@@ -36,6 +37,8 @@ import io.envoyproxy.envoy.api.v2.core.GrpcService;
 import io.envoyproxy.envoy.api.v2.core.Node;
 
 import java.io.IOException;
+import java.util.Arrays;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -77,7 +80,7 @@ public class SdsClientTempTest {
   private void buildInProcesschannel(String name) {
     ManagedChannel channel = InProcessChannelBuilder.forName(name).directExecutor().build();
     sdsClient = new SdsClientTemp();
-    sdsClient.startUsingChannel(channel);
+    sdsClient.start(channel);
   } */
 
   @Test
@@ -87,7 +90,7 @@ public class SdsClientTempTest {
     server.runServer();
     ConfigSource configSource = buildConfigSource("inproc");
     SdsClientTemp client = new SdsClientTemp(configSource, node);
-    client.startUsingChannel();
+    client.start();
     SdsClientTemp.SecretWatcher mockWatcher = mock(SdsClientTemp.SecretWatcher.class);
 
     when(secretGetter.getFor("name1")).thenReturn(getOneTlsCertSecret("name1", 0));
@@ -95,6 +98,8 @@ public class SdsClientTempTest {
     SdsSecretConfig sdsSecretConfig =
         SdsSecretConfig.newBuilder().setSdsConfig(configSource).setName("name1").build();
     SdsClientTemp.SecretWatcherHandle handle = client.watchSecret(sdsSecretConfig, mockWatcher);
+    lastDiscoveryRequestVerification(server.discoveryService.lastGoodRequest,
+            "", "");
     secretWatcherVerification(mockWatcher, "name1", 0);
 
     reset(mockWatcher);
@@ -107,6 +112,20 @@ public class SdsClientTempTest {
     client.cancelSecretWatch(handle);
     server.generateAsyncResponse("name1");
     verify(mockWatcher, never()).onSecretChanged(any(Secret.class));
+  }
+
+  private void lastDiscoveryRequestVerification(DiscoveryRequest request,
+                                                String versionInfo, String responseNonce) {
+    assertThat(request).isNotNull();
+    assertThat(request.getNode()).isEqualTo(node);
+    assertThat(Arrays.toString(request.getResourceNamesList().toArray())).isEqualTo("[name1]");
+    assertThat(request.getTypeUrl()).isEqualTo("type.googleapis.com/envoy.api.v2.auth.Secret");
+    if (versionInfo != null) {
+      assertThat(request.getVersionInfo()).isEqualTo(versionInfo);
+    }
+    if (responseNonce != null) {
+      assertThat(request.getResponseNonce()).isEqualTo(responseNonce);
+    }
   }
 
   private void secretWatcherVerification(SdsClientTemp.SecretWatcher mockWatcher,
