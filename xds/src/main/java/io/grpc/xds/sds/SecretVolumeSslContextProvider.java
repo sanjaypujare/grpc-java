@@ -50,7 +50,6 @@ final class SecretVolumeSslContextProvider<K> extends SslContextProvider<K> {
   private static final Logger logger =
       Logger.getLogger(SecretVolumeSslContextProvider.class.getName());
 
-  private final boolean server;
   @Nullable private final String privateKey;
   @Nullable private final String privateKeyPassword;
   @Nullable private final String certificateChain;
@@ -63,12 +62,11 @@ final class SecretVolumeSslContextProvider<K> extends SslContextProvider<K> {
       @Nullable CertificateValidationContext certContext,
       boolean server,
       K source) {
-    super(source);
+    super(source, server);
     this.privateKey = privateKey;
     this.privateKeyPassword = privateKeyPassword;
     this.certificateChain = certificateChain;
     this.certContext = certContext;
-    this.server = server;
   }
 
   @VisibleForTesting
@@ -188,26 +186,14 @@ final class SecretVolumeSslContextProvider<K> extends SslContextProvider<K> {
   public void addCallback(final Callback callback, Executor executor) {
     checkNotNull(callback, "callback");
     checkNotNull(executor, "executor");
-    executor.execute(
-        new Runnable() {
-          @Override
-          public void run() {
-            // as per the contract we will read the current secrets on disk
-            // this involves I/O which can potentially block the executor or event loop
-            SslContext sslContext = null;
-            try {
-              sslContext = buildSslContextFromSecrets();
-              try {
-                callback.updateSecret(sslContext);
-              } catch (Throwable t) {
-                logger.log(Level.SEVERE, "Exception from callback.updateSecret", t);
+    performCallback(
+            new SslContextGetter() {
+              @Override
+              public SslContext get() throws CertificateException, IOException, CertStoreException {
+                return buildSslContextFromSecrets();
               }
-            } catch (Throwable e) {
-              logger.log(Level.SEVERE, "Exception from buildSslContextFromSecrets", e);
-              callback.onException(e);
-            }
-          }
-        });
+            },
+            callback, executor);
   }
 
   @Override

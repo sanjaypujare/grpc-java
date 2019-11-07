@@ -201,7 +201,11 @@ final class SdsClient {
         final HashSet<SecretWatcher> secretWatchers = watcherMap.get(secret.getName());
         if (secretWatchers != null) {
           for (SecretWatcher secretWatcher : secretWatchers) {
-            secretWatcher.onSecretChanged(secret);
+            try {
+              secretWatcher.onSecretChanged(secret);
+            } catch (Throwable t) {
+              logger.log(Level.SEVERE, "onSecretChanged", t);
+            }
           }
         }
       }
