@@ -308,7 +308,7 @@ final class SdsClient {
   }
 
   /** Registers a secret watcher for this client's SdsSecretConfig. */
-  void watchSecret(SecretWatcher secretWatcher) throws InvalidProtocolBufferException {
+  void watchSecret(SecretWatcher secretWatcher) {
     synchronized (this) {
       checkNotNull(secretWatcher, "secretWatcher");
       checkState(watcher == null, "watcher already set");
