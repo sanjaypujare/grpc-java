@@ -93,17 +93,20 @@ public class ClientSslContextProviderFactoryTest {
   }
 
   static CommonTlsContext buildCommonTlsContextFromSdsConfigsForAll(
-      String certName, String certTargetUri, String validationContextName,
-      String validationContextTargetUri, String channelType) {
+      String certName,
+      String certTargetUri,
+      String validationContextName,
+      String validationContextTargetUri,
+      String channelType) {
 
-    CommonTlsContext.Builder builder =
-        CommonTlsContext.newBuilder();
+    CommonTlsContext.Builder builder = CommonTlsContext.newBuilder();
 
     SdsSecretConfig sdsSecretConfig = buildSdsSecretConfig(certName, certTargetUri, channelType);
     if (sdsSecretConfig != null) {
       builder.addTlsCertificateSdsSecretConfigs(sdsSecretConfig);
     }
-    sdsSecretConfig = buildSdsSecretConfig(validationContextName, validationContextTargetUri, channelType);
+    sdsSecretConfig =
+        buildSdsSecretConfig(validationContextName, validationContextTargetUri, channelType);
     if (sdsSecretConfig != null) {
       builder.setValidationContextSdsSecretConfig(sdsSecretConfig);
     }

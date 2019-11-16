@@ -38,7 +38,6 @@ import java.security.cert.CertStoreException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -63,15 +62,15 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
   private SslContext sslContext;
 
   SdsSslContextProvider(
-      Node node, SdsSecretConfig certSdsConfig, SdsSecretConfig validationContextSdsConfig,
-      boolean server, K source) {
+          Node node, SdsSecretConfig certSdsConfig, SdsSecretConfig validationContextSdsConfig,
+          Executor watcherExecutor, Executor channelExecutor, boolean server, K source) {
     super(source);
     this.server = server;
     this.certSdsConfig = certSdsConfig;
     this.validationContextSdsConfig = validationContextSdsConfig;
     if (certSdsConfig != null && certSdsConfig.isInitialized()) {
       certSdsClient = SdsClient.Factory.createSdsClient(certSdsConfig, node,
-          Executors.newSingleThreadExecutor(), null);
+          watcherExecutor, channelExecutor);
       certSdsClient.start();
       certSdsClient.watchSecret(this);
     } else {
@@ -80,7 +79,7 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
     if (validationContextSdsConfig != null && validationContextSdsConfig.isInitialized()) {
       validationContextSdsClient = SdsClient.Factory
           .createSdsClient(validationContextSdsConfig, node,
-              Executors.newSingleThreadExecutor(), null);
+                  watcherExecutor, channelExecutor);  // Executors.newSingleThreadExecutor()
       validationContextSdsClient.start();
       validationContextSdsClient.watchSecret(this);
     } else {
@@ -89,7 +88,8 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
   }
 
   static SdsSslContextProvider<UpstreamTlsContext> getProviderForClient(
-      UpstreamTlsContext upstreamTlsContext, Bootstrapper bootstrapper) {
+          UpstreamTlsContext upstreamTlsContext, Bootstrapper bootstrapper,
+          Executor watcherExecutor, Executor channelExecutor) {
     checkNotNull(upstreamTlsContext, "upstreamTlsContext");
     CommonTlsContext commonTlsContext = upstreamTlsContext.getCommonTlsContext();
     SdsSecretConfig validationContextSdsConfig =
@@ -102,21 +102,12 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
     }
     return new SdsSslContextProvider<>(getNodeFromBootstrap(bootstrapper), certSdsConfig,
         validationContextSdsConfig,
-        false, upstreamTlsContext);
-  }
-
-  private static Node getNodeFromBootstrap(Bootstrapper bootstrapper) {
-    Node node = null;
-    try {
-      node = bootstrapper.readBootstrap().getNode();
-    } catch (Exception e) {
-      logger.log(Level.SEVERE, "exception from Bootstrapper.readBootstrap()", e);
-    }
-    return node;
+            watcherExecutor, channelExecutor, false, upstreamTlsContext);
   }
 
   static SdsSslContextProvider<DownstreamTlsContext> getProviderForServer(
-      DownstreamTlsContext downstreamTlsContext, Bootstrapper bootstrapper) {
+          DownstreamTlsContext downstreamTlsContext, Bootstrapper bootstrapper,
+          Executor watcherExecutor, Executor channelExecutor) {
     checkNotNull(downstreamTlsContext, "downstreamTlsContext");
     CommonTlsContext commonTlsContext = downstreamTlsContext.getCommonTlsContext();
 
@@ -131,7 +122,17 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
     }
     return new SdsSslContextProvider<>(getNodeFromBootstrap(bootstrapper), certSdsConfig,
         validationContextSdsConfig,
-        true, downstreamTlsContext);
+            watcherExecutor, channelExecutor, true, downstreamTlsContext);
+  }
+
+  private static Node getNodeFromBootstrap(Bootstrapper bootstrapper) {
+    Node node = null;
+    try {
+      node = bootstrapper.readBootstrap().getNode();
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "exception from Bootstrapper.readBootstrap()", e);
+    }
+    return node;
   }
 
   @Override

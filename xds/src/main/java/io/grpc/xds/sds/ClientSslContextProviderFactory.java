@@ -23,13 +23,13 @@ import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.grpc.xds.Bootstrapper;
 import io.grpc.xds.sds.ReferenceCountingSslContextProviderMap.SslContextProviderFactory;
 
+import java.util.concurrent.Executors;
+
 /** Factory to create client-side SslContextProvider from UpstreamTlsContext. */
 final class ClientSslContextProviderFactory
     implements SslContextProviderFactory<UpstreamTlsContext> {
 
-  /**
-   * Creates an SslContextProvider from the given UpstreamTlsContext.
-   */
+  /** Creates an SslContextProvider from the given UpstreamTlsContext. */
   @Override
   public SslContextProvider<UpstreamTlsContext> createSslContextProvider(
       UpstreamTlsContext upstreamTlsContext) {
@@ -39,9 +39,13 @@ final class ClientSslContextProviderFactory
         "upstreamTlsContext should have CommonTlsContext");
     if (CommonTlsContextUtil.hasAllSecretsUsingFilename(upstreamTlsContext.getCommonTlsContext())) {
       return SecretVolumeSslContextProvider.getProviderForClient(upstreamTlsContext);
-    } else if (CommonTlsContextUtil
-        .hasAllSecretsUsingSds(upstreamTlsContext.getCommonTlsContext())) {
-      return SdsSslContextProvider.getProviderForClient(upstreamTlsContext, Bootstrapper.newInsatnce());
+    } else if (CommonTlsContextUtil.hasAllSecretsUsingSds(
+        upstreamTlsContext.getCommonTlsContext())) {
+      return SdsSslContextProvider.getProviderForClient(
+          upstreamTlsContext,
+          Bootstrapper.getInstance(),
+          Executors.newSingleThreadExecutor(),
+          null);
     }
     throw new UnsupportedOperationException(
         "UpstreamTlsContext to have all filenames or all SdsConfig");

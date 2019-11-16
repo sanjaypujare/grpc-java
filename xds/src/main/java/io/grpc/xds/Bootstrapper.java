@@ -40,7 +40,8 @@ import javax.annotation.concurrent.Immutable;
 /**
  * Loads configuration information to bootstrap gRPC's integration of xDS protocol.
  */
-abstract class Bootstrapper {
+@Internal
+public abstract class Bootstrapper {
 
   private static final String BOOTSTRAP_PATH_SYS_ENV_VAR = "GRPC_XDS_BOOTSTRAP";
 
@@ -57,7 +58,7 @@ abstract class Bootstrapper {
     }
   };
 
-  static Bootstrapper getInstance() {
+  public static Bootstrapper getInstance() {
     return DEFAULT_INSTANCE;
   }
 
@@ -216,6 +217,7 @@ abstract class Bootstrapper {
     private final List<ChannelCreds> channelCredsList;
     private final Node node;
 
+    /** Builds BootstrapInfo from values. */
     @VisibleForTesting
     public BootstrapInfo(String serverUri, List<ChannelCreds> channelCredsList, Node node) {
       this.serverUri = serverUri;
