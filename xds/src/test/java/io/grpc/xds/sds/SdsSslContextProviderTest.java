@@ -16,27 +16,24 @@
 
 package io.grpc.xds.sds;
 
+import static com.google.common.truth.Truth.assertThat;
+import static io.grpc.xds.sds.SdsClientTest.getOneCertificateValidationContextSecret;
+import static io.grpc.xds.sds.SdsClientTest.getOneTlsCertSecret;
+import static io.grpc.xds.sds.SecretVolumeSslContextProviderTest.doChecksOnSslContext;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.google.common.util.concurrent.MoreExecutors;
-import io.envoyproxy.envoy.api.v2.auth.*;
+import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext;
 import io.envoyproxy.envoy.api.v2.core.Node;
+import io.grpc.Status;
 import io.grpc.xds.Bootstrapper;
+import java.io.IOException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-import java.security.cert.CertStoreException;
-import java.security.cert.CertificateException;
-
-import static com.google.common.truth.Truth.assertThat;
-import static io.grpc.xds.sds.SdsClientTest.getOneCertificateValidationContextSecret;
-import static io.grpc.xds.sds.SdsClientTest.getOneTlsCertSecret;
-import static io.grpc.xds.sds.SecretVolumeSslContextProviderTest.doChecksOnSslContext;
-import static org.junit.Assert.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /** Unit tests for {@link SdsSslContextProvider}. */
 @RunWith(JUnit4.class)
@@ -72,25 +69,27 @@ public class SdsSslContextProviderTest {
 
   /** Helper method to build SdsSslContextProvider from given files. */
   private SdsSslContextProvider<?> getSdsSslContextProvider(
-          boolean server, String certName, String validationContextName)
-      throws IOException {
+      boolean server, String certName, String validationContextName) throws IOException {
 
     CommonTlsContext commonTlsContext =
-            ClientSslContextProviderFactoryTest.buildCommonTlsContextFromSdsConfigsForAll(
-                    certName, "inproc", validationContextName,
-                    "inproc", "inproc");
+        ClientSslContextProviderFactoryTest.buildCommonTlsContextFromSdsConfigsForAll(
+            certName, "inproc", validationContextName, "inproc", "inproc");
 
     return server
-            ? SdsSslContextProvider.getProviderForServer(
-            SecretVolumeSslContextProviderTest.buildDownstreamTlsContext(commonTlsContext), mockBootstrapper,
-            MoreExecutors.directExecutor(), MoreExecutors.directExecutor())
-            : SdsSslContextProvider.getProviderForClient(
-                    SecretVolumeSslContextProviderTest.buildUpstreamTlsContext(commonTlsContext), mockBootstrapper,
-            MoreExecutors.directExecutor(), MoreExecutors.directExecutor());
+        ? SdsSslContextProvider.getProviderForServer(
+            SecretVolumeSslContextProviderTest.buildDownstreamTlsContext(commonTlsContext),
+            mockBootstrapper,
+            MoreExecutors.directExecutor(),
+            MoreExecutors.directExecutor())
+        : SdsSslContextProvider.getProviderForClient(
+            SecretVolumeSslContextProviderTest.buildUpstreamTlsContext(commonTlsContext),
+            mockBootstrapper,
+            MoreExecutors.directExecutor(),
+            MoreExecutors.directExecutor());
   }
 
   @Test
-  public void testProviderForServer() throws IOException, CertificateException, CertStoreException {
+  public void testProviderForServer() throws IOException {
     when(serverMock.getSecretFor("cert1"))
             .thenReturn(getOneTlsCertSecret("cert1", SERVER_1_KEY_FILE, SERVER_1_PEM_FILE));
     when(serverMock.getSecretFor("valid1"))
@@ -99,13 +98,13 @@ public class SdsSslContextProviderTest {
     SdsSslContextProvider<?> provider =
             getSdsSslContextProvider(true, "cert1", "valid1");
     SecretVolumeSslContextProviderTest.TestCallback testCallback =
-      SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
+        SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
 
     doChecksOnSslContext(true, testCallback.updatedSslContext);
   }
 
   @Test
-  public void testProviderForClient() throws IOException, CertificateException, CertStoreException {
+  public void testProviderForClient() throws IOException {
     when(serverMock.getSecretFor("cert1"))
             .thenReturn(getOneTlsCertSecret("cert1", CLIENT_KEY_FILE, CLIENT_PEM_FILE));
     when(serverMock.getSecretFor("valid1"))
@@ -119,77 +118,51 @@ public class SdsSslContextProviderTest {
     doChecksOnSslContext(false, testCallback.updatedSslContext);
   }
 
-  /*
-  @Test
-  public void getProviderForServer_onlyCert()
-      throws IOException, CertificateException, CertStoreException {
-    sslContextForEitherWithBothCertAndTrust(true, SERVER_1_PEM_FILE, SERVER_1_KEY_FILE, null);
-  }
 
   @Test
-  public void getProviderForClient_onlyTrust()
-      throws IOException, CertificateException, CertStoreException {
-    sslContextForEitherWithBothCertAndTrust(false, null, null, CA_PEM_FILE);
-  }
+  public void testProviderForServer_onlyCert()
+      throws IOException {
+    when(serverMock.getSecretFor("cert1"))
+            .thenReturn(getOneTlsCertSecret("cert1", SERVER_1_KEY_FILE, SERVER_1_PEM_FILE));
 
-  @Test
-  public void getProviderForServer_badFile_throwsException()
-      throws IOException, CertificateException, CertStoreException {
-    try {
-      sslContextForEitherWithBothCertAndTrust(true, SERVER_1_PEM_FILE, SERVER_1_PEM_FILE, null);
-      fail("no exception thrown");
-    } catch (IllegalArgumentException expected) {
-      assertThat(expected).hasMessageThat().contains("File does not contain valid private key");
-    }
-  }
+    SdsSslContextProvider<?> provider =
+            getSdsSslContextProvider(true, "cert1", null);
+    SecretVolumeSslContextProviderTest.TestCallback testCallback =
+            SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
 
-  static class TestCallback implements SslContextProvider.Callback {
-
-    SslContext updatedSslContext;
-    Throwable updatedThrowable;
-
-    @Override
-    public void updateSecret(SslContext sslContext) {
-      updatedSslContext = sslContext;
-    }
-
-    @Override
-    public void onException(Throwable throwable) {
-      updatedThrowable = throwable;
-    }
-  }
-
-  @Test
-  public void getProviderForServer_both_callsback() throws IOException {
-    SecretVolumeSslContextProvider<?> provider =
-        getSslContextSecretVolumeSecretProvider(
-            true, SERVER_1_PEM_FILE, SERVER_1_KEY_FILE, CA_PEM_FILE);
-
-    TestCallback testCallback = getValueThruCallback(provider);
     doChecksOnSslContext(true, testCallback.updatedSslContext);
   }
 
   @Test
-  public void getProviderForClient_both_callsback() throws IOException {
-    SecretVolumeSslContextProvider<?> provider =
-        getSslContextSecretVolumeSecretProvider(
-            false, CLIENT_PEM_FILE, CLIENT_KEY_FILE, CA_PEM_FILE);
+  public void getProviderForClient_onlyTrust()
+      throws IOException {
+    when(serverMock.getSecretFor("valid1"))
+            .thenReturn(getOneCertificateValidationContextSecret("valid1", CA_PEM_FILE));
 
-    TestCallback testCallback = getValueThruCallback(provider);
+    SdsSslContextProvider<?> provider =
+            getSdsSslContextProvider(false, null, "valid1");
+    SecretVolumeSslContextProviderTest.TestCallback testCallback =
+            SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
+
     doChecksOnSslContext(false, testCallback.updatedSslContext);
   }
 
-  // note this test generates stack-trace but can be safely ignored
   @Test
-  public void getProviderForClient_both_callsback_setException() throws IOException {
-    SecretVolumeSslContextProvider<?> provider =
-        getSslContextSecretVolumeSecretProvider(
-            false, CLIENT_PEM_FILE, CLIENT_PEM_FILE, CA_PEM_FILE);
-    TestCallback testCallback = getValueThruCallback(provider);
+  public void getProviderForServer_noCert_throwsException() throws IOException {
+    when(serverMock.getSecretFor("valid1"))
+            .thenReturn(getOneCertificateValidationContextSecret("valid1", CA_PEM_FILE));
+
+    SdsSslContextProvider<?> provider =
+            getSdsSslContextProvider(true, null, "valid1");
+    SecretVolumeSslContextProviderTest.TestCallback testCallback =
+            SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
+
+    assertThat(server.lastNack).isNotNull();
+    assertThat(server.lastNack.getVersionInfo()).isEmpty();
+    assertThat(server.lastNack.getResponseNonce()).isEmpty();
+    com.google.rpc.Status errorDetail = server.lastNack.getErrorDetail();
+    assertThat(errorDetail.getCode()).isEqualTo(Status.Code.INTERNAL.value());
+    assertThat(errorDetail.getMessage()).isEqualTo("Secret not updated");
     assertThat(testCallback.updatedSslContext).isNull();
-    assertThat(testCallback.updatedThrowable).isInstanceOf(IllegalArgumentException.class);
-    assertThat(testCallback.updatedThrowable).hasMessageThat()
-        .contains("File does not contain valid private key");
   }
-  */
 }
