@@ -20,12 +20,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import io.envoyproxy.envoy.api.v2.auth.CertificateValidationContext;
+import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext;
+import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig;
 import io.envoyproxy.envoy.api.v2.auth.Secret;
 import io.envoyproxy.envoy.api.v2.auth.TlsCertificate;
+import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.core.Node;
 import io.grpc.Status;
 import io.grpc.netty.GrpcSslContexts;
+import io.grpc.xds.Bootstrapper;
 import io.grpc.xds.sds.trust.SdsTrustManagerFactory;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -60,7 +64,7 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
 
   SdsSslContextProvider(
       Node node, SdsSecretConfig certSdsConfig, SdsSecretConfig validationContextSdsConfig,
-      SdsClient sdsClient, boolean server, K source) {
+      boolean server, K source) {
     super(source);
     this.server = server;
     this.certSdsConfig = certSdsConfig;
@@ -80,6 +84,52 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
     } else {
       validationContextSdsClient = null;
     }
+  }
+
+  static SdsSslContextProvider<UpstreamTlsContext> getProviderForClient(
+      UpstreamTlsContext upstreamTlsContext) {
+    checkNotNull(upstreamTlsContext, "upstreamTlsContext");
+    CommonTlsContext commonTlsContext = upstreamTlsContext.getCommonTlsContext();
+    SdsSecretConfig validationContextSdsConfig =
+        commonTlsContext.getValidationContextSdsSecretConfig();
+
+    // tlsCertificate exists in case of mTLS, else null for a client
+    SdsSecretConfig certSdsConfig = null;
+    if (commonTlsContext.getTlsCertificateSdsSecretConfigsCount() > 0) {
+      certSdsConfig = commonTlsContext.getTlsCertificateSdsSecretConfigs(0);
+    }
+    return new SdsSslContextProvider<>(getNodeFromBootstrap(), certSdsConfig,
+        validationContextSdsConfig,
+        false, upstreamTlsContext);
+  }
+
+  private static Node getNodeFromBootstrap() {
+    Node node = null;
+    try {
+      node = Bootstrapper.newInsatnce().readBootstrap().getNode();
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "exception from Bootstrapper.readBootstrap()", e);
+    }
+    return node;
+  }
+
+  static SdsSslContextProvider<DownstreamTlsContext> getProviderForServer(
+      DownstreamTlsContext downstreamTlsContext) {
+    checkNotNull(downstreamTlsContext, "downstreamTlsContext");
+    CommonTlsContext commonTlsContext = downstreamTlsContext.getCommonTlsContext();
+
+    SdsSecretConfig certSdsConfig = null;
+    if (commonTlsContext.getTlsCertificateSdsSecretConfigsCount() > 0) {
+      certSdsConfig = commonTlsContext.getTlsCertificateSdsSecretConfigs(0);
+    }
+
+    SdsSecretConfig validationContextSdsConfig = null;
+    if (commonTlsContext.hasValidationContextSdsSecretConfig()) {
+      validationContextSdsConfig = commonTlsContext.getValidationContextSdsSecretConfig();
+    }
+    return new SdsSslContextProvider<>(getNodeFromBootstrap(), certSdsConfig,
+        validationContextSdsConfig,
+        true, downstreamTlsContext);
   }
 
   @Override

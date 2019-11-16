@@ -131,7 +131,8 @@ public class ClientSslContextProviderFactoryTest {
           clientSslContextProviderFactory.createSslContextProvider(upstreamTlsContext);
       Assert.fail("no exception thrown");
     } catch (UnsupportedOperationException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("UpstreamTlsContext using SDS not supported");
+      assertThat(expected).hasMessageThat()
+          .isEqualTo("UpstreamTlsContext to have all filenames or all SdsConfig");
     }
   }
 
@@ -148,7 +149,8 @@ public class ClientSslContextProviderFactoryTest {
           clientSslContextProviderFactory.createSslContextProvider(upstreamTlsContext);
       Assert.fail("no exception thrown");
     } catch (UnsupportedOperationException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("UpstreamTlsContext using SDS not supported");
+      assertThat(expected).hasMessageThat()
+          .isEqualTo("UpstreamTlsContext to have all filenames or all SdsConfig");
     }
   }
 }

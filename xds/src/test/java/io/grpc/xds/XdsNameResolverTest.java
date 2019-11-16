@@ -108,7 +108,7 @@ public class XdsNameResolverTest {
     final ChannelCreds googleDefaultCreds = new ChannelCreds("google_default", null);
     Bootstrapper bootstrapper = new Bootstrapper() {
       @Override
-      BootstrapInfo readBootstrap() {
+      public BootstrapInfo readBootstrap() {
         return new BootstrapInfo("trafficdirector.googleapis.com",
             ImmutableList.of(loasCreds, googleDefaultCreds), FAKE_BOOTSTRAP_NODE);
       }
@@ -145,7 +145,7 @@ public class XdsNameResolverTest {
   public void resolve_failToBootstrap() {
     Bootstrapper bootstrapper = new Bootstrapper() {
       @Override
-      BootstrapInfo readBootstrap() throws Exception {
+      public BootstrapInfo readBootstrap() throws Exception {
         throw new IOException("Fail to read bootstrap file");
       }
     };

@@ -23,6 +23,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.envoyproxy.envoy.api.v2.core.Locality;
 import io.envoyproxy.envoy.api.v2.core.Node;
+import io.grpc.Internal;
 import io.grpc.internal.JsonParser;
 import io.grpc.internal.JsonUtil;
 import java.io.IOException;
@@ -45,7 +46,7 @@ abstract class Bootstrapper {
 
   private static final Bootstrapper DEFAULT_INSTANCE = new Bootstrapper() {
     @Override
-    BootstrapInfo readBootstrap() throws IOException {
+    public BootstrapInfo readBootstrap() throws IOException {
       String filePath = System.getenv(BOOTSTRAP_PATH_SYS_ENV_VAR);
       if (filePath == null) {
         throw
@@ -63,7 +64,7 @@ abstract class Bootstrapper {
   /**
    * Returns configurations from bootstrap.
    */
-  abstract BootstrapInfo readBootstrap() throws Exception;
+  public abstract BootstrapInfo readBootstrap() throws Exception;
 
   @VisibleForTesting
   static BootstrapInfo parseConfig(String rawData) throws IOException {
@@ -210,7 +211,7 @@ abstract class Bootstrapper {
    * Data class containing the results of reading bootstrap.
    */
   @Immutable
-  static class BootstrapInfo {
+  public static class BootstrapInfo {
     private final String serverUri;
     private final List<ChannelCreds> channelCredsList;
     private final Node node;
@@ -232,7 +233,7 @@ abstract class Bootstrapper {
     /**
      * Returns the node identifier to be included in xDS requests.
      */
-    Node getNode() {
+    public Node getNode() {
       return node;
     }
 

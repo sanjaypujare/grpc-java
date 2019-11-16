@@ -37,6 +37,9 @@ final class ServerSslContextProviderFactory
     if (CommonTlsContextUtil.hasAllSecretsUsingFilename(
         downstreamTlsContext.getCommonTlsContext())) {
       return SecretVolumeSslContextProvider.getProviderForServer(downstreamTlsContext);
+    } else if (CommonTlsContextUtil
+        .hasAllSecretsUsingSds(downstreamTlsContext.getCommonTlsContext())) {
+      return SdsSslContextProvider.getProviderForServer(downstreamTlsContext);
     }
     throw new UnsupportedOperationException("DownstreamTlsContext using SDS not supported");
   }

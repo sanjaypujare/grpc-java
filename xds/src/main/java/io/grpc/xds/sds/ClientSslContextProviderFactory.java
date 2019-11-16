@@ -26,7 +26,9 @@ import io.grpc.xds.sds.ReferenceCountingSslContextProviderMap.SslContextProvider
 final class ClientSslContextProviderFactory
     implements SslContextProviderFactory<UpstreamTlsContext> {
 
-  /** Creates an SslContextProvider from the given UpstreamTlsContext. */
+  /**
+   * Creates an SslContextProvider from the given UpstreamTlsContext.
+   */
   @Override
   public SslContextProvider<UpstreamTlsContext> createSslContextProvider(
       UpstreamTlsContext upstreamTlsContext) {
@@ -36,7 +38,11 @@ final class ClientSslContextProviderFactory
         "upstreamTlsContext should have CommonTlsContext");
     if (CommonTlsContextUtil.hasAllSecretsUsingFilename(upstreamTlsContext.getCommonTlsContext())) {
       return SecretVolumeSslContextProvider.getProviderForClient(upstreamTlsContext);
+    } else if (CommonTlsContextUtil
+        .hasAllSecretsUsingSds(upstreamTlsContext.getCommonTlsContext())) {
+      return SdsSslContextProvider.getProviderForClient(upstreamTlsContext);
     }
-    throw new UnsupportedOperationException("UpstreamTlsContext using SDS not supported");
+    throw new UnsupportedOperationException(
+        "UpstreamTlsContext to have all filenames or all SdsConfig");
   }
 }
