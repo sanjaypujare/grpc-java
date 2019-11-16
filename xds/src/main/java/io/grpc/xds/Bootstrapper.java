@@ -217,7 +217,7 @@ abstract class Bootstrapper {
     private final Node node;
 
     @VisibleForTesting
-    BootstrapInfo(String serverUri, List<ChannelCreds> channelCredsList, Node node) {
+    public BootstrapInfo(String serverUri, List<ChannelCreds> channelCredsList, Node node) {
       this.serverUri = serverUri;
       this.channelCredsList = channelCredsList;
       this.node = node;

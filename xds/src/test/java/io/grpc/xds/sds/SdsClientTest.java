@@ -335,7 +335,7 @@ public class SdsClientTest {
     return Secret.newBuilder().setName(name).setTlsCertificate(tlsCertificate).build();
   }
 
-  private Secret getOneCertificateValidationContextSecret(String name, String trustFileName)
+  static Secret getOneCertificateValidationContextSecret(String name, String trustFileName)
       throws IOException {
     CertificateValidationContext certificateValidationContext =
         CertificateValidationContext.newBuilder()

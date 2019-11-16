@@ -72,6 +72,7 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
     if (certSdsConfig != null && certSdsConfig.isInitialized()) {
       certSdsClient = SdsClient.Factory.createSdsClient(certSdsConfig, node,
           Executors.newSingleThreadExecutor(), null);
+      certSdsClient.start();
       certSdsClient.watchSecret(this);
     } else {
       certSdsClient = null;
@@ -80,6 +81,7 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
       validationContextSdsClient = SdsClient.Factory
           .createSdsClient(validationContextSdsConfig, node,
               Executors.newSingleThreadExecutor(), null);
+      validationContextSdsClient.start();
       validationContextSdsClient.watchSecret(this);
     } else {
       validationContextSdsClient = null;
@@ -87,7 +89,7 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
   }
 
   static SdsSslContextProvider<UpstreamTlsContext> getProviderForClient(
-      UpstreamTlsContext upstreamTlsContext) {
+      UpstreamTlsContext upstreamTlsContext, Bootstrapper bootstrapper) {
     checkNotNull(upstreamTlsContext, "upstreamTlsContext");
     CommonTlsContext commonTlsContext = upstreamTlsContext.getCommonTlsContext();
     SdsSecretConfig validationContextSdsConfig =
@@ -98,15 +100,15 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
     if (commonTlsContext.getTlsCertificateSdsSecretConfigsCount() > 0) {
       certSdsConfig = commonTlsContext.getTlsCertificateSdsSecretConfigs(0);
     }
-    return new SdsSslContextProvider<>(getNodeFromBootstrap(), certSdsConfig,
+    return new SdsSslContextProvider<>(getNodeFromBootstrap(bootstrapper), certSdsConfig,
         validationContextSdsConfig,
         false, upstreamTlsContext);
   }
 
-  private static Node getNodeFromBootstrap() {
+  private static Node getNodeFromBootstrap(Bootstrapper bootstrapper) {
     Node node = null;
     try {
-      node = Bootstrapper.newInsatnce().readBootstrap().getNode();
+      node = bootstrapper.readBootstrap().getNode();
     } catch (Exception e) {
       logger.log(Level.SEVERE, "exception from Bootstrapper.readBootstrap()", e);
     }
@@ -114,7 +116,7 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
   }
 
   static SdsSslContextProvider<DownstreamTlsContext> getProviderForServer(
-      DownstreamTlsContext downstreamTlsContext) {
+      DownstreamTlsContext downstreamTlsContext, Bootstrapper bootstrapper) {
     checkNotNull(downstreamTlsContext, "downstreamTlsContext");
     CommonTlsContext commonTlsContext = downstreamTlsContext.getCommonTlsContext();
 
@@ -127,7 +129,7 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K> implements
     if (commonTlsContext.hasValidationContextSdsSecretConfig()) {
       validationContextSdsConfig = commonTlsContext.getValidationContextSdsSecretConfig();
     }
-    return new SdsSslContextProvider<>(getNodeFromBootstrap(), certSdsConfig,
+    return new SdsSslContextProvider<>(getNodeFromBootstrap(bootstrapper), certSdsConfig,
         validationContextSdsConfig,
         true, downstreamTlsContext);
   }
