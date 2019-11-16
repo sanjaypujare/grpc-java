@@ -49,21 +49,7 @@ public class ClientSslContextProviderFactoryTest {
   static CommonTlsContext buildCommonTlsContextFromSdsConfigForTlsCertificate(
       String name, String targetUri, String trustCa) {
 
-    ApiConfigSource apiConfigSource =
-        ApiConfigSource.newBuilder()
-            .setApiType(ApiType.GRPC)
-            .addGrpcServices(
-                GrpcService.newBuilder()
-                    .setGoogleGrpc(GoogleGrpc.newBuilder().setTargetUri(targetUri).build())
-                    .build())
-            .build();
-
-    SdsSecretConfig sdsSecretConfig =
-        SdsSecretConfig.newBuilder()
-            .setName(name)
-            .setSdsConfig(ConfigSource.newBuilder().setApiConfigSource(apiConfigSource).build())
-            .build();
-
+    SdsSecretConfig sdsSecretConfig = buildSdsSecretConfig(name, targetUri, null);
     CommonTlsContext.Builder builder =
         CommonTlsContext.newBuilder().addTlsCertificateSdsSecretConfigs(sdsSecretConfig);
 
@@ -78,21 +64,7 @@ public class ClientSslContextProviderFactoryTest {
 
   static CommonTlsContext buildCommonTlsContextFromSdsConfigForValidationContext(
       String name, String targetUri, String privateKey, String certChain) {
-
-    ApiConfigSource apiConfigSource =
-        ApiConfigSource.newBuilder()
-            .setApiType(ApiType.GRPC)
-            .addGrpcServices(
-                GrpcService.newBuilder()
-                    .setGoogleGrpc(GoogleGrpc.newBuilder().setTargetUri(targetUri).build())
-                    .build())
-            .build();
-
-    SdsSecretConfig sdsSecretConfig =
-        SdsSecretConfig.newBuilder()
-            .setName(name)
-            .setSdsConfig(ConfigSource.newBuilder().setApiConfigSource(apiConfigSource).build())
-            .build();
+    SdsSecretConfig sdsSecretConfig = buildSdsSecretConfig(name, targetUri, null);
 
     CommonTlsContext.Builder builder =
         CommonTlsContext.newBuilder().setValidationContextSdsSecretConfig(sdsSecretConfig);
@@ -103,6 +75,37 @@ public class ClientSslContextProviderFactoryTest {
               .setCertificateChain(DataSource.newBuilder().setFilename(certChain))
               .setPrivateKey(DataSource.newBuilder().setFilename(privateKey))
               .build());
+    }
+    return builder.build();
+  }
+
+  private static SdsSecretConfig buildSdsSecretConfig(String name, String targetUri,
+      String channelType) {
+    SdsSecretConfig sdsSecretConfig = null;
+    if (!Strings.isNullOrEmpty(name) && !Strings.isNullOrEmpty(targetUri)) {
+      sdsSecretConfig =
+          SdsSecretConfig.newBuilder()
+              .setName(name)
+              .setSdsConfig(SdsClientTest.buildConfigSource(targetUri, channelType))
+              .build();
+    }
+    return sdsSecretConfig;
+  }
+
+  static CommonTlsContext buildCommonTlsContextFromSdsConfigsForAll(
+      String certName, String certTargetUri, String validationContextName,
+      String validationContextTargetUri, String channelType) {
+
+    CommonTlsContext.Builder builder =
+        CommonTlsContext.newBuilder();
+
+    SdsSecretConfig sdsSecretConfig = buildSdsSecretConfig(certName, certTargetUri, channelType);
+    if (sdsSecretConfig != null) {
+      builder.addTlsCertificateSdsSecretConfigs(sdsSecretConfig);
+    }
+    sdsSecretConfig = buildSdsSecretConfig(validationContextName, validationContextTargetUri, channelType);
+    if (sdsSecretConfig != null) {
+      builder.setValidationContextSdsSecretConfig(sdsSecretConfig);
     }
     return builder.build();
   }

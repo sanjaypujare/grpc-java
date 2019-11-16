@@ -76,7 +76,7 @@ public class SdsClientTest {
   private Node node;
   private SdsSecretConfig sdsSecretConfig;
 
-  private static ConfigSource buildConfigSource(String targetUri, String channelType) {
+  static ConfigSource buildConfigSource(String targetUri, String channelType) {
     GoogleGrpc.Builder googleGrpcBuilder = GoogleGrpc.newBuilder().setTargetUri(targetUri);
     if (channelType != null) {
       Struct.Builder structBuilder = Struct.newBuilder();
