@@ -22,6 +22,7 @@ import io.grpc.examples.helloworld.HelloReply;
 import io.grpc.examples.helloworld.HelloRequest;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NettyServerBuilder;
+import io.grpc.xds.sds.XdsServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -44,50 +45,18 @@ public class HelloWorldServerTls {
 
     private final String host;
     private final int port;
-    private final String certChainFilePath;
-    private final String privateKeyFilePath;
-    private final String trustCertCollectionFilePath;
 
     public HelloWorldServerTls(String host,
-                               int port,
-                               String certChainFilePath,
-                               String privateKeyFilePath,
-                               String trustCertCollectionFilePath) {
+                               int port) {
         this.host = host;
         this.port = port;
-        this.certChainFilePath = certChainFilePath;
-        this.privateKeyFilePath = privateKeyFilePath;
-        this.trustCertCollectionFilePath = trustCertCollectionFilePath;
     }
 
-    private SslContextBuilder getSslContextBuilder() {
-        SslContextBuilder sslClientContextBuilder = SslContextBuilder.forServer(new File(certChainFilePath),
-                new File(privateKeyFilePath));
-        if (trustCertCollectionFilePath != null) {
-            sslClientContextBuilder.trustManager(new File(trustCertCollectionFilePath));
-            sslClientContextBuilder.clientAuth(ClientAuth.REQUIRE);
-        }
-        return GrpcSslContexts.configure(sslClientContextBuilder,
-                SslProvider.OPENSSL);
-    }
-
-    /**
-     * 
-     * 
-     * @return
-     * @throws SSLException 
-     */
-    private DynamicSslContext getSslContext() throws SSLException {
-        return new DynamicSslContext(new File(certChainFilePath), new File(privateKeyFilePath),
-        		new File(trustCertCollectionFilePath), 1L);
-    }
-    
     private void start() throws IOException {
-        server = NettyServerBuilder.forAddress(new InetSocketAddress(host, port))
-                .addService(new GreeterImpl())
-                .sslContext(getSslContext())    // was getSslContextBuilder().build()
-                .build()
-                .start();
+        server = XdsServerBuilder.forPort(port)
+                 .addService(new GreeterImpl())
+                 .build()
+                 .start();
         logger.info("Server started, listening on " + port);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -120,19 +89,15 @@ public class HelloWorldServerTls {
      */
     public static void main(String[] args) throws IOException, InterruptedException {
 
-        if (args.length < 4 || args.length > 5) {
+        if (args.length != 2) {
             System.out.println(
-                    "USAGE: HelloWorldServerTls host port certChainFilePath privateKeyFilePath " +
-                    "[trustCertCollectionFilePath]\n  Note: You only need to supply trustCertCollectionFilePath if you want " +
-                    "to enable Mutual TLS.");
+                    "USAGE: HelloWorldServerTls host port\n" +
+                    "  Note: No need to supply certs files.");
             System.exit(0);
         }
 
         final HelloWorldServerTls server = new HelloWorldServerTls(args[0],
-                Integer.parseInt(args[1]),
-                args[2],
-                args[3],
-                args.length == 5 ? args[4] : null);
+                Integer.parseInt(args[1]));
         server.start();
         server.blockUntilShutdown();
     }
