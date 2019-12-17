@@ -1,8 +1,8 @@
 #!/bin/bash -x
 
-IMAGENAME=proto1_istio_server
-TAG=0.6
-PROJECTID=mgrpc-prototype-gke
+IMAGENAME=grpc_sds_server
+TAG=0.5
+PROJECTID=grpc-sds-testing
 
 echo Building ${IMAGENAME}:${TAG}
 
