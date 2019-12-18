@@ -47,7 +47,7 @@ public class HelloWorldClientTls {
      */
     public HelloWorldClientTls(String host,
                                int port) throws SSLException {
-        this(XdsChannelBuilder.forTarget(host + port)
+        this(XdsChannelBuilder.forAddress(host, port)
             .build());
     }
 
@@ -67,7 +67,7 @@ public class HelloWorldClientTls {
      * Say hello to server.
      */
     public void greet(String name) {
-        logger.info("Will try to greet " + name + " ...");
+        logger.info("Will try to greet server " + name + " ...");
         HelloRequest request = HelloRequest.newBuilder().setName(name).build();
         HelloReply response;
         try {

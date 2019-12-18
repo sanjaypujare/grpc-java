@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-IMAGENAME=grpc_sds_server
+IMAGENAME=grpc-sds-server
 TAG=0.5
 PROJECTID=grpc-sds-testing
 
