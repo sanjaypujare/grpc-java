@@ -1,46 +1,21 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: demo-server
-  labels:
-    app: demo-server
-  annotations:
-    # Annotation to associate service with neg controler, as describe in
-    # https://cloud.google.com/traffic-director/docs/set-up-gke-pods#configuring_kubernetes_services_with_negs
-    # Once the service is deployed, you can check the NEG status with:
-    # ```
-    # $ gcloud alpha compute network-endpoint-groups list
-    # k8s1-92a6ad6d-default-demo-server-8000-bd274fd2  us-central1-c  GCE_VM_IP_PORT  1
-    # ```
-    cloud.google.com/neg: '{"exposed_ports":{"8000":{}}}'
-spec:
-  ports:
-  - name: http
-    port: 8000
-  selector:
-    app: demo-server
-  type: ClusterIP
----
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  creationTimestamp: null
-  name: demo-server
+  name: demo-client
 spec:
   replicas: 1
-  strategy: {}
   template:
     metadata:
       labels:
-        app: demo-server
+        app: demo-client
     spec:
       containers:
-      - image: gcr.io/grpc-sds-testing/grpc-sds-server:0.7
+      - command:
+        - /bin/sleep
+        - inf
+        image: gcr.io/grpc-sds-testing/grpc-sds-client:0.81
         imagePullPolicy: IfNotPresent
-        name: server
-        ports:
-        - containerPort: 8000
-        - containerPort: 8080
+        name: client
         resources: {}
       - args:
         - proxy
@@ -52,7 +27,7 @@ spec:
         - --binaryPath
         - /usr/local/bin/envoy
         - --serviceCluster
-        - demo-server.$(POD_NAMESPACE)
+        - demo-client.$(POD_NAMESPACE)
         - --drainDuration
         - 45s
         - --parentShutdownDuration
@@ -66,11 +41,9 @@ spec:
         - --statusPort
         - "15020"
         - --applicationPorts
-        - "8000"
+        - ""
         - --concurrency
         - "2"
-        - --log_output_level
-        - default:debug
         env:
         - name: POD_NAME
           valueFrom:
@@ -82,10 +55,6 @@ spec:
               fieldPath: metadata.namespace
         - name: ISTIO_META_TRAFFICDIRECTOR_INTERCEPTION_PORT
           value: "15001"
-        - name: ISTIO_META_TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS
-          value: "8000"
-        - name: ISTIO_META_TRAFFICDIRECTOR_WORKLOAD_NAME
-          value: "td-gke-service"
         - name: INSTANCE_IP
           valueFrom:
             fieldRef:
@@ -139,10 +108,10 @@ spec:
         - REDIRECT
         - -i
         - '*'
+        - -x
+        - ""
         - -b
-        # This should be all the serving ports exposed by server app, but not
-        # health check port.
-        - "8000"
+        - ""
         env:
         - name: DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK
           value: "true"
@@ -162,20 +131,21 @@ spec:
             - NET_ADMIN
       securityContext:
         fsGroup: 1337
-      # Make sure the service account is created and associated with some GCP service account.
-      serviceAccountName: bob
+      # Make sure the service account is created and is allowed to use GCP
+      # service account.
+      serviceAccountName: alice
       volumes:
       - emptyDir:
           medium: Memory
         name: istio-envoy
+      - hostPath:
+          path: /var/run/sds
+        name: sds-uds-path
       - name: istio-certs
         secret:
           defaultMode: 420
           optional: true
-          secretName: istio.bob
-      - name: sds-uds-path
-        hostPath:
-          path: /var/run/sds
+          secretName: istio.alice
       - name: istio-token
         projected:
           sources:

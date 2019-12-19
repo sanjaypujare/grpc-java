@@ -6,7 +6,7 @@ PROJECTID=grpc-sds-testing
 
 echo Building ${IMAGENAME}:${TAG}
 
-docker build -t mgrpc/${IMAGENAME}:${TAG} -f Dockerfile_istio.server .
+docker build --no-cache -t mgrpc/${IMAGENAME}:${TAG} -f Dockerfile_istio.server .
 
 docker tag mgrpc/${IMAGENAME}:${TAG} gcr.io/${PROJECTID}/${IMAGENAME}:${TAG}
 
