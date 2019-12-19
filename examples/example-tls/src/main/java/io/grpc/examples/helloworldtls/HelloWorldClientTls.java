@@ -52,6 +52,14 @@ public class HelloWorldClientTls {
     }
 
     /**
+     * Construct client connecting to HelloWorld server at {@code targetUri}.
+     */
+    public HelloWorldClientTls(String targetUri) throws SSLException {
+        this(XdsChannelBuilder.forTarget(targetUri)
+            .build());
+    }
+
+    /**
      * Construct client for accessing RouteGuide server using the existing channel.
      */
     HelloWorldClientTls(ManagedChannel channel) {
@@ -85,13 +93,15 @@ public class HelloWorldClientTls {
      */
     public static void main(String[] args) throws Exception {
 
-        if (args.length != 2) {
-            System.out.println("USAGE: HelloWorldClientTls host port\n" +
-                    "Note: no files to pass for TLS.");
+        if (args.length != 2 && args.length != 1) {
+            System.out.println("USAGE: HelloWorldClientTls host/targetUri [port]\n" +
+                    "Note: either pass host and port or just targetUri with scheme");
             System.exit(0);
         }
 
-        HelloWorldClientTls client = new HelloWorldClientTls(args[0], Integer.parseInt(args[1]));
+        HelloWorldClientTls client = args.length == 2 ?
+            new HelloWorldClientTls(args[0], Integer.parseInt(args[1])) :
+            new HelloWorldClientTls(args[0]);
 
         try {
             /* Access a service running on port  */
