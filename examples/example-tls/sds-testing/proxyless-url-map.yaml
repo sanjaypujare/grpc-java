@@ -1,0 +1,12 @@
+hostRules:
+- description: ''
+  hosts:
+  - 'demo-server'
+  pathMatcher: matcher1
+pathMatchers:
+- defaultService: https://www.googleapis.com/compute/v1/projects/grpc-sds-testing/global/backendServices/td-gke-service
+  name: matcher1
+  pathRules:
+  - paths:
+    - '/'
+    service: https://www.googleapis.com/compute/v1/projects/grpc-sds-testing/global/backendServices/td-gke-service 
