@@ -4,10 +4,14 @@ ADD istioClientScript.sh /istioClientScript.sh
 
 ADD bootstrap.json /bootstrap.json
 
+ADD sds-testing/logging.properties /logging.properties
+
 RUN mkdir -p /build/install/example-tls
 
 ADD build/install/example-tls /build/install/example-tls
 
 ENV GRPC_XDS_BOOTSTRAP=/bootstrap.json
+
+ENV JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
 
 CMD ["/bin/sleep","inf"]
