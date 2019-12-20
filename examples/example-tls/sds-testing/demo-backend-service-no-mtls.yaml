@@ -1,0 +1,20 @@
+affinityCookieTtlSec: 0
+backends:
+- balancingMode: RATE
+  capacityScaler: 1.0
+  description: ''
+  group: https://www.googleapis.com/compute/alpha/projects/grpc-sds-testing/zones/us-west2-a/networkEndpointGroups/k8s1-4812ce20-default-demo-server-8000-b496d5d8
+  maxRatePerEndpoint: 5.0
+connectionDraining:
+  drainingTimeoutSec: 0
+creationTimestamp: '2019-12-18T18:43:52.482-08:00'
+description: ''
+healthChecks:
+- https://www.googleapis.com/compute/alpha/projects/grpc-sds-testing/global/healthChecks/td-gke-health-check
+kind: compute#backendService
+loadBalancingScheme: INTERNAL_SELF_MANAGED
+localityLbPolicy: INVALID_LB_POLICY
+name: td-gke-service
+port: 80
+portName: http
+protocol: HTTP2

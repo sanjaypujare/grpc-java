@@ -2,8 +2,12 @@ FROM openjdk:8
 
 ADD istioClientScript.sh /istioClientScript.sh
 
+ADD bootstrap.json /bootstrap.json
+
 RUN mkdir -p /build/install/example-tls
 
 ADD build/install/example-tls /build/install/example-tls
+
+ENV GRPC_XDS_BOOTSTRAP=/bootstrap.json
 
 CMD ["/bin/sleep","inf"]

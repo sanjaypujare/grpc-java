@@ -1,0 +1,104 @@
+affinityCookieTtlSec: 0
+backends:
+- balancingMode: RATE
+  capacityScaler: 1.0
+  description: ''
+  group: https://www.googleapis.com/compute/alpha/projects/grpc-sds-testing/zones/us-west2-a/networkEndpointGroups/k8s1-4812ce20-default-demo-server-8000-b496d5d8
+  maxRatePerEndpoint: 5.0
+connectionDraining:
+  drainingTimeoutSec: 0
+creationTimestamp: '2019-12-18T18:43:52.482-08:00'
+description: ''
+healthChecks:
+- https://www.googleapis.com/compute/alpha/projects/grpc-sds-testing/global/healthChecks/td-gke-health-check
+kind: compute#backendService
+loadBalancingScheme: INTERNAL_SELF_MANAGED
+localityLbPolicy: INVALID_LB_POLICY
+name: td-gke-service
+port: 80
+portName: http
+protocol: HTTP2
+securitySettings:
+  authenticationPolicy:
+    peers:
+    - mtls:
+        mode: STRICT
+    principalBinding: USE_PEER
+    serverTlsContext:
+      certificateContext:
+        certificateSource: USE_SDS
+        sdsConfig:
+          grpcServiceConfig:
+            callCredentials:
+              callCredentialType: FROM_PLUGIN
+              fromPlugin:
+                name: envoy.grpc_credentials.file_based_metadata
+                structConfig: "fields {\n  key: \"header_key\"\n  value {\n    string_value:\
+                  \ \"istio_sds_credentials_header-bin\"\n  }\n}\nfields {\n  key:\
+                  \ \"secret_data\"\n  value {\n    struct_value {\n      fields {\n\
+                  \        key: \"filename\"\n        value {\n          string_value:\
+                  \ \"/var/run/secrets/tokens/istio-token\"\n        }\n      }\n\
+                  \    }\n  }\n}\n"
+            channelCredentials:
+              channelCredentialType: GCE_VM
+            targetUri: unix:/var/run/sds/uds_path
+      validationContext:
+        sdsConfig:
+          grpcServiceConfig:
+            callCredentials:
+              callCredentialType: FROM_PLUGIN
+              fromPlugin:
+                name: envoy.grpc_credentials.file_based_metadata
+                structConfig: "fields {\n  key: \"header_key\"\n  value {\n    string_value:\
+                  \ \"istio_sds_credentials_header-bin\"\n  }\n}\nfields {\n  key:\
+                  \ \"secret_data\"\n  value {\n    struct_value {\n      fields {\n\
+                  \        key: \"filename\"\n        value {\n          string_value:\
+                  \ \"/var/run/secrets/tokens/istio-token\"\n        }\n      }\n\
+                  \    }\n  }\n}\n"
+            channelCredentials:
+              channelCredentialType: GCE_VM
+            targetUri: unix:/var/run/sds/uds_path
+        validationSource: USE_SDS
+  clientTlsSettings:
+    clientTlsContext:
+      certificateContext:
+        certificateSource: USE_SDS
+        sdsConfig:
+          grpcServiceConfig:
+            callCredentials:
+              callCredentialType: FROM_PLUGIN
+              fromPlugin:
+                name: envoy.grpc_credentials.file_based_metadata
+                structConfig: "fields {\n  key: \"header_key\"\n  value {\n    string_value:\
+                  \ \"istio_sds_credentials_header-bin\" \n  }\n}\nfields {\n  key:\
+                  \ \"secret_data\"\n  value {\n    struct_value {\n      fields {\n\
+                  \        key: \"filename\"\n        value {\n          string_value:\
+                  \ \"/var/run/secrets/tokens/istio-token\"\n        }\n      }\n\
+                  \    }\n  }\n}\n"
+            channelCredentials:
+              channelCredentialType: GCE_VM
+            targetUri: unix:/var/run/sds/uds_path
+      validationContext:
+        sdsConfig:
+          grpcServiceConfig:
+            callCredentials:
+              callCredentialType: FROM_PLUGIN
+              fromPlugin:
+                name: envoy.grpc_credentials.file_based_metadata
+                structConfig: "fields {\n  key: \"header_key\"\n  value {\n    string_value:\
+                  \ \"istio_sds_credentials_header-bin\"\n  }\n}\nfields {\n  key:\
+                  \ \"secret_data\"\n  value {\n    struct_value {\n      fields {\n\
+                  \        key: \"filename\"\n        value {\n          string_value:\
+                  \ \"/var/run/secrets/tokens/istio-token\"\n        }\n      }\n\
+                  \    }\n  }\n}\n"
+            channelCredentials:
+              channelCredentialType: GCE_VM
+            targetUri: unix:/var/run/sds/uds_path
+        validationSource: USE_SDS
+    mode: MUTUAL
+    subjectAltNames:
+    - spiffe://grpc-sds-testing.svc.id.goog/ns/default/sa/bob
+selfLink: https://www.googleapis.com/compute/alpha/projects/grpc-sds-testing/global/backendServices/td-gke-service
+selfLinkWithId: https://www.googleapis.com/compute/alpha/projects/grpc-sds-testing/global/backendServices/311086540742155527
+sessionAffinity: NONE
+timeoutSec: 30
