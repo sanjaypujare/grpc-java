@@ -1,0 +1,55 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: proxyless-grpc-sds-client
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: proxyless-grpc-sds-client
+    spec:
+      containers:
+      - command:
+        - /bin/sleep
+        - inf
+        image: gcr.io/grpc-sds-testing/grpc-sds-client:0.87
+        imagePullPolicy: IfNotPresent
+        name: client
+        resources: {}
+        volumeMounts:
+        - mountPath: /etc/istio/proxy
+          name: istio-envoy
+        - mountPath: /etc/certs/
+          name: istio-certs
+        - mountPath: /var/run/sds
+          name: sds-uds-path
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token	
+      initContainers:
+      securityContext:
+        fsGroup: 1337
+      # Make sure the service account is created and is allowed to use GCP
+      # service account.
+      serviceAccountName: alice
+      volumes:
+      - emptyDir:
+          medium: Memory
+        name: istio-envoy
+      - hostPath:
+          path: /var/run/sds
+        name: sds-uds-path
+      - name: istio-certs
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: istio.alice
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              # Replace with identity namespace. Typically, it is
+              # $PROJECT_ID.svc.id.goog
+              audience: grpc-sds-testing.svc.id.goog
+              expirationSeconds: 43200
+              path: istio-token
