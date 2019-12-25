@@ -13,7 +13,7 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/grpc-sds-testing/grpc-sds-client:0.88
+        image: gcr.io/grpc-sds-testing/grpc-sds-client:0.92
         imagePullPolicy: IfNotPresent
         name: client
         resources: {}
@@ -28,6 +28,9 @@ spec:
           name: istio-token	
       initContainers:
       securityContext:
+      # uncomment or remove the 2 lines based on what we find
+      #  runAsGroup: 1337
+      #  runAsUser: 1337
         fsGroup: 1337
       # Make sure the service account is created and is allowed to use GCP
       # service account.
