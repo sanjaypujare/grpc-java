@@ -240,6 +240,12 @@ final class SdsClient {
       }
       responseObserver = new ResponseObserver();
       requestObserver = secretDiscoveryServiceStub.streamSecrets(responseObserver);
+      logger.log(Level.FINEST, "Stream created for " + sdsSecretConfig);
+      try {
+        Thread.sleep(300);
+      } catch (InterruptedException e) {
+        logger.log(Level.SEVERE, "sleep", e);
+      }
     }
   }
 
@@ -261,6 +267,7 @@ final class SdsClient {
 
     @Override
     public void onNext(DiscoveryResponse discoveryResponse) {
+      logger.log(Level.FINEST, "response=" + discoveryResponse);
       processDiscoveryResponse(discoveryResponse);
     }
 
@@ -272,6 +279,7 @@ final class SdsClient {
     @Override
     public void onCompleted() {
       // TODO(sanjaypujare): add retry logic once client implementation is final
+      logger.warning("Stream unexpectedly completed.");
     }
   }
 
@@ -446,6 +454,7 @@ final class SdsClient {
             .setNode(clientNode);
 
     DiscoveryRequest req = builder.build();
+    logger.log(Level.FINEST, "req=" + req);
     requestObserver.onNext(req);
   }
 }
