@@ -237,6 +237,13 @@ public final class SdsProtocolNegotiators {
           },
           ctx.executor());
     }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
+        throws Exception {
+      logger.log(Level.SEVERE, "exceptionCaught", cause);
+      ctx.fireExceptionCaught(cause);
+    }
   }
 
   private static final class ServerSdsProtocolNegotiator implements ProtocolNegotiator {

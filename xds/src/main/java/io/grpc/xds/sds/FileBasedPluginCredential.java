@@ -30,7 +30,6 @@ import io.envoyproxy.envoy.api.v2.core.GrpcService.GoogleGrpc.CallCredentials.Me
 import io.grpc.CallCredentials;
 import io.grpc.Metadata;
 import io.grpc.Status;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -43,7 +42,6 @@ import javax.annotation.Nullable;
 final class FileBasedPluginCredential extends CallCredentials {
 
   private static final Logger logger = Logger.getLogger(FileBasedPluginCredential.class.getName());
-
   public static final String PLUGIN_NAME = "envoy.grpc_credentials.file_based_metadata";
   public static final String HEADER_KEY = "header_key";
   public static final String HEADER_PREFIX = "header_prefix";

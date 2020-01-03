@@ -23,10 +23,8 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
-import com.google.rpc.Code;
 import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
 import io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig;
@@ -241,11 +239,12 @@ final class SdsClient {
       responseObserver = new ResponseObserver();
       requestObserver = secretDiscoveryServiceStub.streamSecrets(responseObserver);
       logger.log(Level.FINEST, "Stream created for " + sdsSecretConfig);
+      /*
       try {
         Thread.sleep(300);
       } catch (InterruptedException e) {
         logger.log(Level.SEVERE, "sleep", e);
-      }
+      } */
     }
   }
 
@@ -288,8 +287,9 @@ final class SdsClient {
         new Runnable() {
           @Override
           public void run() {
-            if (!processSecretsFromDiscoveryResponse(response)) {
-              sendNack(Code.INTERNAL_VALUE, "Secret not updated");
+            Throwable exceptionSeen = processSecretsFromDiscoveryResponse(response);
+            if (exceptionSeen != null) {
+              sendNack(exceptionSeen);
               return;
             }
             lastResponse = response;
@@ -299,7 +299,7 @@ final class SdsClient {
         });
   }
 
-  private void sendNack(int errorCode, String errorMessage) {
+  private void sendNack(Throwable exceptionSeen) {
     String nonce = "";
     String versionInfo = "";
 
@@ -307,6 +307,7 @@ final class SdsClient {
       nonce = lastResponse.getNonce();
       versionInfo = lastResponse.getVersionInfo();
     }
+    Status grpcStatus = Status.fromThrowable(exceptionSeen);
     DiscoveryRequest.Builder builder =
         DiscoveryRequest.newBuilder()
             .setTypeUrl(SECRET_TYPE_URL)
@@ -315,12 +316,14 @@ final class SdsClient {
             .addResourceNames(sdsSecretConfig.getName())
             .setErrorDetail(
                 com.google.rpc.Status.newBuilder()
-                    .setCode(errorCode)
-                    .setMessage(errorMessage)
+                    .setCode(grpcStatus.getCode().value())
+                    .setMessage(grpcStatus.getDescription() != null ? grpcStatus.getDescription()
+                        : "Secret not updated")
                     .build())
             .setNode(clientNode);
 
     DiscoveryRequest req = builder.build();
+    logger.log(Level.FINEST, "NACK req=" + req);
     requestObserver.onNext(req);
   }
 
@@ -341,42 +344,34 @@ final class SdsClient {
     }
   }
 
-  private boolean processSecretsFromDiscoveryResponse(DiscoveryResponse response) {
+  private Throwable processSecretsFromDiscoveryResponse(DiscoveryResponse response) {
     List<Any> resources = response.getResourcesList();
     checkState(resources.size() == 1, "exactly one resource expected");
-    boolean noException = true;
+    Throwable exceptionSeen = null;
     for (Any any : resources) {
       final String typeUrl = any.getTypeUrl();
       checkState(SECRET_TYPE_URL.equals(typeUrl), "wrong value for typeUrl %s", typeUrl);
       Secret secret = null;
       try {
         secret = Secret.parseFrom(any.getValue());
-        if (!processSecret(secret)) {
-          noException = false;
-        }
-      } catch (InvalidProtocolBufferException e) {
-        logger.log(Level.SEVERE, "exception from parseFrom", e);
+        processSecret(secret);
+      } catch (Throwable throwable) {
+        exceptionSeen = throwable;
+        logger.log(Level.SEVERE, "exception while processing secret", throwable);
       }
     }
-    return noException;
+    return exceptionSeen;
   }
 
-  private boolean processSecret(Secret secret) {
+  private void processSecret(Secret secret) {
     checkState(
         sdsSecretConfig.getName().equals(secret.getName()),
         "expected secret name %s",
         sdsSecretConfig.getName());
-    boolean noException = true;
     final SecretWatcher localCopy = watcher;
     if (localCopy != null) {
-      try {
-        localCopy.onSecretChanged(secret);
-      } catch (Throwable throwable) {
-        noException = false;
-        logger.log(Level.SEVERE, "exception from onSecretChanged", throwable);
-      }
+      localCopy.onSecretChanged(secret);
     }
-    return noException;
   }
 
   /** Registers a secret watcher for this client's SdsSecretConfig. */

@@ -26,7 +26,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext;
 import io.envoyproxy.envoy.api.v2.core.Node;
-import io.grpc.Status;
+import io.grpc.Status.Code;
 import java.io.IOException;
 import java.util.Arrays;
 import org.junit.After;
@@ -167,7 +167,7 @@ public class SdsSslContextProviderTest {
     assertThat(server.lastNack.getVersionInfo()).isEmpty();
     assertThat(server.lastNack.getResponseNonce()).isEmpty();
     com.google.rpc.Status errorDetail = server.lastNack.getErrorDetail();
-    assertThat(errorDetail.getCode()).isEqualTo(Status.Code.INTERNAL.value());
+    assertThat(errorDetail.getCode()).isEqualTo(Code.UNKNOWN.value());
     assertThat(errorDetail.getMessage()).isEqualTo("Secret not updated");
     assertThat(testCallback.updatedSslContext).isNull();
   }

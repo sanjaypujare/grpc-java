@@ -387,6 +387,12 @@ final class ProtocolNegotiators {
       replaceProtocolNegotiationEvent(existingPne.withAttributes(attrs).withSecurity(security));
       fireProtocolNegotiationEvent(ctx);
     }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+      log.log(Level.SEVERE, "exceptionCaught", cause);
+      ctx.fireExceptionCaught(cause);
+    }
   }
 
   @VisibleForTesting
