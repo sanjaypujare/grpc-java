@@ -13,7 +13,7 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/grpc-sds-testing/grpc-sds-client:0.96
+        image: gcr.io/grpc-sds-testing/grpc-sds-client:0.98
         imagePullPolicy: IfNotPresent
         name: client
         resources: {}
@@ -25,7 +25,9 @@ spec:
         - mountPath: /var/run/sds
           name: sds-uds-path
         - mountPath: /var/run/secrets/tokens
-          name: istio-token	
+          name: istio-token
+      nodeSelector:
+        nodeagent-type: pkcs8
       initContainers:
       securityContext:
       # uncomment or remove the 2 lines based on what we find
