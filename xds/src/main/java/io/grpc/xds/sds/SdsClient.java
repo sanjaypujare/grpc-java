@@ -323,7 +323,7 @@ final class SdsClient {
             .setNode(clientNode);
 
     DiscoveryRequest req = builder.build();
-    logger.log(Level.FINEST, "NACK req=" + req);
+    logger.log(Level.FINEST, "Sending NACK req=" + req);
     requestObserver.onNext(req);
   }
 
@@ -435,10 +435,12 @@ final class SdsClient {
   private void sendDiscoveryRequestOnStream() {
     String nonce = "";
     String versionInfo = "";
+    String requestType = "Sending initial req=";
 
     if (lastResponse != null) {
       nonce = lastResponse.getNonce();
       versionInfo = lastResponse.getVersionInfo();
+      requestType = "Sending ACK req=";
     }
     DiscoveryRequest.Builder builder =
         DiscoveryRequest.newBuilder()
@@ -449,7 +451,7 @@ final class SdsClient {
             .setNode(clientNode);
 
     DiscoveryRequest req = builder.build();
-    logger.log(Level.FINEST, "req=" + req);
+    logger.log(Level.FINEST, requestType + req);
     requestObserver.onNext(req);
   }
 }
