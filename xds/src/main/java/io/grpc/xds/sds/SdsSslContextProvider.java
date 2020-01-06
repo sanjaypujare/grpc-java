@@ -32,7 +32,6 @@ import io.grpc.netty.GrpcSslContexts;
 import io.grpc.xds.sds.trust.SdsTrustManagerFactory;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
-
 import java.io.IOException;
 import java.security.cert.CertStoreException;
 import java.security.cert.CertificateException;
@@ -63,13 +62,14 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K>
   @Nullable private SslContext sslContext;
 
   private SdsSslContextProvider(
-          Node node,
-          SdsSecretConfig certSdsConfig,
-          SdsSecretConfig validationContextSdsConfig,
-          CertificateValidationContext staticCertValidationContext, Executor watcherExecutor,
-          Executor channelExecutor,
-          boolean server,
-          K source) {
+      Node node,
+      SdsSecretConfig certSdsConfig,
+      SdsSecretConfig validationContextSdsConfig,
+      CertificateValidationContext staticCertValidationContext,
+      Executor watcherExecutor,
+      Executor channelExecutor,
+      boolean server,
+      K source) {
     super(source, server);
     this.certSdsConfig = certSdsConfig;
     this.validationContextSdsConfig = validationContextSdsConfig;
@@ -125,7 +125,8 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K>
         node,
         certSdsConfig,
         validationContextSdsConfig,
-        staticCertValidationContext, watcherExecutor,
+        staticCertValidationContext,
+        watcherExecutor,
         channelExecutor,
         false,
         upstreamTlsContext);

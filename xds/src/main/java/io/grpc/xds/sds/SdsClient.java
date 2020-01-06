@@ -239,12 +239,6 @@ final class SdsClient {
       responseObserver = new ResponseObserver();
       requestObserver = secretDiscoveryServiceStub.streamSecrets(responseObserver);
       logger.log(Level.FINEST, "Stream created for " + sdsSecretConfig);
-      /*
-      try {
-        Thread.sleep(300);
-      } catch (InterruptedException e) {
-        logger.log(Level.SEVERE, "sleep", e);
-      } */
     }
   }
 

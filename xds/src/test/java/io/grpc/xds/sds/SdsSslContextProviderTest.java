@@ -117,7 +117,7 @@ public class SdsSslContextProviderTest {
             /* server= */ false,
             /* certName= */ "cert1",
             /* validationContextName= */ "valid1",
-            null);
+            /* verifySubjectAltNames= */ null);
     SecretVolumeSslContextProviderTest.TestCallback testCallback =
         SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
 
@@ -131,7 +131,8 @@ public class SdsSslContextProviderTest {
 
     SdsSslContextProvider<?> provider =
         getSdsSslContextProvider(
-            /* server= */ true, /* certName= */ "cert1", /* validationContextName= */ null, null);
+            /* server= */ true, /* certName= */ "cert1", /* validationContextName= */ null,
+            /* verifySubjectAltNames= */ null);
     SecretVolumeSslContextProviderTest.TestCallback testCallback =
         SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
 
@@ -159,7 +160,8 @@ public class SdsSslContextProviderTest {
 
     SdsSslContextProvider<?> provider =
         getSdsSslContextProvider(
-            /* server= */ true, /* certName= */ null, /* validationContextName= */ "valid1", null);
+            /* server= */ true, /* certName= */ null, /* validationContextName= */ "valid1",
+            /* verifySubjectAltNames= */ null);
     SecretVolumeSslContextProviderTest.TestCallback testCallback =
         SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
 
