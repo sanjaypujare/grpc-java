@@ -34,14 +34,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executor;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** Implements file based Google GRPC call cred needed by SDS server. */
 final class FileBasedPluginCredential extends CallCredentials {
 
-  private static final Logger logger = Logger.getLogger(FileBasedPluginCredential.class.getName());
   public static final String PLUGIN_NAME = "envoy.grpc_credentials.file_based_metadata";
   public static final String HEADER_KEY = "header_key";
   public static final String HEADER_PREFIX = "header_prefix";
@@ -78,7 +75,6 @@ final class FileBasedPluginCredential extends CallCredentials {
     Value value = configStruct.getFieldsOrThrow(SECRET_DATA);
     checkState(value.hasStructValue(), "expected struct value for %s", SECRET_DATA);
     secretData = buildDataSourceFromConfigStruct(value.getStructValue());
-    logger.log(Level.FINEST, "secretData=" + secretData);
   }
 
   private static DataSource buildDataSourceFromConfigStruct(Struct secretValueStruct) {
@@ -93,8 +89,7 @@ final class FileBasedPluginCredential extends CallCredentials {
 
   @Override
   public void applyRequestMetadata(
-      @Nullable final RequestInfo requestInfo, Executor appExecutor,
-      final MetadataApplier applier) {
+      @Nullable RequestInfo requestInfo, Executor appExecutor, final MetadataApplier applier) {
     appExecutor.execute(
         new Runnable() {
           @Override
@@ -116,8 +111,6 @@ final class FileBasedPluginCredential extends CallCredentials {
                     Metadata.Key.of(headerKey, Metadata.ASCII_STRING_MARSHALLER);
                 headers.put(metadataHeaderKey, headerValue);
               }
-              logger.log(
-                  Level.FINEST, "authority=" + requestInfo.getAuthority() + " headers=" + headers);
               applier.apply(headers);
             } catch (IOException e) {
               applier.fail(Status.fromThrowable(e));
