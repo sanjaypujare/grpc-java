@@ -335,7 +335,6 @@ final class ProtocolNegotiators {
     ClientTlsHandler(ChannelHandler next, SslContext sslContext, String authority,
         Executor executor) {
       super(next);
-      log.log(Level.FINEST, "next=" + next + ", authority=" + authority);
       this.sslContext = checkNotNull(sslContext, "sslContext");
       HostPort hostPort = parseAuthority(authority);
       this.host = hostPort.host;
@@ -345,7 +344,6 @@ final class ProtocolNegotiators {
 
     @Override
     protected void handlerAdded0(ChannelHandlerContext ctx) {
-      log.log(Level.FINEST, "ctx.name=" + ctx.name());
       SSLEngine sslEngine = sslContext.newEngine(ctx.alloc(), host, port);
       SSLParameters sslParams = sslEngine.getSSLParameters();
       sslParams.setEndpointIdentificationAlgorithm("HTTPS");
@@ -357,7 +355,6 @@ final class ProtocolNegotiators {
 
     @Override
     protected void userEventTriggered0(ChannelHandlerContext ctx, Object evt) throws Exception {
-      log.log(Level.FINEST, "ctx.name=" + ctx.name() + ", evt=" + evt);
       if (evt instanceof SslHandshakeCompletionEvent) {
         SslHandshakeCompletionEvent handshakeEvent = (SslHandshakeCompletionEvent) evt;
         if (handshakeEvent.isSuccess()) {
@@ -381,7 +378,6 @@ final class ProtocolNegotiators {
     }
 
     private void propagateTlsComplete(ChannelHandlerContext ctx, SSLSession session) {
-      log.log(Level.FINEST, "SSLSession=" + session);
       Security security = new Security(new Tls(session));
       ProtocolNegotiationEvent existingPne = getProtocolNegotiationEvent();
       Attributes attrs = existingPne.getAttributes().toBuilder()
@@ -390,12 +386,6 @@ final class ProtocolNegotiators {
           .build();
       replaceProtocolNegotiationEvent(existingPne.withAttributes(attrs).withSecurity(security));
       fireProtocolNegotiationEvent(ctx);
-    }
-
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-      log.log(Level.SEVERE, "exceptionCaught", cause);
-      ctx.fireExceptionCaught(cause);
     }
   }
 
