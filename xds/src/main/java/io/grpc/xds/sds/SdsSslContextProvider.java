@@ -30,12 +30,15 @@ import io.envoyproxy.envoy.api.v2.core.Node;
 import io.grpc.Status;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.xds.sds.trust.SdsTrustManagerFactory;
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslHandler;
 import java.io.IOException;
 import java.security.cert.CertStoreException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
@@ -248,7 +251,13 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K>
               tlsCertificate.hasPassword() ? tlsCertificate.getPassword().getInlineString() : null);
         }
       }
-      SslContext sslContextCopy = sslContextBuilder.build();
+      SslContext sslContextCopy = sslContextBuilder.protocols("TLSv1.2").build();
+      // temp code
+      SslHandler sslHandler = sslContextCopy.newHandler(ByteBufAllocator.DEFAULT);
+      sslHandler.engine().setEnabledProtocols(new String[] {"TLSv1.2"});
+      logger.finest("getEnabledProtocols=" + Arrays.toString(sslHandler.engine()
+          .getEnabledProtocols()));
+      // end temp code
       sslContext = sslContextCopy;
       makePendingCallbacks(sslContextCopy);
     } catch (CertificateException | IOException | CertStoreException e) {
