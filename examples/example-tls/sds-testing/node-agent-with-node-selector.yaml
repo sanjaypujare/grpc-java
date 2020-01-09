@@ -169,7 +169,7 @@ spec:
       serviceAccountName: istio-nodeagent-service-account
       containers:
       - name: nodeagent-pkcs8
-        image: "docker.io/jimmycyj/node-agent-k8s:0786d0"
+        image: "gcr.io/grpc-sds-testing/node-agent-k8s:0a3ba3958aec17e0b7c08ae444a1302cfadb5088"
         imagePullPolicy: IfNotPresent
         args:
         - --log_output_level
