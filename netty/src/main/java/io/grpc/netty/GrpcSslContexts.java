@@ -50,6 +50,7 @@ public class GrpcSslContexts {
 
   private GrpcSslContexts() {}
 
+  private static final String MANAGED_MTLS = "managed-mtls";
   /*
    * The experimental "grpc-exp" string identifies gRPC (and by implication
    * HTTP/2) when used over TLS. This indicates to the server that the client
@@ -68,7 +69,7 @@ public class GrpcSslContexts {
    * preferenced over HTTP2_VERSION.
    */
   static final List<String> NEXT_PROTOCOL_VERSIONS =
-      Collections.unmodifiableList(Arrays.asList(GRPC_EXP_VERSION, HTTP2_VERSION));
+      Collections.unmodifiableList(Arrays.asList(MANAGED_MTLS, GRPC_EXP_VERSION, HTTP2_VERSION));
 
   /*
    * These configs use ACCEPT due to limited support in OpenSSL.  Actual protocol enforcement is

@@ -244,11 +244,13 @@ final class SdsClient {
 
   /** Stops resource discovery. No method in this class should be called after this point. */
   void shutdown() {
+    logger.finest("entering shutdown");
     if (requestObserver != null) {
       requestObserver.onCompleted();
       requestObserver = null;
       channel.shutdownNow();
       if (eventLoopGroup != null) {
+        logger.finest("calling SharedResourceHolder.release");
         eventLoopGroup = SharedResourceHolder.release(eventLoopGroupResource, eventLoopGroup);
       }
     }
@@ -418,6 +420,7 @@ final class SdsClient {
     @Override
     public void close(EventLoopGroup instance) {
       try {
+        logger.finest("calling instance.shutdownGracefully");
         instance.shutdownGracefully(0, 0, TimeUnit.SECONDS).sync();
       } catch (InterruptedException e) {
         logger.log(Level.SEVERE, "from EventLoopGroup.shutdownGracefully", e);

@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.X509ExtendedTrustManager;
 import javax.net.ssl.X509TrustManager;
 
@@ -271,6 +272,11 @@ final class SdsX509TrustManager extends X509ExtendedTrustManager implements X509
       throws CertificateException {
     logger.finest("chain=" + Arrays.toString(chain) + ", authType=" + authType
         + ", SSLEngine=" + sslEngine);
+    SSLParameters sslParams = sslEngine.getSSLParameters();
+    sslParams.setEndpointIdentificationAlgorithm(null);
+    sslEngine.setSSLParameters(sslParams);
+    logger.finest("after mod endpointIdentificationAlgorithm="
+        + sslEngine.getSSLParameters().getEndpointIdentificationAlgorithm());
     delegate.checkServerTrusted(chain, authType, sslEngine);
     verifySubjectAltNameInChain(chain);
   }

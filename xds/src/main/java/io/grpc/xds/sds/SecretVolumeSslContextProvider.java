@@ -30,13 +30,17 @@ import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.core.DataSource.SpecifierCase;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.xds.sds.trust.SdsTrustManagerFactory;
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslHandler;
 import java.io.File;
 import java.io.IOException;
 import java.security.cert.CertStoreException;
 import java.security.cert.CertificateException;
+import java.util.Arrays;
 import java.util.concurrent.Executor;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -44,6 +48,9 @@ import javax.annotation.Nullable;
  * client SslContexts
  */
 final class SecretVolumeSslContextProvider<K> extends SslContextProvider<K> {
+
+  private static final Logger logger = Logger.getLogger(
+      SecretVolumeSslContextProvider.class.getName());
 
   @Nullable private final String privateKey;
   @Nullable private final String privateKeyPassword;
@@ -216,6 +223,15 @@ final class SecretVolumeSslContextProvider<K> extends SslContextProvider<K> {
             new File(certificateChain), new File(privateKey), privateKeyPassword);
       }
     }
-    return sslContextBuilder.build();
+    // temp code
+    SslContext sslContextCopy = sslContextBuilder.build();
+    SslHandler sslHandler = sslContextCopy.newHandler(ByteBufAllocator.DEFAULT);
+    sslHandler.engine().setEnabledProtocols(new String[] {"TLSv1.2"});
+    logger.finest("getEnabledProtocols=" + Arrays.toString(sslHandler.engine()
+        .getEnabledProtocols()));
+    logger.finest("cipherSuites=" + sslContextCopy.cipherSuites());
+
+    return sslContextCopy;
+    // end temp code
   }
 }

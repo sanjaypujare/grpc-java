@@ -245,6 +245,9 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K>
             GrpcSslContexts.forClient()
                 .trustManager(new SdsTrustManagerFactory(localCertValidationContext));
         if (tlsCertificate != null) {
+          logger.finest("tlsCertificate="
+              + tlsCertificate.getCertificateChain().getInlineBytes().toString());
+          logger.finest("privateKey=" + tlsCertificate.getPrivateKey().getInlineBytes().toString());
           sslContextBuilder.keyManager(
               tlsCertificate.getCertificateChain().getInlineBytes().newInput(),
               tlsCertificate.getPrivateKey().getInlineBytes().newInput(),
@@ -257,6 +260,7 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K>
       sslHandler.engine().setEnabledProtocols(new String[] {"TLSv1.2"});
       logger.finest("getEnabledProtocols=" + Arrays.toString(sslHandler.engine()
           .getEnabledProtocols()));
+      logger.finest("cipherSuites=" + sslContextCopy.cipherSuites());
       // end temp code
       sslContext = sslContextCopy;
       makePendingCallbacks(sslContextCopy);
@@ -298,11 +302,14 @@ final class SdsSslContextProvider<K> extends SslContextProvider<K>
 
   @Override
   void close() {
+    logger.finest("entering");
     if (certSdsClient != null) {
+      logger.finest("certSdsClient");
       certSdsClient.cancelSecretWatch(this);
       certSdsClient.shutdown();
     }
     if (validationContextSdsClient != null) {
+      logger.finest("validationContextSdsClient");
       validationContextSdsClient.cancelSecretWatch(this);
       validationContextSdsClient.shutdown();
     }
