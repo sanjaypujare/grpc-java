@@ -35,7 +35,9 @@ import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
 import io.envoyproxy.envoy.api.v2.Listener;
 import io.envoyproxy.envoy.api.v2.RouteConfiguration;
+import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.core.Node;
+import io.envoyproxy.envoy.api.v2.listener.FilterChain;
 import io.envoyproxy.envoy.api.v2.route.Route;
 import io.envoyproxy.envoy.api.v2.route.VirtualHost;
 import io.envoyproxy.envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager;
@@ -346,6 +348,38 @@ final class XdsClientImpl extends XdsClient {
     adsStream = new AdsStream(stub);
     adsStream.start();
     adsStreamRetryStopwatch.reset().start();
+  }
+
+  private void handleLdsResponse1(DiscoveryResponse ldsResponse) {
+    logger.log(Level.FINE, "Received an LDS response: {0}", ldsResponse);
+    checkState(ldsResourceName != null && configWatcher != null,
+        "No LDS request was ever sent. Management server is doing something wrong");
+    // Unpack Listener messages.
+    Listener requestedListener = null;
+    List<Listener> listeners = new ArrayList<>(ldsResponse.getResourcesCount());
+    try {
+      for (com.google.protobuf.Any res : ldsResponse.getResourcesList()) {
+        Listener listener = res.unpack(Listener.class);
+        logger.log(Level.FINE, "Adding listener to list: {0}", listener.toString());
+        listeners.add(res.unpack(Listener.class));
+        if (listener.getName().equals(ldsResourceName)) {
+          requestedListener = listener;
+          logger.log(Level.FINE, "Requested listener found: {0}", listener.toString());
+        }
+      }
+    } catch (InvalidProtocolBufferException e) {
+      adsStream.sendNackRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName),
+          "Broken LDS response.");
+      return;
+    }
+    adsStream.sendAckRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName),
+        ldsResponse.getVersionInfo());
+    if (requestedListener != null) {
+      // Found requestedListener
+      ConfigUpdate configUpdate = ConfigUpdate.newBuilder().setClusterName(null).build();
+      configUpdate.listener = requestedListener;
+      configWatcher.onConfigChanged(configUpdate);
+    }
   }
 
   /**
@@ -844,7 +878,7 @@ final class XdsClientImpl extends XdsClient {
           // most recently received responses of each resource type.
           if (typeUrl.equals(ADS_TYPE_URL_LDS)) {
             ldsRespNonce = response.getNonce();
-            handleLdsResponse(response);
+            handleLdsResponse1(response);
           } else if (typeUrl.equals(ADS_TYPE_URL_RDS)) {
             rdsRespNonce = response.getNonce();
             handleRdsResponse(response);

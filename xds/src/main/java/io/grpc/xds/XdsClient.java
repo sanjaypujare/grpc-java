@@ -23,6 +23,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 // TODO(sanjaypujare): remove dependency on envoy data types.
+import io.envoyproxy.envoy.api.v2.Listener;
+import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -58,6 +60,7 @@ abstract class XdsClient {
    */
   static final class ConfigUpdate {
     private final String clusterName;
+    public Listener listener;
 
     private ConfigUpdate(String clusterName) {
       this.clusterName = clusterName;
@@ -73,6 +76,7 @@ abstract class XdsClient {
 
     static final class Builder {
       private String clusterName;
+      DownstreamTlsContext downstreamTlsContext;
 
       // Use ConfigUpdate.newBuilder().
       private Builder() {

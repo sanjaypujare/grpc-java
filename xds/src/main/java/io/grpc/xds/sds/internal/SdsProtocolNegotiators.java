@@ -29,6 +29,8 @@ import io.grpc.netty.InternalProtocolNegotiator;
 import io.grpc.netty.InternalProtocolNegotiator.ProtocolNegotiator;
 import io.grpc.netty.InternalProtocolNegotiators;
 import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.xds.Bootstrapper;
+import io.grpc.xds.GrpcServerXdsClient;
 import io.grpc.xds.XdsAttributes;
 import io.grpc.xds.sds.SslContextProvider;
 import io.grpc.xds.sds.TlsContextManagerImpl;
@@ -71,8 +73,8 @@ public final class SdsProtocolNegotiators {
    */
   // TODO (sanjaypujare) integrate with xDS client to get LDS
   public static ProtocolNegotiator serverProtocolNegotiator(
-      @Nullable DownstreamTlsContext downstreamTlsContext) {
-    return new ServerSdsProtocolNegotiator(downstreamTlsContext);
+      @Nullable DownstreamTlsContext downstreamTlsContext, int port) {
+    return new ServerSdsProtocolNegotiator(downstreamTlsContext, port);
   }
 
   private static final class ClientSdsProtocolNegotiatorFactory
@@ -251,10 +253,11 @@ public final class SdsProtocolNegotiators {
 
     // TODO (sanjaypujare) integrate with xDS client to get LDS. LDS watcher will
     // inject/update the downstreamTlsContext from LDS
-    private DownstreamTlsContext downstreamTlsContext;
+    private GrpcServerXdsClient grpcServerXdsClient;
 
-    ServerSdsProtocolNegotiator(DownstreamTlsContext downstreamTlsContext) {
-      this.downstreamTlsContext = downstreamTlsContext;
+    ServerSdsProtocolNegotiator(DownstreamTlsContext downstreamTlsContext, int port) {
+      this.grpcServerXdsClient = new GrpcServerXdsClient(downstreamTlsContext, port,
+          Bootstrapper.getInstance());
     }
 
     @Override
@@ -264,6 +267,7 @@ public final class SdsProtocolNegotiators {
 
     @Override
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
+      DownstreamTlsContext downstreamTlsContext = grpcServerXdsClient.getDownstreamTlsContext(grpcHandler);
       if (isTlsContextEmpty(downstreamTlsContext)) {
         return InternalProtocolNegotiators.serverPlaintext().newHandler(grpcHandler);
       }
