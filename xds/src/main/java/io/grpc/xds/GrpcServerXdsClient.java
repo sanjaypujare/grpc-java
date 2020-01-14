@@ -17,21 +17,16 @@
 package io.grpc.xds;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.grpc.ConnectivityState.TRANSIENT_FAILURE;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.Struct;
+import com.google.protobuf.Value;
 import io.envoyproxy.envoy.api.v2.Listener;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.core.Node;
 import io.envoyproxy.envoy.api.v2.listener.FilterChain;
-import io.grpc.ChannelLogger.ChannelLogLevel;
 import io.grpc.InternalLogId;
-import io.grpc.LoadBalancer.PickResult;
-import io.grpc.LoadBalancer.PickSubchannelArgs;
-import io.grpc.LoadBalancer.SubchannelPicker;
-import io.grpc.NameResolver.ResolutionResult;
 import io.grpc.Status;
-import io.grpc.Status.Code;
 import io.grpc.SynchronizationContext;
 import io.grpc.internal.ExponentialBackoffPolicy;
 import io.grpc.internal.GrpcUtil;
@@ -55,44 +50,19 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class GrpcServerXdsClient {
+
   static final Logger logger = Logger.getLogger(GrpcServerXdsClient.class.getName());
 
   private static final EventLoopGroupResource eventLoopGroupResource =
       Epoll.isAvailable() ? new EventLoopGroupResource("GrpcServerXdsClient") : null;
-
-  private static final class EventLoopGroupResource implements Resource<EventLoopGroup> {
-    private final String name;
-
-    EventLoopGroupResource(String name) {
-      this.name = name;
-    }
-
-    @Override
-    public EventLoopGroup create() {
-      // Use Netty's DefaultThreadFactory in order to get the benefit of FastThreadLocal.
-      ThreadFactory threadFactory = new DefaultThreadFactory(name, /* daemon= */ true);
-      return new EpollEventLoopGroup(1, threadFactory);
-    }
-
-    @SuppressWarnings("FutureReturnValueIgnored")
-    @Override
-    public void close(EventLoopGroup instance) {
-      try {
-        instance.shutdownGracefully(0, 0, TimeUnit.SECONDS).sync();
-      } catch (InterruptedException e) {
-        logger.log(Level.SEVERE, "from EventLoopGroup.shutdownGracefully", e);
-        Thread.currentThread().interrupt(); // to not "swallow" the exception...
-      }
-    }
-  }
-
   private final DownstreamTlsContext staticDownstreamTlsContext;
   private final int port;
   private final Bootstrapper bootstrapper;
   private final InternalLogId logId;
   private String backendServiceName;
   private Listener myListener;
-
+  // Must be accessed from the syncContext
+  private boolean panicMode;
   final SynchronizationContext syncContext = new SynchronizationContext(
       new Thread.UncaughtExceptionHandler() {
         @Override
@@ -104,26 +74,9 @@ public class GrpcServerXdsClient {
           panic(e);
         }
       });
+  private XdsClientImpl2 xdsClient;
 
-  // Must be accessed from the syncContext
-  private boolean panicMode;
-
-  private XdsClientImpl xdsClient;
-
-  public InternalLogId getLogId() {
-    return logId;
-  }
-
-  // Called from syncContext
-  @VisibleForTesting
-  void panic(final Throwable t) {
-    if (panicMode) {
-      // Preserve the first panic information
-      return;
-    }
-    panicMode = true;
-  }
-
+  /** XdsClient used by GrpcServer side. */
   public GrpcServerXdsClient(DownstreamTlsContext downstreamTlsContext, int port,
       Bootstrapper bootstrapper) {
     this.staticDownstreamTlsContext = downstreamTlsContext;
@@ -141,9 +94,10 @@ public class GrpcServerXdsClient {
     if (serverList.isEmpty()) {
       throw new RuntimeException("No traffic director provided by bootstrap");
     }
+    backendServiceName = getBackendServiceName(node.getMetadata());
     checkState(Epoll.isAvailable(), "Epoll is not available");
     EventLoopGroup timeService = SharedResourceHolder.get(eventLoopGroupResource);
-    xdsClient = new XdsClientImpl(
+    xdsClient = new XdsClientImpl2(
         serverList,
         XdsChannelFactory.getInstance(),
         node,
@@ -151,7 +105,6 @@ public class GrpcServerXdsClient {
         timeService,
         new ExponentialBackoffPolicy.Provider(),
         GrpcUtil.STOPWATCH_SUPPLIER);
-
 
     xdsClient.watchConfigData(backendServiceName, port, new ConfigWatcher() {
       @Override
@@ -177,6 +130,26 @@ public class GrpcServerXdsClient {
     });
   }
 
+  private static String getBackendServiceName(Struct metadata) {
+    Value value = metadata.getFieldsOrThrow("TRAFFICDIRECTOR_WORKLOAD_NAME");
+    return value.getStringValue();
+  }
+
+  public InternalLogId getLogId() {
+    return logId;
+  }
+
+  // Called from syncContext
+  @VisibleForTesting
+  void panic(final Throwable t) {
+    if (panicMode) {
+      // Preserve the first panic information
+      return;
+    }
+    panicMode = true;
+  }
+
+  /** compute the DownstreamTlsContext for the given connection. */
   public DownstreamTlsContext getDownstreamTlsContext(GrpcHttp2ConnectionHandler grpcHandler) {
     // todo(sanjaypujare): get the dynamic one
     DownstreamTlsContext dynamic = getDownstreamTlsContextFromListener(grpcHandler);
@@ -186,9 +159,9 @@ public class GrpcServerXdsClient {
     return staticDownstreamTlsContext;
   }
 
-  private DownstreamTlsContext getDownstreamTlsContextFromListener(GrpcHttp2ConnectionHandler grpcHandler) {
+  private DownstreamTlsContext getDownstreamTlsContextFromListener(
+      GrpcHttp2ConnectionHandler grpcHandler) {
     if (myListener != null) {
-      DownstreamTlsContext found = null;
       List<FilterChain> filterChains = myListener.getFilterChainsList();
       for (FilterChain filterChain : filterChains) {
         DownstreamTlsContext cur = filterChain.getTlsContext();
@@ -200,9 +173,37 @@ public class GrpcServerXdsClient {
     return null;
   }
 
-  private boolean filterChainMatches(FilterChain filterChain, GrpcHttp2ConnectionHandler grpcHandler) {
+  private boolean filterChainMatches(FilterChain filterChain,
+      GrpcHttp2ConnectionHandler grpcHandler) {
     logger.log(Level.INFO, "returning true for {0}", filterChain.toString());
     return true;
+  }
+
+  private static final class EventLoopGroupResource implements Resource<EventLoopGroup> {
+
+    private final String name;
+
+    EventLoopGroupResource(String name) {
+      this.name = name;
+    }
+
+    @Override
+    public EventLoopGroup create() {
+      // Use Netty's DefaultThreadFactory in order to get the benefit of FastThreadLocal.
+      ThreadFactory threadFactory = new DefaultThreadFactory(name, /* daemon= */ true);
+      return new EpollEventLoopGroup(1, threadFactory);
+    }
+
+    @SuppressWarnings("FutureReturnValueIgnored")
+    @Override
+    public void close(EventLoopGroup instance) {
+      try {
+        instance.shutdownGracefully(0, 0, TimeUnit.SECONDS).sync();
+      } catch (InterruptedException e) {
+        logger.log(Level.SEVERE, "from EventLoopGroup.shutdownGracefully", e);
+        Thread.currentThread().interrupt(); // to not "swallow" the exception...
+      }
+    }
   }
 
 }

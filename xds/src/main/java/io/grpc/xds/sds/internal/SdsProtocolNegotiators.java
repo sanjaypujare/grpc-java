@@ -267,7 +267,8 @@ public final class SdsProtocolNegotiators {
 
     @Override
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
-      DownstreamTlsContext downstreamTlsContext = grpcServerXdsClient.getDownstreamTlsContext(grpcHandler);
+      DownstreamTlsContext downstreamTlsContext =
+          grpcServerXdsClient.getDownstreamTlsContext(grpcHandler);
       if (isTlsContextEmpty(downstreamTlsContext)) {
         return InternalProtocolNegotiators.serverPlaintext().newHandler(grpcHandler);
       }

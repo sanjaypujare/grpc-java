@@ -66,8 +66,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
-final class XdsClientImpl extends XdsClient {
-  private static final Logger logger = Logger.getLogger(XdsClientImpl.class.getName());
+final class XdsClientImpl2 extends XdsClient {
+  private static final Logger logger = Logger.getLogger(XdsClientImpl2.class.getName());
 
   @VisibleForTesting
   static final String ADS_TYPE_URL_LDS = "type.googleapis.com/envoy.api.v2.Listener";
@@ -131,7 +131,7 @@ final class XdsClientImpl extends XdsClient {
   @Nullable
   private String ldsResourceName;
 
-  XdsClientImpl(
+  XdsClientImpl2(
       List<ServerInfo> servers,  // list of management servers
       XdsChannelFactory channelFactory,
       Node node,
@@ -346,6 +346,38 @@ final class XdsClientImpl extends XdsClient {
     adsStream = new AdsStream(stub);
     adsStream.start();
     adsStreamRetryStopwatch.reset().start();
+  }
+
+  private void handleLdsResponse1(DiscoveryResponse ldsResponse) {
+    logger.log(Level.FINE, "Received an LDS response: {0}", ldsResponse);
+    checkState(ldsResourceName != null && configWatcher != null,
+        "No LDS request was ever sent. Management server is doing something wrong");
+    // Unpack Listener messages.
+    Listener requestedListener = null;
+    List<Listener> listeners = new ArrayList<>(ldsResponse.getResourcesCount());
+    try {
+      for (com.google.protobuf.Any res : ldsResponse.getResourcesList()) {
+        Listener listener = res.unpack(Listener.class);
+        logger.log(Level.FINE, "Adding listener to list: {0}", listener.toString());
+        listeners.add(res.unpack(Listener.class));
+        if (listener.getName().equals(ldsResourceName)) {
+          requestedListener = listener;
+          logger.log(Level.FINE, "Requested listener found: {0}", listener.toString());
+        }
+      }
+    } catch (InvalidProtocolBufferException e) {
+      adsStream.sendNackRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName),
+          "Broken LDS response.");
+      return;
+    }
+    adsStream.sendAckRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName),
+        ldsResponse.getVersionInfo());
+    if (requestedListener != null) {
+      // Found requestedListener
+      ConfigUpdate configUpdate = ConfigUpdate.newBuilder().setClusterName(null).build();
+      configUpdate.listener = requestedListener;
+      configWatcher.onConfigChanged(configUpdate);
+    }
   }
 
   /**
@@ -700,7 +732,7 @@ final class XdsClientImpl extends XdsClient {
         errorMessage = "Cluster without any locality endpoint.";
         break;
       }
-      
+
       // The policy.disable_overprovisioning field must be set to true.
       // TODO(chengyuanzhang): temporarily not requiring this field to be set, should push
       //  server implementors to do this or TBD with design.
@@ -734,7 +766,7 @@ final class XdsClientImpl extends XdsClient {
       if (errorMessage != null) {
         break;
       }
-      for (io.envoyproxy.envoy.api.v2.ClusterLoadAssignment.Policy.DropOverload dropOverload
+      for (ClusterLoadAssignment.Policy.DropOverload dropOverload
           : assignment.getPolicy().getDropOverloadsList()) {
         updateBuilder.addDropPolicy(DropOverload.fromEnvoyProtoDropOverload(dropOverload));
       }
@@ -844,7 +876,7 @@ final class XdsClientImpl extends XdsClient {
           // most recently received responses of each resource type.
           if (typeUrl.equals(ADS_TYPE_URL_LDS)) {
             ldsRespNonce = response.getNonce();
-            handleLdsResponse(response);
+            handleLdsResponse1(response);
           } else if (typeUrl.equals(ADS_TYPE_URL_RDS)) {
             rdsRespNonce = response.getNonce();
             handleRdsResponse(response);
