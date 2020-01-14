@@ -151,7 +151,6 @@ public class GrpcServerXdsClient {
 
   /** compute the DownstreamTlsContext for the given connection. */
   public DownstreamTlsContext getDownstreamTlsContext(GrpcHttp2ConnectionHandler grpcHandler) {
-    // todo(sanjaypujare): get the dynamic one
     DownstreamTlsContext dynamic = getDownstreamTlsContextFromListener(grpcHandler);
     if (dynamic != null) {
       return dynamic;
