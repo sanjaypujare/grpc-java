@@ -32,12 +32,12 @@ import io.grpc.internal.ExponentialBackoffPolicy;
 import io.grpc.internal.GrpcUtil;
 import io.grpc.internal.SharedResourceHolder;
 import io.grpc.internal.SharedResourceHolder.Resource;
-import io.grpc.netty.GrpcHttp2ConnectionHandler;
 import io.grpc.xds.Bootstrapper.BootstrapInfo;
 import io.grpc.xds.Bootstrapper.ServerInfo;
 import io.grpc.xds.XdsClient.ConfigUpdate;
 import io.grpc.xds.XdsClient.ConfigWatcher;
 import io.grpc.xds.XdsClient.XdsChannelFactory;
+import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
@@ -87,12 +87,14 @@ public class GrpcServerXdsClient {
     try {
       bootstrapInfo = bootstrapper.readBootstrap();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      logger.log(Level.SEVERE, "Error from readBootstrap", e);
+      return;
     }
     final List<ServerInfo> serverList = bootstrapInfo.getServers();
     final Node node = bootstrapInfo.getNode();
     if (serverList.isEmpty()) {
-      throw new RuntimeException("No traffic director provided by bootstrap");
+      logger.log(Level.SEVERE, "No traffic director provided by bootstrap");
+      return;
     }
     backendServiceName = getBackendServiceName(node.getMetadata());
     checkState(Epoll.isAvailable(), "Epoll is not available");
@@ -150,8 +152,8 @@ public class GrpcServerXdsClient {
   }
 
   /** compute the DownstreamTlsContext for the given connection. */
-  public DownstreamTlsContext getDownstreamTlsContext(GrpcHttp2ConnectionHandler grpcHandler) {
-    DownstreamTlsContext dynamic = getDownstreamTlsContextFromListener(grpcHandler);
+  public DownstreamTlsContext getDownstreamTlsContext(Channel channel) {
+    DownstreamTlsContext dynamic = getDownstreamTlsContextFromListener(channel);
     if (dynamic != null) {
       return dynamic;
     }
@@ -159,12 +161,12 @@ public class GrpcServerXdsClient {
   }
 
   private DownstreamTlsContext getDownstreamTlsContextFromListener(
-      GrpcHttp2ConnectionHandler grpcHandler) {
+      Channel channel) {
     if (myListener != null) {
       List<FilterChain> filterChains = myListener.getFilterChainsList();
       for (FilterChain filterChain : filterChains) {
         DownstreamTlsContext cur = filterChain.getTlsContext();
-        if (cur != null && filterChainMatches(filterChain, grpcHandler)) {
+        if (cur != null && filterChainMatches(filterChain, channel)) {
           return cur;
         }
       }
@@ -173,7 +175,7 @@ public class GrpcServerXdsClient {
   }
 
   private boolean filterChainMatches(FilterChain filterChain,
-      GrpcHttp2ConnectionHandler grpcHandler) {
+      Channel channel) {
     logger.log(Level.INFO, "returning true for {0}", filterChain.toString());
     return true;
   }

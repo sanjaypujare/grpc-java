@@ -253,11 +253,12 @@ public final class SdsProtocolNegotiators {
 
     // TODO (sanjaypujare) integrate with xDS client to get LDS. LDS watcher will
     // inject/update the downstreamTlsContext from LDS
-    private GrpcServerXdsClient grpcServerXdsClient;
+    private final DownstreamTlsContext downstreamTlsContextFromBuilder;
+    private final int port;
 
     ServerSdsProtocolNegotiator(DownstreamTlsContext downstreamTlsContext, int port) {
-      this.grpcServerXdsClient = new GrpcServerXdsClient(downstreamTlsContext, port,
-          Bootstrapper.getInstance());
+      this.downstreamTlsContextFromBuilder = downstreamTlsContext;
+      this.port = port;
     }
 
     @Override
@@ -267,16 +268,7 @@ public final class SdsProtocolNegotiators {
 
     @Override
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
-      DownstreamTlsContext downstreamTlsContext =
-          grpcServerXdsClient.getDownstreamTlsContext(grpcHandler);
-      if (isTlsContextEmpty(downstreamTlsContext)) {
-        return InternalProtocolNegotiators.serverPlaintext().newHandler(grpcHandler);
-      }
-      return new ServerSdsHandler(grpcHandler, downstreamTlsContext);
-    }
-
-    private static boolean isTlsContextEmpty(DownstreamTlsContext downstreamTlsContext) {
-      return downstreamTlsContext == null || !downstreamTlsContext.hasCommonTlsContext();
+      return new ServerSdsHandler(grpcHandler, downstreamTlsContextFromBuilder, port);
     }
 
     @Override
@@ -287,10 +279,11 @@ public final class SdsProtocolNegotiators {
   static final class ServerSdsHandler
       extends InternalProtocolNegotiators.ProtocolNegotiationHandler {
     private final GrpcHttp2ConnectionHandler grpcHandler;
-    private final DownstreamTlsContext downstreamTlsContext;
+    private GrpcServerXdsClient grpcServerXdsClient;
 
     ServerSdsHandler(
-        GrpcHttp2ConnectionHandler grpcHandler, DownstreamTlsContext downstreamTlsContext) {
+        GrpcHttp2ConnectionHandler grpcHandler,
+        DownstreamTlsContext downstreamTlsContextFromBuilder, int port) {
       super(
           // superclass (InternalProtocolNegotiators.ProtocolNegotiationHandler) expects 'next'
           // handler but we don't have a next handler _yet_. So we "disable" superclass's behavior
@@ -303,11 +296,23 @@ public final class SdsProtocolNegotiators {
           });
       checkNotNull(grpcHandler, "grpcHandler");
       this.grpcHandler = grpcHandler;
-      this.downstreamTlsContext = downstreamTlsContext;
+      this.grpcServerXdsClient = new GrpcServerXdsClient(downstreamTlsContextFromBuilder, port,
+          Bootstrapper.getInstance());
+    }
+
+    private static boolean isTlsContextEmpty(DownstreamTlsContext downstreamTlsContext) {
+      return downstreamTlsContext == null || !downstreamTlsContext.hasCommonTlsContext();
     }
 
     @Override
     protected void handlerAdded0(final ChannelHandlerContext ctx) {
+      DownstreamTlsContext downstreamTlsContext =
+          grpcServerXdsClient.getDownstreamTlsContext(ctx.channel());
+      if (isTlsContextEmpty(downstreamTlsContext)) {
+        ctx.pipeline().replace(this, null,
+            InternalProtocolNegotiators.serverPlaintext().newHandler(grpcHandler));
+        return;
+      }
       final BufferReadsHandler bufferReads = new BufferReadsHandler();
       ctx.pipeline().addBefore(ctx.name(), null, bufferReads);
 
