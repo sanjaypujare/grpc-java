@@ -253,12 +253,13 @@ public final class SdsProtocolNegotiators {
 
     // TODO (sanjaypujare) integrate with xDS client to get LDS. LDS watcher will
     // inject/update the downstreamTlsContext from LDS
-    private final DownstreamTlsContext downstreamTlsContextFromBuilder;
-    private final int port;
+    private final GrpcServerXdsClient grpcServerXdsClient;
 
-    ServerSdsProtocolNegotiator(DownstreamTlsContext downstreamTlsContext, int port) {
-      this.downstreamTlsContextFromBuilder = downstreamTlsContext;
-      this.port = port;
+    ServerSdsProtocolNegotiator(DownstreamTlsContext downstreamTlsContextFromBuilder, int port) {
+      // TODO: use a refCountedMapPool
+      logger.log(Level.FINEST, "for port {0}", port);
+      this.grpcServerXdsClient = new GrpcServerXdsClient(downstreamTlsContextFromBuilder, port,
+          Bootstrapper.getInstance());
     }
 
     @Override
@@ -268,7 +269,7 @@ public final class SdsProtocolNegotiators {
 
     @Override
     public ChannelHandler newHandler(GrpcHttp2ConnectionHandler grpcHandler) {
-      return new ServerSdsHandler(grpcHandler, downstreamTlsContextFromBuilder, port);
+      return new ServerSdsHandler(grpcHandler, grpcServerXdsClient);
     }
 
     @Override
@@ -283,7 +284,7 @@ public final class SdsProtocolNegotiators {
 
     ServerSdsHandler(
         GrpcHttp2ConnectionHandler grpcHandler,
-        DownstreamTlsContext downstreamTlsContextFromBuilder, int port) {
+        GrpcServerXdsClient grpcServerXdsClient) {
       super(
           // superclass (InternalProtocolNegotiators.ProtocolNegotiationHandler) expects 'next'
           // handler but we don't have a next handler _yet_. So we "disable" superclass's behavior
@@ -294,10 +295,10 @@ public final class SdsProtocolNegotiators {
               ctx.pipeline().remove(this);
             }
           });
+      logger.log(Level.FINEST, "in ctor ServerSdsHandler");
       checkNotNull(grpcHandler, "grpcHandler");
       this.grpcHandler = grpcHandler;
-      this.grpcServerXdsClient = new GrpcServerXdsClient(downstreamTlsContextFromBuilder, port,
-          Bootstrapper.getInstance());
+      this.grpcServerXdsClient = grpcServerXdsClient;
     }
 
     private static boolean isTlsContextEmpty(DownstreamTlsContext downstreamTlsContext) {
@@ -306,6 +307,8 @@ public final class SdsProtocolNegotiators {
 
     @Override
     protected void handlerAdded0(final ChannelHandlerContext ctx) {
+      logger.log(Level.FINEST, "channel remote address {0}",
+          ctx.channel().remoteAddress().toString());
       DownstreamTlsContext downstreamTlsContext =
           grpcServerXdsClient.getDownstreamTlsContext(ctx.channel());
       if (isTlsContextEmpty(downstreamTlsContext)) {
