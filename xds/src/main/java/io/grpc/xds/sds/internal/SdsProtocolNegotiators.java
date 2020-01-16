@@ -74,7 +74,7 @@ public final class SdsProtocolNegotiators {
   // TODO (sanjaypujare) integrate with xDS client to get LDS
   public static ProtocolNegotiator serverProtocolNegotiator(
       @Nullable DownstreamTlsContext downstreamTlsContext, int port) {
-    logger.log(Level.INFO, "downstreamTlsContext=" + downstreamTlsContext + ", port="+port);
+    logger.log(Level.INFO, "downstreamTlsContext=" + downstreamTlsContext + ", port=" + port);
     return new ServerSdsProtocolNegotiator(downstreamTlsContext, port);
   }
 
