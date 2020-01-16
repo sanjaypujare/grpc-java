@@ -2,7 +2,7 @@
 
 # TODO: source from a common file or even better use a common script for client and server and just pass arg for client or server
 IMAGENAME=grpc-sds-client
-TAG=1.18
+TAG=1.19
 PROJECTID=grpc-sds-testing
 
 echo Building ${IMAGENAME}:${TAG}

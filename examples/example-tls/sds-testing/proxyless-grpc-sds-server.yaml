@@ -1,21 +1,21 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: proxyless-grpc-sds-client
+  name: proxyless-grpc-sds-server
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: proxyless-grpc-sds-client
+        app: proxyless-grpc-sds-server
     spec:
       containers:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/grpc-sds-testing/grpc-sds-client:1.19
+        image: gcr.io/grpc-sds-testing/grpc-sds-server:0.7
         imagePullPolicy: IfNotPresent
-        name: client
+        name: server
         resources: {}
         volumeMounts:
         - mountPath: /etc/istio/proxy
@@ -36,7 +36,7 @@ spec:
         fsGroup: 1337
       # Make sure the service account is created and is allowed to use GCP
       # service account.
-      serviceAccountName: alice
+      serviceAccountName: bob
       volumes:
       - emptyDir:
           medium: Memory
@@ -48,7 +48,7 @@ spec:
         secret:
           defaultMode: 420
           optional: true
-          secretName: istio.alice
+          secretName: istio.bob
       - name: istio-token
         projected:
           sources:
