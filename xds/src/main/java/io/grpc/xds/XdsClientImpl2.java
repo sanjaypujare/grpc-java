@@ -38,7 +38,6 @@ import io.grpc.SynchronizationContext.ScheduledHandle;
 import io.grpc.internal.BackoffPolicy;
 import io.grpc.stub.StreamObserver;
 import io.grpc.xds.Bootstrapper.ServerInfo;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -185,18 +184,17 @@ final class XdsClientImpl2 extends XdsClient {
     adsStreamRetryStopwatch.reset().start();
   }
 
-  private void handleLdsResponse1(DiscoveryResponse ldsResponse) {
+  private void handleLdsResponse(DiscoveryResponse ldsResponse) {
     logger.log(Level.FINE, "Received an LDS response: {0}", ldsResponse);
     checkState(ldsResourceName != null && configWatcher != null,
         "No LDS request was ever sent. Management server is doing something wrong");
     // Unpack Listener messages.
     Listener requestedListener = null;
-    List<Listener> listeners = new ArrayList<>(ldsResponse.getResourcesCount());
+    logger.log(Level.FINE, "Listener count: {0}", ldsResponse.getResourcesCount());
     try {
       for (com.google.protobuf.Any res : ldsResponse.getResourcesList()) {
         Listener listener = res.unpack(Listener.class);
         logger.log(Level.FINE, "Adding listener to list: {0}", listener.toString());
-        listeners.add(res.unpack(Listener.class));
         if (listener.getName().equals(ldsResourceName)) {
           requestedListener = listener;
           logger.log(Level.FINE, "Requested listener found: {0}", listener.toString());
@@ -300,7 +298,7 @@ final class XdsClientImpl2 extends XdsClient {
           // most recently received responses of each resource type.
           if (typeUrl.equals(ADS_TYPE_URL_LDS)) {
             ldsRespNonce = response.getNonce();
-            handleLdsResponse1(response);
+            handleLdsResponse(response);
           } else {
             logger.log(Level.FINE, "Received unexpected DiscoveryResponse {0}",
                 response);

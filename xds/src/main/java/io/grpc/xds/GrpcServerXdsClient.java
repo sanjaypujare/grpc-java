@@ -97,6 +97,7 @@ public class GrpcServerXdsClient {
       return;
     }
     backendServiceName = getBackendServiceName(node.getMetadata());
+    logger.log(Level.INFO, "backendServiceName {0}", backendServiceName);
     checkState(Epoll.isAvailable(), "Epoll is not available");
     EventLoopGroup timeService = SharedResourceHolder.get(eventLoopGroupResource);
     xdsClient = new XdsClientImpl2(
@@ -111,7 +112,8 @@ public class GrpcServerXdsClient {
     xdsClient.watchConfigData(backendServiceName, port, new ConfigWatcher() {
       @Override
       public void onConfigChanged(ConfigUpdate update) {
-        logger.log(Level.INFO, "ConfigUpdate has listener in :{0}", update.listener.toString());
+        logger.log(Level.INFO, "Setting myListener from ConfigUpdate listener :{0}",
+            update.listener.toString());
         myListener = update.listener;
       }
 
