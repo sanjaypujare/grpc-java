@@ -193,7 +193,7 @@ public class SdsProtocolNegotiatorsTest {
 
     SdsProtocolNegotiators.ServerSdsHandler serverSdsHandler =
         new SdsProtocolNegotiators.ServerSdsHandler(grpcHandler, new GrpcServerXdsClient(
-            downstreamTlsContext, 8000,
+            downstreamTlsContext, 8000, null,
             Bootstrapper.getInstance()));
     pipeline.addLast(serverSdsHandler);
     channelHandlerCtx = pipeline.context(serverSdsHandler);

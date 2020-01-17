@@ -59,7 +59,7 @@ public class GrpcServerXdsClient {
   private final int port;
   private final Bootstrapper bootstrapper;
   private final InternalLogId logId;
-  private String backendServiceName;
+  private String listenerResourceName;
   private Listener myListener;
   // Must be accessed from the syncContext
   private boolean panicMode;
@@ -78,7 +78,7 @@ public class GrpcServerXdsClient {
 
   /** XdsClient used by GrpcServer side. */
   public GrpcServerXdsClient(DownstreamTlsContext downstreamTlsContext, int port,
-      Bootstrapper bootstrapper) {
+      String listenerResourceName, Bootstrapper bootstrapper) {
     this.staticDownstreamTlsContext = downstreamTlsContext;
     this.port = port;
     this.bootstrapper = bootstrapper;
@@ -96,8 +96,8 @@ public class GrpcServerXdsClient {
       logger.log(Level.SEVERE, "No traffic director provided by bootstrap");
       return;
     }
-    backendServiceName = getBackendServiceName(node.getMetadata());
-    logger.log(Level.INFO, "backendServiceName {0}", backendServiceName);
+    this.listenerResourceName = listenerResourceName; // getBackendServiceName(node.getMetadata());
+    logger.log(Level.INFO, "listenerResourceName {0}", listenerResourceName);
     checkState(Epoll.isAvailable(), "Epoll is not available");
     EventLoopGroup timeService = SharedResourceHolder.get(eventLoopGroupResource);
     xdsClient = new XdsClientImpl2(
@@ -109,7 +109,7 @@ public class GrpcServerXdsClient {
         new ExponentialBackoffPolicy.Provider(),
         GrpcUtil.STOPWATCH_SUPPLIER);
 
-    xdsClient.watchConfigData(backendServiceName, port, new ConfigWatcher() {
+    xdsClient.watchConfigData(listenerResourceName, port, new ConfigWatcher() {
       @Override
       public void onConfigChanged(ConfigUpdate update) {
         logger.log(Level.INFO, "Setting myListener from ConfigUpdate listener :{0}",

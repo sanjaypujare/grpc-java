@@ -45,6 +45,7 @@ public final class XdsServerBuilder extends ServerBuilder<XdsServerBuilder> {
 
   private final NettyServerBuilder delegate;
   private final int port;
+  public String listenerResourceName;
 
   // TODO (sanjaypujare) integrate with xDS client to get downstreamTlsContext from LDS
   @Nullable private DownstreamTlsContext downstreamTlsContext;
@@ -134,6 +135,11 @@ public final class XdsServerBuilder extends ServerBuilder<XdsServerBuilder> {
     return this;
   }
 
+  public XdsServerBuilder listenerResourceName(String listenerResourceName) {
+    this.listenerResourceName = listenerResourceName;
+    return this;
+  }
+
   /** Creates a gRPC server builder for the given port. */
   public static XdsServerBuilder forPort(int port) {
     NettyServerBuilder nettyDelegate = NettyServerBuilder.forAddress(new InetSocketAddress(port));
@@ -144,7 +150,8 @@ public final class XdsServerBuilder extends ServerBuilder<XdsServerBuilder> {
   public Server build() {
     // note: doing it in build() will overwrite any previously set ProtocolNegotiator
     delegate.protocolNegotiator(
-        SdsProtocolNegotiators.serverProtocolNegotiator(this.downstreamTlsContext, port));
+        SdsProtocolNegotiators.serverProtocolNegotiator(this.downstreamTlsContext, port,
+            listenerResourceName));
     return delegate.build();
   }
 }

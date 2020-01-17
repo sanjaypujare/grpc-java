@@ -73,9 +73,10 @@ public final class SdsProtocolNegotiators {
    */
   // TODO (sanjaypujare) integrate with xDS client to get LDS
   public static ProtocolNegotiator serverProtocolNegotiator(
-      @Nullable DownstreamTlsContext downstreamTlsContext, int port) {
+      @Nullable DownstreamTlsContext downstreamTlsContext, int port,
+      String listenerResourceName) {
     logger.log(Level.INFO, "downstreamTlsContext=" + downstreamTlsContext + ", port=" + port);
-    return new ServerSdsProtocolNegotiator(downstreamTlsContext, port);
+    return new ServerSdsProtocolNegotiator(downstreamTlsContext, port, listenerResourceName);
   }
 
   private static final class ClientSdsProtocolNegotiatorFactory
@@ -256,11 +257,12 @@ public final class SdsProtocolNegotiators {
     // inject/update the downstreamTlsContext from LDS
     private final GrpcServerXdsClient grpcServerXdsClient;
 
-    ServerSdsProtocolNegotiator(DownstreamTlsContext downstreamTlsContextFromBuilder, int port) {
+    ServerSdsProtocolNegotiator(DownstreamTlsContext downstreamTlsContextFromBuilder, int port,
+        String listenerResourceName) {
       // TODO: use a refCountedMapPool
       logger.log(Level.FINEST, "for port {0}", port);
       this.grpcServerXdsClient = new GrpcServerXdsClient(downstreamTlsContextFromBuilder, port,
-          Bootstrapper.getInstance());
+          listenerResourceName, Bootstrapper.getInstance());
     }
 
     @Override

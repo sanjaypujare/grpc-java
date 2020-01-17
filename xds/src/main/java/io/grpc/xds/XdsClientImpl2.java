@@ -154,12 +154,13 @@ final class XdsClientImpl2 extends XdsClient {
     logger.info("inside XdsClientImpl2.watchConfigData");
     checkState(configWatcher == null, "ConfigWatcher is already registered");
     configWatcher = checkNotNull(watcher, "watcher");
+    /*
     this.hostName = checkNotNull(hostName, "hostName");
     if (port == -1) {
       ldsResourceName = hostName;
     } else {
       ldsResourceName = hostName + ":" + port;
-    }
+    } */
     if (rpcRetryTimer != null && rpcRetryTimer.isPending()) {
       // Currently in retry backoff.
       return;
@@ -168,7 +169,8 @@ final class XdsClientImpl2 extends XdsClient {
       startRpcStream();
     }
     // tmp
-    ldsResourceName = "TRAFFICDIRECTOR_INTERCEPTION_LISTENER";
+    //ldsResourceName = "";  // TRAFFICDIRECTOR_INTERCEPTION_LISTENER
+    ldsResourceName = hostName;
     // end tmp
     logger.log(Level.INFO, "sendXdsRequest ldsResourceName " + ldsResourceName);
     adsStream.sendXdsRequest(ADS_TYPE_URL_LDS, ldsResourceName == null
