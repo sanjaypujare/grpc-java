@@ -13,7 +13,7 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/grpc-sds-testing/grpc-sds-server:0.92
+        image: gcr.io/grpc-sds-testing/grpc-sds-server:0.96
         imagePullPolicy: IfNotPresent
         name: server
         resources: {}
