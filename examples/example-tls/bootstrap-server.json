@@ -15,7 +15,7 @@
 	"gcp_cluster_name":"traffic-director-cluster",
 	"gcp_project":"grpc-sds-testing"
       },
-      "TRAFFICDIRECTOR_WORKLOAD_NAME":"demo-server"
+      "TRAFFICDIRECTOR_WORKLOAD_NAME":"td-gke-service"
     }
   },
   "xds_servers": [

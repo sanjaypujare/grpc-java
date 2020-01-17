@@ -45,6 +45,7 @@ public class HelloWorldServerTls {
 
     private final String host;
     private final int port;
+    private String listenerResourceName;
 
     public HelloWorldServerTls(String host,
                                int port) {
@@ -55,6 +56,7 @@ public class HelloWorldServerTls {
     private void start() throws IOException {
         server = XdsServerBuilder.forPort(port)
                  .addService(new GreeterImpl())
+                 .listenerResourceName(listenerResourceName)
                  .build()
                  .start();
         logger.info("Server started, listening on " + port);
@@ -89,15 +91,18 @@ public class HelloWorldServerTls {
      */
     public static void main(String[] args) throws IOException, InterruptedException {
 
-        if (args.length != 2) {
+        if (args.length < 2) {
             System.out.println(
-                    "USAGE: HelloWorldServerTls host port\n" +
+                    "USAGE: HelloWorldServerTls host port [listener-resource-name]\n" +
                     "  Note: No need to supply certs files.");
             System.exit(0);
         }
 
         final HelloWorldServerTls server = new HelloWorldServerTls(args[0],
                 Integer.parseInt(args[1]));
+        if (args.length > 2) {
+            server.listenerResourceName = args[2];
+        }
         server.start();
         server.blockUntilShutdown();
     }
