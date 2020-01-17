@@ -1,0 +1,29 @@
+{
+  "node": {
+    "id": "doesnt matter",
+    "locality": {
+      "zone": "us-west2-a",
+      "region": "region",
+      "sub_zone": "sub_zone"
+    },
+    "metadata": {
+      "TRAFFICDIRECTOR_GRPC_HOSTNAME": "",
+      "TRAFFICDIRECTOR_NETWORK_NAME": "default",
+      "TRAFFICDIRECTOR_GCP_PROJECT_NUMBER": "1077329368462",
+      "PLATFORM_METADATA": {
+	"gcp_cluster_location":"us-west2-a",
+	"gcp_cluster_name":"traffic-director-cluster",
+	"gcp_project":"grpc-sds-testing"
+      },
+      "TRAFFICDIRECTOR_WORKLOAD_NAME":"demo-server"
+    }
+  },
+  "xds_servers": [
+    {
+      "server_uri": "trafficdirector.googleapis.com:443",
+      "channel_creds": [
+        { "type": "google_default" }
+      ]
+    }
+  ]
+}
