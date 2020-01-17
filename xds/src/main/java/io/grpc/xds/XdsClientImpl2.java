@@ -167,8 +167,12 @@ final class XdsClientImpl2 extends XdsClient {
     if (adsStream == null) {
       startRpcStream();
     }
-    logger.log(Level.INFO, "sendXdsRequest ldsResourceName {0}", ldsResourceName);
-    adsStream.sendXdsRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName));
+    // tmp
+    ldsResourceName = "TRAFFICDIRECTOR_INTERCEPTION_LISTENER";
+    // end tmp
+    logger.log(Level.INFO, "sendXdsRequest ldsResourceName " + ldsResourceName);
+    adsStream.sendXdsRequest(ADS_TYPE_URL_LDS, ldsResourceName == null
+            ? null : ImmutableList.of(ldsResourceName));
   }
 
   /**
@@ -387,15 +391,17 @@ final class XdsClientImpl2 extends XdsClient {
         logger.severe("unexpected typeUrl:" + typeUrl);
         return;
       }
-      DiscoveryRequest request =
-          DiscoveryRequest
-              .newBuilder()
-              .setVersionInfo(version)
-              .setNode(node)
-              .addAllResourceNames(resourceNames)
-              .setTypeUrl(typeUrl)
-              .setResponseNonce(nonce)
-              .build();
+      DiscoveryRequest.Builder builder =
+              DiscoveryRequest
+                      .newBuilder()
+                      .setVersionInfo(version)
+                      .setNode(node)
+                      .setTypeUrl(typeUrl)
+                      .setResponseNonce(nonce);
+      if (resourceNames != null) {
+        builder = builder.addAllResourceNames(resourceNames);
+      }
+      DiscoveryRequest request = builder.build();
       requestWriter.onNext(request);
       logger.log(Level.FINE, "Sent DiscoveryRequest {0}", request);
     }
