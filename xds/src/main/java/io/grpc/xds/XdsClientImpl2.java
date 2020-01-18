@@ -30,6 +30,7 @@ import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
 import io.envoyproxy.envoy.api.v2.Listener;
 import io.envoyproxy.envoy.api.v2.core.Node;
+import io.envoyproxy.envoy.api.v2.listener.FilterChain;
 import io.envoyproxy.envoy.service.discovery.v2.AggregatedDiscoveryServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
@@ -38,6 +39,7 @@ import io.grpc.SynchronizationContext.ScheduledHandle;
 import io.grpc.internal.BackoffPolicy;
 import io.grpc.stub.StreamObserver;
 import io.grpc.xds.Bootstrapper.ServerInfo;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -192,29 +194,43 @@ final class XdsClientImpl2 extends XdsClient {
 
   private void handleLdsResponse(DiscoveryResponse ldsResponse) {
     logger.log(Level.FINE, "Received an LDS response: {0}", ldsResponse);
-    checkState(ldsResourceName != null && configWatcher != null,
-        "No LDS request was ever sent. Management server is doing something wrong");
+    /* checkState(ldsResourceName != null && configWatcher != null,
+        "No LDS request was ever sent. Management server is doing something wrong"); */
     // Unpack Listener messages.
     Listener requestedListener = null;
+    List<Listener> listeners = new ArrayList<>(ldsResponse.getResourcesCount());
     logger.log(Level.FINE, "Listener count: {0}", ldsResponse.getResourcesCount());
     try {
       for (com.google.protobuf.Any res : ldsResponse.getResourcesList()) {
         Listener listener = res.unpack(Listener.class);
         logger.log(Level.FINE, "Adding listener to list: {0}", listener.toString());
+        listeners.add(listener);
         if (listener.getName().equals(ldsResourceName)) {
           requestedListener = listener;
           logger.log(Level.FINE, "Requested listener found: {0}", listener.toString());
         }
       }
     } catch (InvalidProtocolBufferException e) {
-      adsStream.sendNackRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName),
+      adsStream.sendNackRequest(ADS_TYPE_URL_LDS, ldsResourceName,
           "Broken LDS response.");
       return;
     }
-    adsStream.sendAckRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName),
+    adsStream.sendAckRequest(ADS_TYPE_URL_LDS, ldsResourceName,
         ldsResponse.getVersionInfo());
+    if (requestedListener == null && listeners.size() > 0) {
+      requestedListener = listeners.get(0);
+      logger.log(Level.FINE, "Adding 1st listener from list: {0}", requestedListener.toString());
+    }
     if (requestedListener != null) {
       // Found requestedListener
+      for (FilterChain filterChain : requestedListener.getFilterChainsList()) {
+        logger.log(Level.FINE, "filterChain: " + filterChain + ", hasTlsContext: "
+            + filterChain.hasTlsContext());
+        logger.log(Level.FINE, "tlsContext: " +  filterChain.getTlsContext()
+            + ", hasCommonTlsContext: " + filterChain.getTlsContext().hasCommonTlsContext());
+        logger.log(Level.FINE,
+            "commonTlsContext: " +  filterChain.getTlsContext().getCommonTlsContext());
+      }
       ConfigUpdate configUpdate = ConfigUpdate.newBuilder().setClusterName(null).build();
       configUpdate.listener = requestedListener;
       configWatcher.onConfigChanged(configUpdate);
@@ -412,8 +428,10 @@ final class XdsClientImpl2 extends XdsClient {
      * Sends a DiscoveryRequest with the given information as an ACK. Updates the latest accepted
      * version for the corresponding resource type.
      */
-    private void sendAckRequest(String typeUrl, Collection<String> resourceNames,
+    private void sendAckRequest(String typeUrl, String resNameString,
         String versionInfo) {
+      Collection<String> resourceNames = resNameString == null
+          ? null : ImmutableList.of(resNameString);
       checkState(requestWriter != null, "ADS stream has not been started");
       String nonce = "";
       if (typeUrl.equals(ADS_TYPE_URL_LDS)) {
@@ -429,15 +447,17 @@ final class XdsClientImpl2 extends XdsClient {
         edsVersion = versionInfo;
         nonce = edsRespNonce;
       }
-      DiscoveryRequest request =
+      DiscoveryRequest.Builder builder =
           DiscoveryRequest
               .newBuilder()
               .setVersionInfo(versionInfo)
               .setNode(node)
-              .addAllResourceNames(resourceNames)
               .setTypeUrl(typeUrl)
-              .setResponseNonce(nonce)
-              .build();
+              .setResponseNonce(nonce);
+      if (resourceNames != null) {
+        builder = builder.addAllResourceNames(resourceNames);
+      }
+      DiscoveryRequest request = builder.build();
       requestWriter.onNext(request);
       logger.log(Level.FINE, "Sent ACK request {0}", request);
     }
@@ -446,8 +466,10 @@ final class XdsClientImpl2 extends XdsClient {
      * Sends a DiscoveryRequest with the given information as an NACK. NACK takes the previous
      * accepted version.
      */
-    private void sendNackRequest(String typeUrl, Collection<String> resourceNames,
+    private void sendNackRequest(String typeUrl, String resNameString,
         String message) {
+      Collection<String> resourceNames = resNameString == null
+          ? null : ImmutableList.of(resNameString);
       checkState(requestWriter != null, "ADS stream has not been started");
       String versionInfo = "";
       String nonce = "";
@@ -464,19 +486,21 @@ final class XdsClientImpl2 extends XdsClient {
         versionInfo = edsVersion;
         nonce = edsRespNonce;
       }
-      DiscoveryRequest request =
+      DiscoveryRequest.Builder builder =
           DiscoveryRequest
               .newBuilder()
               .setVersionInfo(versionInfo)
               .setNode(node)
-              .addAllResourceNames(resourceNames)
               .setTypeUrl(typeUrl)
               .setResponseNonce(nonce)
               .setErrorDetail(
                   com.google.rpc.Status.newBuilder()
                       .setCode(Code.INVALID_ARGUMENT_VALUE)
-                      .setMessage(message))
-              .build();
+                      .setMessage(message));
+      if (resourceNames != null) {
+        builder = builder.addAllResourceNames(resourceNames);
+      }
+      DiscoveryRequest request = builder.build();
       requestWriter.onNext(request);
       logger.log(Level.FINE, "Sent NACK request {0}", request);
     }
