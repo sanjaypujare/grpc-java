@@ -1,0 +1,39 @@
+{
+  "node": {
+    "id": "doesnt matter",
+    "locality": {
+      "zone": "us-west2-a",
+      "region": "region",
+      "sub_zone": "sub_zone"
+    },
+    "metadata": {
+      "TRAFFICDIRECTOR_NETWORK_NAME": "default",
+      "TRAFFICDIRECTOR_GCP_PROJECT_NUMBER": "1077329368462",
+      "CONFIG_NAMESPACE":"default",
+      "EXCHANGE_KEYS":"NAME,NAMESPACE,INSTANCE_IPS,LABELS,OWNER,PLATFORM_METADATA,WORKLOAD_NAME,CANONICAL_TELEMETRY_SERVICE,MESH_ID,SERVICE_ACCOUNT",
+      "INSTANCE_IPS":"10.20.0.15",
+      "INTERCEPTION_MODE":"REDIRECT",
+      "ISTIO_PROXY_SHA":"istio-proxy:48bc83d8f0582fc060ef76d5aa3d75400e739d9e",
+      "ISTIO_VERSION":"1.3.0",
+      "NAME":"demo-server-6557c7b55f-ksgxj",
+      "NAMESPACE":"default",
+      "PLATFORM_METADATA": {
+	"gcp_cluster_location":"us-west2-a",
+	"gcp_cluster_name":"traffic-director-cluster",
+	"gcp_project":"grpc-sds-testing"
+      },
+      "POD_NAME":"demo-server-6557c7b55f-ksgxj",
+      "TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS":"8000",
+      "TRAFFICDIRECTOR_INTERCEPTION_PORT":"15001",
+      "TRAFFICDIRECTOR_WORKLOAD_NAME":"td-gke-service"
+    }
+  },
+  "xds_servers": [
+    {
+      "server_uri": "trafficdirector.googleapis.com:443",
+      "channel_creds": [
+        { "type": "google_default" }
+      ]
+    }
+  ]
+}

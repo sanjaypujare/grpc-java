@@ -2,6 +2,8 @@ FROM openjdk:10
 
 ADD bootstrap-server.json /bootstrap-server.json
 
+ADD bootstrap-server-envoy.json /bootstrap-server-envoy.json
+
 ADD sds-testing/logging.properties /logging.properties
 
 RUN mkdir -p /build/install/example-tls
@@ -15,3 +17,10 @@ ENV JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
 #CMD ["/build/install/example-tls/bin/hello-world-tls-server","0.0.0.0","8000"]
 
 EXPOSE 8000
+
+################################################
+# Emacs
+RUN\
+  apt-get update &&\
+  apt-get install -y jove &&\
+  apt-get clean
