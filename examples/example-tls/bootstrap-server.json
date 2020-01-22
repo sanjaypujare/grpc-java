@@ -9,11 +9,13 @@
     "metadata": {
       "TRAFFICDIRECTOR_NETWORK_NAME": "default",
       "TRAFFICDIRECTOR_GCP_PROJECT_NUMBER": "1077329368462",
+      "INSTANCE_IP":"10.20.0.15",
       "PLATFORM_METADATA": {
 	"gcp_cluster_location":"us-west2-a",
 	"gcp_cluster_name":"traffic-director-cluster",
 	"gcp_project":"grpc-sds-testing"
       },
+      "TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS":"8000",
       "TRAFFICDIRECTOR_INTERCEPTION_PORT":"15001",
       "TRAFFICDIRECTOR_WORKLOAD_NAME":"td-gke-service"
     }
