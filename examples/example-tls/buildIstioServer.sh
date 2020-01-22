@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 IMAGENAME=grpc-sds-server
-TAG=1.01
+TAG=1.05
 PROJECTID=grpc-sds-testing
 
 echo Building ${IMAGENAME}:${TAG}
