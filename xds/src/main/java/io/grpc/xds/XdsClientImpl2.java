@@ -237,6 +237,8 @@ final class XdsClientImpl2 extends XdsClient {
                 + filterChain.getTransportSocket().getName());
         logger.log(Level.FINE, "filterChain.transport_socket: isInitialized="
                 + filterChain.getTransportSocket().isInitialized());
+        logger.log(Level.FINE, "filterChain.transport_socket: toByteString().toString()="
+            + filterChain.getTransportSocket().toByteString().toString());
       }
       logger.log(Level.FINE, "Going thru requestedListener.listener_filters: count="
           + requestedListener.getListenerFiltersList().size());
