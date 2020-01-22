@@ -4,6 +4,8 @@ ADD bootstrap-server.json /bootstrap-server.json
 
 ADD bootstrap-server-envoy.json /bootstrap-server-envoy.json
 
+ADD bootstrap-server-envoy.json /bootstrap-server-envoy.json.orig
+
 ADD sds-testing/logging.properties /logging.properties
 
 RUN mkdir -p /build/install/example-tls
