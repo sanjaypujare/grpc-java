@@ -31,6 +31,7 @@ import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
 import io.envoyproxy.envoy.api.v2.Listener;
 import io.envoyproxy.envoy.api.v2.core.Node;
 import io.envoyproxy.envoy.api.v2.listener.FilterChain;
+import io.envoyproxy.envoy.api.v2.listener.ListenerFilter;
 import io.envoyproxy.envoy.service.discovery.v2.AggregatedDiscoveryServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
@@ -223,6 +224,8 @@ final class XdsClientImpl2 extends XdsClient {
     }
     if (requestedListener != null) {
       // Found requestedListener
+      logger.log(Level.FINE, "Going thru requestedListener.filter_chains count="
+              + requestedListener.getFilterChainsList().size());
       for (FilterChain filterChain : requestedListener.getFilterChainsList()) {
         logger.log(Level.FINE, "filterChain: " + filterChain + ", hasTlsContext: "
             + filterChain.hasTlsContext());
@@ -230,7 +233,32 @@ final class XdsClientImpl2 extends XdsClient {
             + ", hasCommonTlsContext: " + filterChain.getTlsContext().hasCommonTlsContext());
         logger.log(Level.FINE,
             "commonTlsContext: " +  filterChain.getTlsContext().getCommonTlsContext());
+        logger.log(Level.FINE, "filterChain.transport_socket name:"
+                + filterChain.getTransportSocket().getName());
+        logger.log(Level.FINE, "filterChain.transport_socket: isInitialized="
+                + filterChain.getTransportSocket().isInitialized());
       }
+      logger.log(Level.FINE, "Going thru requestedListener.listener_filters: count="
+          + requestedListener.getListenerFiltersList().size());
+      for (ListenerFilter listenerFilter : requestedListener.getListenerFiltersList()) {
+        logger.log(
+            Level.FINE,
+            "listenerFilter.name: "
+                + listenerFilter.getName()
+                + ", hasStructConfig: "
+                + listenerFilter.hasConfig()
+                + ", hasTypedConfig: "
+                + listenerFilter.hasTypedConfig());
+        logger.log(
+                Level.FINE,
+                "listenerFilter.config: "
+                        + listenerFilter.getConfig());
+        logger.log(
+                Level.FINE,
+                "listenerFilter.typedConfig: "
+                        + listenerFilter.getTypedConfig());
+      }
+
       ConfigUpdate configUpdate = ConfigUpdate.newBuilder().setClusterName(null).build();
       configUpdate.listener = requestedListener;
       configWatcher.onConfigChanged(configUpdate);
