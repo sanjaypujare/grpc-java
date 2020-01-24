@@ -43,6 +43,7 @@ import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.List;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -61,6 +62,7 @@ public class GrpcServerXdsClient {
   private final InternalLogId logId;
   private String listenerResourceName;
   private Listener myListener;
+
   // Must be accessed from the syncContext
   private boolean panicMode;
   final SynchronizationContext syncContext = new SynchronizationContext(
@@ -84,18 +86,33 @@ public class GrpcServerXdsClient {
     this.bootstrapper = bootstrapper;
     this.logId = InternalLogId.allocate("GrpcServer", Integer.toString(port));
     BootstrapInfo bootstrapInfo = null;
+    String localIpAddress = "127.0.0.1";
     try {
       bootstrapInfo = bootstrapper.readBootstrap();
+      localIpAddress = InetAddress.getLocalHost().getHostAddress();
     } catch (IOException e) {
       logger.log(Level.SEVERE, "Error from readBootstrap", e);
       return;
     }
     final List<ServerInfo> serverList = bootstrapInfo.getServers();
-    final Node node = bootstrapInfo.getNode();
+    Node node = bootstrapInfo.getNode();
     if (serverList.isEmpty()) {
       logger.log(Level.SEVERE, "No traffic director provided by bootstrap");
       return;
     }
+    // temp workaround until server side LDS is designed
+    // add "INSTANCE_IP", "TRAFFICDIRECTOR_INTERCEPTION_PORT" and
+    // "TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS" to Node metadata
+    Struct newMetadata = node.getMetadata().toBuilder()
+        .putFields("INSTANCE_IP",
+            Value.newBuilder().setStringValue(localIpAddress).build())
+        .putFields("TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS",
+            Value.newBuilder().setStringValue("" + port).build())
+        .putFields("TRAFFICDIRECTOR_INTERCEPTION_PORT",
+            Value.newBuilder().setStringValue("15001").build())
+        .build();
+    node = node.toBuilder().setMetadata(newMetadata).build();
+    logger.log(Level.FINEST, "node after adding IP and port: " + node);
     this.listenerResourceName = listenerResourceName; // getBackendServiceName(node.getMetadata());
     logger.log(Level.INFO, "listenerResourceName {0}", listenerResourceName);
     checkState(Epoll.isAvailable(), "Epoll is not available");
@@ -115,6 +132,7 @@ public class GrpcServerXdsClient {
         logger.log(Level.INFO, "Setting myListener from ConfigUpdate listener :{0}",
             update.listener.toString());
         myListener = update.listener;
+
       }
 
       @Override
@@ -132,11 +150,6 @@ public class GrpcServerXdsClient {
         logger.log(Level.SEVERE, "ConfigWatcher in GrpcServerXdsClient:{0}", error);
       }
     });
-  }
-
-  private static String getBackendServiceName(Struct metadata) {
-    Value value = metadata.getFieldsOrThrow("TRAFFICDIRECTOR_WORKLOAD_NAME");
-    return value.getStringValue();
   }
 
   public InternalLogId getLogId() {
