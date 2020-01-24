@@ -30,7 +30,9 @@ import io.netty.handler.ssl.SslProvider;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.logging.Logger;
 
 import javax.net.ssl.SSLException;
@@ -46,20 +48,21 @@ public class HelloWorldServerTls {
     private final String host;
     private final int port;
     private String listenerResourceName;
+    private String localIpAddress;
 
-    public HelloWorldServerTls(String host,
-                               int port) {
+    public HelloWorldServerTls(String host, int port) throws UnknownHostException {
         this.host = host;
         this.port = port;
+        this.localIpAddress = localIpAddress = InetAddress.getLocalHost().getHostAddress();
     }
 
     private void start() throws IOException {
         server = XdsServerBuilder.forPort(port)
-                 .addService(new GreeterImpl())
+                 .addService(new GreeterImpl(localIpAddress))
                  .listenerResourceName(listenerResourceName)
                  .build()
                  .start();
-        logger.info("Server started, listening on " + port);
+        logger.info("Server started, listening on " + localIpAddress + ":" + port);
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
@@ -108,10 +111,16 @@ public class HelloWorldServerTls {
     }
 
     static class GreeterImpl extends GreeterGrpc.GreeterImplBase {
+        private final String myIpAddress;
+
+        GreeterImpl(String localIpAddress) {
+            this.myIpAddress = localIpAddress;
+        }
 
         @Override
         public void sayHello(HelloRequest req, StreamObserver<HelloReply> responseObserver) {
-            HelloReply reply = HelloReply.newBuilder().setMessage("Hello " + req.getName()).build();
+            HelloReply reply = HelloReply.newBuilder().setMessage("Hello " + req.getName()
+                + " from IP-address " + myIpAddress).build();
             responseObserver.onNext(reply);
             responseObserver.onCompleted();
         }

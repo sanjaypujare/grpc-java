@@ -15,3 +15,10 @@ ENV GRPC_XDS_BOOTSTRAP=/bootstrap.json
 ENV JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
 
 CMD ["/bin/sleep","inf"]
+
+################################################
+# jove
+RUN\
+  apt-get update &&\
+  apt-get install -y jove &&\
+  apt-get clean

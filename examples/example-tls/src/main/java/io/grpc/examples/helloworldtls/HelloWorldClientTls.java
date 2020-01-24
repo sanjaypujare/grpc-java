@@ -43,15 +43,6 @@ public class HelloWorldClientTls {
     private final GreeterGrpc.GreeterBlockingStub blockingStub;
 
     /**
-     * Construct client connecting to HelloWorld server at {@code host:port}.
-     */
-    public HelloWorldClientTls(String host,
-                               int port) throws SSLException {
-        this(XdsChannelBuilder.forAddress(host, port)
-            .build());
-    }
-
-    /**
      * Construct client connecting to HelloWorld server at {@code targetUri}.
      */
     public HelloWorldClientTls(String targetUri) throws SSLException {
@@ -74,8 +65,8 @@ public class HelloWorldClientTls {
     /**
      * Say hello to server.
      */
-    public void greet(String name) {
-        logger.info("Will try to greet server " + name + " ...");
+    public void greet(String name, int attempt) {
+        logger.info("Will try to greet server " + name + " .... Attempt#" + attempt);
         HelloRequest request = HelloRequest.newBuilder().setName(name).build();
         HelloReply response;
         try {
@@ -94,19 +85,20 @@ public class HelloWorldClientTls {
     public static void main(String[] args) throws Exception {
 
         if (args.length != 2 && args.length != 1) {
-            System.out.println("USAGE: HelloWorldClientTls host/targetUri [port]\n" +
-                    "Note: either pass host and port or just targetUri with scheme");
+            System.out.println("USAGE: HelloWorldClientTls targetUri [no_of_attempts]\n" +
+                    "Note: pass targetUri with scheme e.g. 'xds-experimental:///demo-server:8000'. Default no_of_attempts is 1.");
             System.exit(0);
         }
 
-        HelloWorldClientTls client = args.length == 2 ?
-            new HelloWorldClientTls(args[0], Integer.parseInt(args[1])) :
-            new HelloWorldClientTls(args[0]);
+        HelloWorldClientTls client = new HelloWorldClientTls(args[0]);
+        int numOfAttempts = (args.length == 2) ? Integer.parseInt(args[1]) : 1;
 
         try {
             /* Access a service running on port  */
             String user = args[0]; /* Use the arg as the name to greet if provided */
-            client.greet(user);
+            for (int i = 0; i < numOfAttempts; i++) {
+                client.greet(user, i + 1);
+            }
         } finally {
             client.shutdown();
         }
