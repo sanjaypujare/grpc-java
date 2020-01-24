@@ -180,9 +180,11 @@ public class GrpcServerXdsClient {
     if (myListener != null) {
       List<FilterChain> filterChains = myListener.getFilterChainsList();
       for (FilterChain filterChain : filterChains) {
-        DownstreamTlsContext cur = filterChain.getTlsContext();
-        if (cur != null && filterChainMatches(filterChain, channel)) {
-          return cur;
+        if (filterChainMatches(filterChain, channel)) {
+          if (filterChain.hasTlsContext() && filterChain.getTlsContext().isInitialized()) {
+            logger.log(Level.INFO, "finally returning tls-context ", filterChain.getTlsContext());
+            return filterChain.getTlsContext();
+          }
         }
       }
     }
