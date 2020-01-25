@@ -349,5 +349,13 @@ public final class SdsProtocolNegotiators {
           },
           ctx.executor());
     }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)
+        throws Exception {
+      logger.log(Level.SEVERE, "channel remote address =" + ctx.channel().remoteAddress(),
+          cause);
+      ctx.fireExceptionCaught(cause);
+    }
   }
 }
