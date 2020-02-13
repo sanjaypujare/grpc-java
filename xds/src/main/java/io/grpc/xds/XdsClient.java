@@ -71,6 +71,10 @@ abstract class XdsClient {
       return clusterName;
     }
 
+    public Listener getListener() {
+      return listener;
+    }
+
     static Builder newBuilder() {
       return new Builder();
     }
