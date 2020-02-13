@@ -339,4 +339,184 @@ final class EnvoyProtoData {
           .toString();
     }
   }
+
+  static final class CidrRange {
+    private final String addressPrefix;
+    private final int prefixLen;
+
+    public CidrRange(String addressPrefix, int prefixLen) {
+      this.addressPrefix = addressPrefix;
+      this.prefixLen = prefixLen;
+    }
+
+    public String getAddressPrefix() {
+      return addressPrefix;
+    }
+
+    public int getPrefixLen() {
+      return prefixLen;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      CidrRange cidrRange = (CidrRange) o;
+      return prefixLen == cidrRange.prefixLen &&
+          java.util.Objects.equals(addressPrefix, cidrRange.addressPrefix);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(addressPrefix, prefixLen);
+    }
+
+    @Override
+    public String toString() {
+      return "CidrRange{" +
+          "addressPrefix='" + addressPrefix + '\'' +
+          ", prefixLen=" + prefixLen +
+          '}';
+    }
+  }
+
+  /**
+   * Corresponds to Envoy proto message
+   * {@link io.envoyproxy.envoy.api.v2.listener.FilterChainMatch}.
+   */
+  static final class FilterChainMatch {
+    private final int destinationPort;
+    private final List<CidrRange> prefixRanges;
+    private final List<String> applicationProtocols;
+
+    public int getDestinationPort() {
+      return destinationPort;
+    }
+
+    public List<CidrRange> getPrefixRanges() {
+      return prefixRanges;
+    }
+
+    public List<String> getApplicationProtocols() {
+      return applicationProtocols;
+    }
+
+    public FilterChainMatch(int destinationPort,
+        List<CidrRange> prefixRanges, List<String> applicationProtocols) {
+      this.destinationPort = destinationPort;
+      this.prefixRanges = prefixRanges;
+      this.applicationProtocols = applicationProtocols;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      FilterChainMatch that = (FilterChainMatch) o;
+      return destinationPort == that.destinationPort &&
+          java.util.Objects.equals(prefixRanges, that.prefixRanges) &&
+          java.util.Objects.equals(applicationProtocols, that.applicationProtocols);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(destinationPort, prefixRanges, applicationProtocols);
+    }
+
+    @Override
+    public String toString() {
+      return "FilterChainMatch{" +
+          "destinationPort=" + destinationPort +
+          ", prefixRanges=" + prefixRanges +
+          ", applicationProtocols=" + applicationProtocols +
+          '}';
+    }
+  }
+
+  enum ApiType {
+    UNSUPPORTED_REST_LEGACY,
+    REST,
+    GRPC,
+    DELTA_GRPC;
+  }
+
+  static final class MetadataCredentialsFromPlugin {
+    private final String name;
+    private final String headerKey;
+    private final String secretDataFilename;
+  }
+
+  static final class CallCredentials {
+    MetadataCredentialsFromPlugin fromPlugin;
+  }
+
+  static final class GoogleGrpc {
+    String targetUri;
+    List<CallCredentials> callCredentials;
+    String statPrefix;
+    String credentialsFactoryName;
+  }
+
+  static final class GrpcService {
+    private final GoogleGrpc googleGrpc;
+
+  }
+
+  static final class ApiConfigSource {
+    private final ApiType apiType;
+    private final List<GrpcService> grpcServices;
+  }
+
+  static final class ConfigSource {
+    private final ApiConfigSource apiConfigSource;
+  }
+
+  static final class SdsSecretConfig {
+    private final String name;
+    private final ConfigSource sdsConfig;
+  }
+
+  static final class CertificateValidationContext {
+    List<String> verifySubjectAltName;
+  }
+
+  static final class CombinedCertificateValidationContext {
+    CertificateValidationContext defaultValidationContext;
+    SdsSecretConfig validationContextSdsSecretConfig;
+  }
+
+  static final class CommonTlsContext {
+    private final List<SdsSecretConfig> tlsCertificateSdsSecretConfigs;
+    CombinedCertificateValidationContext combinedValidationContext;
+  }
+
+  static final class DownstreamTlsContext {
+    private final CommonTlsContext commonTlsContext;
+    boolean requireClientCertificate;
+    boolean requireSni;
+  }
+
+  /**
+   * Corresponds to Envoy proto message {@link io.envoyproxy.envoy.api.v2.listener.FilterChain}.
+   */
+  static final class FilterChain {
+    private final FilterChainMatch filterChainMatch;
+    private final DownstreamTlsContext downstreamTlsContext;
+  }
+
+  /** Corresponds to Envoy proto message {@link io.envoyproxy.envoy.api.v2.Listener}. */
+  static final class Listener {
+    private final String name;
+    private final String address;
+    private final List<FilterChain> filterChains;
+
+  }
 }
