@@ -366,8 +366,8 @@ final class EnvoyProtoData {
         return false;
       }
       CidrRange cidrRange = (CidrRange) o;
-      return prefixLen == cidrRange.prefixLen &&
-          java.util.Objects.equals(addressPrefix, cidrRange.addressPrefix);
+      return prefixLen == cidrRange.prefixLen
+          && java.util.Objects.equals(addressPrefix, cidrRange.addressPrefix);
     }
 
     @Override
@@ -377,10 +377,10 @@ final class EnvoyProtoData {
 
     @Override
     public String toString() {
-      return "CidrRange{" +
-          "addressPrefix='" + addressPrefix + '\'' +
-          ", prefixLen=" + prefixLen +
-          '}';
+      return "CidrRange{"
+          + "addressPrefix='" + addressPrefix + '\''
+          + ", prefixLen=" + prefixLen
+          + '}';
     }
   }
 
@@ -392,6 +392,13 @@ final class EnvoyProtoData {
     private final int destinationPort;
     private final List<CidrRange> prefixRanges;
     private final List<String> applicationProtocols;
+
+    public FilterChainMatch(int destinationPort,
+        List<CidrRange> prefixRanges, List<String> applicationProtocols) {
+      this.destinationPort = destinationPort;
+      this.prefixRanges = prefixRanges;
+      this.applicationProtocols = applicationProtocols;
+    }
 
     public int getDestinationPort() {
       return destinationPort;
@@ -405,11 +412,61 @@ final class EnvoyProtoData {
       return applicationProtocols;
     }
 
-    public FilterChainMatch(int destinationPort,
-        List<CidrRange> prefixRanges, List<String> applicationProtocols) {
-      this.destinationPort = destinationPort;
-      this.prefixRanges = prefixRanges;
-      this.applicationProtocols = applicationProtocols;
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      FilterChainMatch that = (FilterChainMatch) o;
+      return destinationPort == that.destinationPort
+          && java.util.Objects.equals(prefixRanges, that.prefixRanges)
+          && java.util.Objects.equals(applicationProtocols, that.applicationProtocols);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(destinationPort, prefixRanges, applicationProtocols);
+    }
+
+    @Override
+    public String toString() {
+      return "FilterChainMatch{"
+          + "destinationPort=" + destinationPort
+          + ", prefixRanges=" + prefixRanges
+          + ", applicationProtocols=" + applicationProtocols
+          + '}';
+    }
+  }
+
+  /**
+   * Corresponds to Envoy proto
+   * {@link io.envoyproxy.envoy.api.v2.core.GrpcService.GoogleGrpc.CallCredentials}.
+   */
+  static final class CallCredentials {
+    // fields of MetadataCredentialsFromPlugin start here
+    private final String name;
+    private final String headerKey;
+    private final String secretDataFilename;
+
+    public CallCredentials(String name, String headerKey, String secretDataFilename) {
+      this.name = name;
+      this.headerKey = headerKey;
+      this.secretDataFilename = secretDataFilename;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public String getHeaderKey() {
+      return headerKey;
+    }
+
+    public String getSecretDataFilename() {
+      return secretDataFilename;
     }
 
     @Override
@@ -420,88 +477,166 @@ final class EnvoyProtoData {
       if (o == null || getClass() != o.getClass()) {
         return false;
       }
-      FilterChainMatch that = (FilterChainMatch) o;
-      return destinationPort == that.destinationPort &&
-          java.util.Objects.equals(prefixRanges, that.prefixRanges) &&
-          java.util.Objects.equals(applicationProtocols, that.applicationProtocols);
+      CallCredentials that = (CallCredentials) o;
+      return java.util.Objects.equals(name, that.name)
+          && java.util.Objects.equals(headerKey, that.headerKey)
+          && java.util.Objects.equals(secretDataFilename, that.secretDataFilename);
     }
 
     @Override
     public int hashCode() {
-      return java.util.Objects.hash(destinationPort, prefixRanges, applicationProtocols);
+      return java.util.Objects.hash(name, headerKey, secretDataFilename);
     }
 
     @Override
     public String toString() {
-      return "FilterChainMatch{" +
-          "destinationPort=" + destinationPort +
-          ", prefixRanges=" + prefixRanges +
-          ", applicationProtocols=" + applicationProtocols +
-          '}';
+      return "CallCredentials{"
+          + "name='" + name + '\''
+          + ", headerKey='" + headerKey + '\''
+          + ", secretDataFilename='" + secretDataFilename + '\''
+          + '}';
     }
   }
 
-  enum ApiType {
-    UNSUPPORTED_REST_LEGACY,
-    REST,
-    GRPC,
-    DELTA_GRPC;
-  }
-
-  static final class MetadataCredentialsFromPlugin {
-    private final String name;
-    private final String headerKey;
-    private final String secretDataFilename;
-  }
-
-  static final class CallCredentials {
-    MetadataCredentialsFromPlugin fromPlugin;
-  }
-
-  static final class GoogleGrpc {
-    String targetUri;
-    List<CallCredentials> callCredentials;
-    String statPrefix;
-    String credentialsFactoryName;
-  }
-
+  /**
+   * Corresponds to Envoy proto {@link io.envoyproxy.envoy.api.v2.core.GrpcService}.
+   */
   static final class GrpcService {
-    private final GoogleGrpc googleGrpc;
+    // fields of GoogleGrpc start here
+    private final String targetUri;
+    private final List<CallCredentials> callCredentials;
+    private final String statPrefix;
+    private final String credentialsFactoryName;
 
+    public GrpcService(String targetUri,
+        List<CallCredentials> callCredentials, String statPrefix,
+        String credentialsFactoryName) {
+      this.targetUri = targetUri;
+      this.callCredentials = callCredentials;
+      this.statPrefix = statPrefix;
+      this.credentialsFactoryName = credentialsFactoryName;
+    }
+
+    public String getTargetUri() {
+      return targetUri;
+    }
+
+    public List<CallCredentials> getCallCredentials() {
+      return callCredentials;
+    }
+
+    public String getStatPrefix() {
+      return statPrefix;
+    }
+
+    public String getCredentialsFactoryName() {
+      return credentialsFactoryName;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      GrpcService that = (GrpcService) o;
+      return java.util.Objects.equals(targetUri, that.targetUri)
+          && java.util.Objects.equals(callCredentials, that.callCredentials)
+          && java.util.Objects.equals(statPrefix, that.statPrefix)
+          && java.util.Objects.equals(credentialsFactoryName, that.credentialsFactoryName);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(targetUri, callCredentials, statPrefix, credentialsFactoryName);
+    }
+
+    @Override
+    public String toString() {
+      return "GrpcService{"
+          + "targetUri='" + targetUri + '\''
+          + ", callCredentials=" + callCredentials
+          + ", statPrefix='" + statPrefix + '\''
+          + ", credentialsFactoryName='" + credentialsFactoryName + '\''
+          + '}';
+    }
   }
 
-  static final class ApiConfigSource {
-    private final ApiType apiType;
-    private final List<GrpcService> grpcServices;
+  /**
+   * Corresponds to Envoy proto {@link io.envoyproxy.envoy.api.v2.core.ApiConfigSource.ApiType}.
+   */
+  enum ApiType {
+    UNSUPPORTED_REST_LEGACY(0),
+    REST(1),
+    GRPC(2),
+    DELTA_GRPC(3);
+
+    private final int value;
+
+    ApiType(int value) {
+      this.value = value;
+    }
   }
 
-  static final class ConfigSource {
-    private final ApiConfigSource apiConfigSource;
-  }
-
+  /**
+   * Corresponds to Envoy proto {@link io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig}.
+   */
   static final class SdsSecretConfig {
     private final String name;
-    private final ConfigSource sdsConfig;
-  }
 
-  static final class CertificateValidationContext {
-    List<String> verifySubjectAltName;
-  }
+    // fields of ConfigSource start here
+    // fields of ApiConfigSource start here
+    private final ApiType apiType;
+    private final List<GrpcService> grpcServices;
 
-  static final class CombinedCertificateValidationContext {
-    CertificateValidationContext defaultValidationContext;
-    SdsSecretConfig validationContextSdsSecretConfig;
-  }
+    public SdsSecretConfig(String name, ApiType apiType,
+        List<GrpcService> grpcServices) {
+      this.name = name;
+      this.apiType = apiType;
+      this.grpcServices = grpcServices;
+    }
 
-  static final class CommonTlsContext {
-    private final List<SdsSecretConfig> tlsCertificateSdsSecretConfigs;
-    CombinedCertificateValidationContext combinedValidationContext;
-  }
+    public String getName() {
+      return name;
+    }
 
-  static final class DownstreamTlsContext {
-    private final CommonTlsContext commonTlsContext;
-    boolean requireClientCertificate;
-    boolean requireSni;
+    public ApiType getApiType() {
+      return apiType;
+    }
+
+    public List<GrpcService> getGrpcServices() {
+      return grpcServices;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      SdsSecretConfig that = (SdsSecretConfig) o;
+      return java.util.Objects.equals(name, that.name)
+          && apiType == that.apiType
+          && java.util.Objects.equals(grpcServices, that.grpcServices);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(name, apiType, grpcServices);
+    }
+
+    @Override
+    public String toString() {
+      return "SdsSecretConfig{"
+          + "name='" + name + '\''
+          + ", apiType=" + apiType
+          + ", grpcServices=" + grpcServices
+          + '}';
+    }
   }
 
   /**
@@ -509,14 +644,147 @@ final class EnvoyProtoData {
    */
   static final class FilterChain {
     private final FilterChainMatch filterChainMatch;
-    private final DownstreamTlsContext downstreamTlsContext;
+
+    // following are fields of DownstreamTlsContext
+    private final List<SdsSecretConfig> tlsCertificateSdsSecretConfigs;
+
+    // fields of CombinedCertificateValidationContext start
+    // fields of CertificateValidationContext start
+    private final List<String> verifySubjectAltName;
+    private final SdsSecretConfig validationContextSdsSecretConfig;
+    private final boolean requireClientCertificate;
+    private final boolean requireSni;
+
+    public FilterChain(FilterChainMatch filterChainMatch,
+        List<SdsSecretConfig> tlsCertificateSdsSecretConfigs,
+        List<String> verifySubjectAltName,
+        SdsSecretConfig validationContextSdsSecretConfig, boolean requireClientCertificate,
+        boolean requireSni) {
+      this.filterChainMatch = filterChainMatch;
+      this.tlsCertificateSdsSecretConfigs = tlsCertificateSdsSecretConfigs;
+      this.verifySubjectAltName = verifySubjectAltName;
+      this.validationContextSdsSecretConfig = validationContextSdsSecretConfig;
+      this.requireClientCertificate = requireClientCertificate;
+      this.requireSni = requireSni;
+    }
+
+    public FilterChainMatch getFilterChainMatch() {
+      return filterChainMatch;
+    }
+
+    public List<SdsSecretConfig> getTlsCertificateSdsSecretConfigs() {
+      return tlsCertificateSdsSecretConfigs;
+    }
+
+    public List<String> getVerifySubjectAltName() {
+      return verifySubjectAltName;
+    }
+
+    public SdsSecretConfig getValidationContextSdsSecretConfig() {
+      return validationContextSdsSecretConfig;
+    }
+
+    public boolean isRequireClientCertificate() {
+      return requireClientCertificate;
+    }
+
+    public boolean isRequireSni() {
+      return requireSni;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      FilterChain that = (FilterChain) o;
+      return requireClientCertificate == that.requireClientCertificate
+          && requireSni == that.requireSni
+          && java.util.Objects.equals(filterChainMatch, that.filterChainMatch)
+          && java.util.Objects
+              .equals(tlsCertificateSdsSecretConfigs, that.tlsCertificateSdsSecretConfigs)
+          && java.util.Objects.equals(verifySubjectAltName, that.verifySubjectAltName)
+          && java.util.Objects
+              .equals(validationContextSdsSecretConfig, that.validationContextSdsSecretConfig);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects
+          .hash(filterChainMatch, tlsCertificateSdsSecretConfigs, verifySubjectAltName,
+              validationContextSdsSecretConfig, requireClientCertificate, requireSni);
+    }
+
+    @Override
+    public String toString() {
+      return "FilterChain{"
+          + "filterChainMatch=" + filterChainMatch
+          + ", tlsCertificateSdsSecretConfigs=" + tlsCertificateSdsSecretConfigs
+          + ", verifySubjectAltName=" + verifySubjectAltName
+          + ", validationContextSdsSecretConfig=" + validationContextSdsSecretConfig
+          + ", requireClientCertificate=" + requireClientCertificate
+          + ", requireSni=" + requireSni
+          + '}';
+    }
   }
 
-  /** Corresponds to Envoy proto message {@link io.envoyproxy.envoy.api.v2.Listener}. */
+  /**
+   * Corresponds to Envoy proto message {@link io.envoyproxy.envoy.api.v2.Listener} & related
+   * classes.
+   */
   static final class Listener {
     private final String name;
     private final String address;
     private final List<FilterChain> filterChains;
 
+    public Listener(String name, String address,
+        List<FilterChain> filterChains) {
+      this.name = name;
+      this.address = address;
+      this.filterChains = filterChains;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public String getAddress() {
+      return address;
+    }
+
+    public List<FilterChain> getFilterChains() {
+      return filterChains;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      Listener listener = (Listener) o;
+      return java.util.Objects.equals(name, listener.name)
+          &&  java.util.Objects.equals(address, listener.address)
+          &&  java.util.Objects.equals(filterChains, listener.filterChains);
+    }
+
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(name, address, filterChains);
+    }
+
+    @Override
+    public String toString() {
+      return "Listener{"
+          + "name='" + name + '\''
+          + ", address='" + address + '\''
+          + ", filterChains=" + filterChains
+          + '}';
+    }
   }
 }
