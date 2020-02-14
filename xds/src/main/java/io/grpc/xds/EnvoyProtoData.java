@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableList;
 import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext.CombinedCertificateValidationContext;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
+import io.envoyproxy.envoy.api.v2.core.ApiConfigSource;
+import io.envoyproxy.envoy.api.v2.core.GrpcService;
 import io.envoyproxy.envoy.type.FractionalPercent;
 import io.envoyproxy.envoy.type.FractionalPercent.DenominatorType;
 import io.grpc.EquivalentAddressGroup;
@@ -525,6 +527,11 @@ final class EnvoyProtoData {
       this.credentialsFactoryName = credentialsFactoryName;
     }
 
+    static GrpcService fromEnvoyProtoGrpcService(
+        io.envoyproxy.envoy.api.v2.core.GrpcService grpcService) {
+      return null;
+    }
+
     public String getTargetUri() {
       return targetUri;
     }
@@ -608,7 +615,17 @@ final class EnvoyProtoData {
 
     static SdsSecretConfig fromEnvoyProtoSdsSecretConfig(
         io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig proto) {
-      return null;
+      ApiType apiType = null;
+      List<GrpcService> grpcServices = new ArrayList<>();
+      if (proto.getSdsConfig().hasApiConfigSource()) {
+        ApiConfigSource apiConfigSource = proto.getSdsConfig().getApiConfigSource();
+        apiType = ApiType.valueOf(apiConfigSource.getApiType().name());
+        for (io.envoyproxy.envoy.api.v2.core.GrpcService grpcService :
+            apiConfigSource.getGrpcServicesList()) {
+          grpcServices.add(GrpcService.fromEnvoyProtoGrpcService(grpcService));
+        }
+      }
+      return new SdsSecretConfig(proto.getName(), apiType, grpcServices);
     }
 
     public String getName() {
