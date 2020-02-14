@@ -20,6 +20,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext;
+import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext.CombinedCertificateValidationContext;
+import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.type.FractionalPercent;
 import io.envoyproxy.envoy.type.FractionalPercent.DenominatorType;
 import io.grpc.EquivalentAddressGroup;
@@ -400,6 +403,11 @@ final class EnvoyProtoData {
       this.applicationProtocols = applicationProtocols;
     }
 
+    static FilterChainMatch fromEnvoyProtoFilterChainMatch(
+        io.envoyproxy.envoy.api.v2.listener.FilterChainMatch proto) {
+      return null;
+    }
+
     public int getDestinationPort() {
       return destinationPort;
     }
@@ -598,6 +606,11 @@ final class EnvoyProtoData {
       this.grpcServices = grpcServices;
     }
 
+    static SdsSecretConfig fromEnvoyProtoSdsSecretConfig(
+        io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig proto) {
+      return null;
+    }
+
     public String getName() {
       return name;
     }
@@ -666,6 +679,48 @@ final class EnvoyProtoData {
       this.validationContextSdsSecretConfig = validationContextSdsSecretConfig;
       this.requireClientCertificate = requireClientCertificate;
       this.requireSni = requireSni;
+    }
+
+    static FilterChain fromEnvoyProtoFilterChain(
+        io.envoyproxy.envoy.api.v2.listener.FilterChain proto) {
+      List<SdsSecretConfig> tlsCertificateSdsSecretConfigs = new ArrayList<>();
+      List<String> verifySubjectAltName = new ArrayList<>();
+      SdsSecretConfig validationContextSdsSecretConfig = null;
+      boolean requireClientCertificate = false;
+      boolean requireSni = false;
+      if (proto.hasTlsContext()) {
+        DownstreamTlsContext downstreamTlsContext = proto.getTlsContext();
+        if (downstreamTlsContext.hasCommonTlsContext()) {
+          final CommonTlsContext commonTlsContext = proto.getTlsContext().getCommonTlsContext();
+          for (io.envoyproxy.envoy.api.v2.auth.SdsSecretConfig sdsSecretConfig :
+              commonTlsContext.getTlsCertificateSdsSecretConfigsList()) {
+            tlsCertificateSdsSecretConfigs.add(SdsSecretConfig.fromEnvoyProtoSdsSecretConfig(
+                sdsSecretConfig));
+          }
+          if (commonTlsContext.hasCombinedValidationContext()) {
+            CombinedCertificateValidationContext combinedContext =
+                commonTlsContext.getCombinedValidationContext();
+            if (combinedContext.hasDefaultValidationContext()) {
+              verifySubjectAltName =
+                  commonTlsContext.getCombinedValidationContext().getDefaultValidationContext()
+                      .getVerifySubjectAltNameList();
+            }
+            validationContextSdsSecretConfig =
+                SdsSecretConfig.fromEnvoyProtoSdsSecretConfig(
+                    combinedContext.getValidationContextSdsSecretConfig());
+          }
+        }
+        requireClientCertificate = downstreamTlsContext.getRequireClientCertificate().getValue();
+        requireSni = downstreamTlsContext.getRequireSni().getValue();
+      }
+      return new FilterChain(
+          FilterChainMatch.fromEnvoyProtoFilterChainMatch(proto.getFilterChainMatch()),
+          tlsCertificateSdsSecretConfigs,
+          verifySubjectAltName,
+          validationContextSdsSecretConfig,
+          requireClientCertificate,
+          requireSni
+          );
     }
 
     public FilterChainMatch getFilterChainMatch() {
@@ -745,6 +800,22 @@ final class EnvoyProtoData {
       this.name = name;
       this.address = address;
       this.filterChains = filterChains;
+    }
+
+    static String fromEnvoyProtoAddress(io.envoyproxy.envoy.api.v2.core.Address proto) {
+      return proto.hasSocketAddress() ? proto.getSocketAddress().getAddress() : null;
+    }
+
+    static Listener fromEnvoyProtoListener(io.envoyproxy.envoy.api.v2.Listener proto) {
+      List<FilterChain> filterChains = new ArrayList<>(proto.getFilterChainsCount());
+      for (io.envoyproxy.envoy.api.v2.listener.FilterChain filterChain :
+          proto.getFilterChainsList()) {
+        filterChains.add(FilterChain.fromEnvoyProtoFilterChain(filterChain));
+      }
+      return new Listener(
+          proto.getName(),
+          fromEnvoyProtoAddress(proto.getAddress()),
+          filterChains);
     }
 
     public String getName() {

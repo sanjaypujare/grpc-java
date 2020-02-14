@@ -30,7 +30,6 @@ import io.envoyproxy.envoy.api.v2.DiscoveryRequest;
 import io.envoyproxy.envoy.api.v2.DiscoveryResponse;
 import io.envoyproxy.envoy.api.v2.Listener;
 import io.envoyproxy.envoy.api.v2.core.Node;
-import io.envoyproxy.envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager;
 import io.envoyproxy.envoy.service.discovery.v2.AggregatedDiscoveryServiceGrpc;
 import io.grpc.ManagedChannel;
 import io.grpc.Status;
@@ -40,7 +39,6 @@ import io.grpc.internal.BackoffPolicy;
 import io.grpc.stub.StreamObserver;
 import io.grpc.xds.Bootstrapper.ServerInfo;
 import io.grpc.xds.XdsClientImpl.MessagePrinter;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -176,11 +174,8 @@ final class XdsClientImplForListener extends XdsClient {
   }
 
   /**
-   * Handles LDS response to find the HttpConnectionManager message for the requested resource name.
-   * Proceed with the resolved RouteConfiguration in HttpConnectionManager message of the requested
-   * listener, if exists, to find the VirtualHost configuration for the "xds:" URI
-   * (with the port, if any, stripped off). Or sends an RDS request if configured for dynamic
-   * resolution. The response is NACKed if contains invalid data for gRPC's usage. Otherwise, an
+   * Handles LDS response to locate the Listener for the requested resource name. The response is
+   * NACKed if contains invalid data for gRPC's usage. Otherwise, an
    * ACK request is sent to management server.
    */
   private void handleLdsResponse(DiscoveryResponse ldsResponse) {
@@ -190,26 +185,14 @@ final class XdsClientImplForListener extends XdsClient {
     checkState(ldsResourceName != null && configWatcher != null,
         "No LDS request was ever sent. Management server is doing something wrong");
 
-    // Unpack Listener messages.
-    List<Listener> listeners = new ArrayList<>(ldsResponse.getResourcesCount());
+    // Get requested Listener .
+    Listener requestedListener = null;
     try {
       for (com.google.protobuf.Any res : ldsResponse.getResourcesList()) {
-        listeners.add(res.unpack(Listener.class));
-      }
-    } catch (InvalidProtocolBufferException e) {
-      adsStream.sendNackRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName),
-          "Broken LDS response.");
-      return;
-    }
-
-    // Unpack HttpConnectionManager messages.
-    HttpConnectionManager requestedHttpConnManager = null;
-    try {
-      for (Listener listener : listeners) {
-        HttpConnectionManager hm =
-            listener.getApiListener().getApiListener().unpack(HttpConnectionManager.class);
+        Listener listener = res.unpack(Listener.class);
         if (listener.getName().equals(ldsResourceName)) {
-          requestedHttpConnManager = hm;
+          requestedListener = listener;
+          break;
         }
       }
     } catch (InvalidProtocolBufferException e) {
@@ -217,13 +200,14 @@ final class XdsClientImplForListener extends XdsClient {
           "Broken LDS response.");
       return;
     }
-
-    String errorMessage = null;
-
-    // Process the requested Listener if exists, either extract cluster information from in-lined
-    // RouteConfiguration message or send an RDS request for dynamic resolution.
-    adsStream.sendAckRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName),
-        ldsResponse.getVersionInfo());
+    // Process the requested Listener if exists
+    if (requestedListener != null) {
+      adsStream.sendAckRequest(ADS_TYPE_URL_LDS, ImmutableList.of(ldsResourceName),
+          ldsResponse.getVersionInfo());
+      ConfigUpdate configUpdate = ConfigUpdate.newBuilder().setListener(
+          EnvoyProtoData.Listener.fromEnvoyProtoListener(requestedListener)).build();
+      configWatcher.onConfigChanged(configUpdate);
+    }
   }
 
   @VisibleForTesting
