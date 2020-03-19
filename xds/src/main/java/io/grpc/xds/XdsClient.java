@@ -344,7 +344,8 @@ public abstract class XdsClient {
    * Updates via resource discovery RPCs using LDS. Includes {@link Listener} object containing
    * config for security, RBAC or other server side features such as rate limit.
    */
-  static final class ListenerUpdate {
+  @VisibleForTesting
+  public static final class ListenerUpdate {
     // TODO(sanjaypujare): flatten structure by moving Listener class members here.
     private final Listener listener;
 
@@ -363,23 +364,27 @@ public abstract class XdsClient {
           .toString();
     }
 
-    static Builder newBuilder() {
+    @VisibleForTesting
+    public static Builder newBuilder() {
       return new Builder();
     }
 
-    static final class Builder {
+    @VisibleForTesting
+    public static final class Builder {
       private Listener listener;
 
       // Use ListenerUpdate.newBuilder().
       private Builder() {
       }
 
-      Builder setListener(Listener listener) {
+      @VisibleForTesting
+      public Builder setListener(Listener listener) {
         this.listener = listener;
         return this;
       }
 
-      ListenerUpdate build() {
+      @VisibleForTesting
+      public ListenerUpdate build() {
         Preconditions.checkState(listener != null, "listener is not set");
         return new ListenerUpdate(listener);
       }
@@ -422,7 +427,8 @@ public abstract class XdsClient {
   /**
    * Listener watcher interface. To be used by {@link io.grpc.xds.internal.sds.XdsServerBuilder}.
    */
-  interface ListenerWatcher {
+  @VisibleForTesting
+  public interface ListenerWatcher {
 
     /**
      * Called when receiving an update on Listener configuration.
@@ -480,7 +486,8 @@ public abstract class XdsClient {
   /**
    * Registers a watcher for a Listener with the given port.
    */
-  void watchListenerData(int port, ListenerWatcher watcher) {
+  @VisibleForTesting
+  public void watchListenerData(int port, ListenerWatcher watcher) {
   }
 
   /**

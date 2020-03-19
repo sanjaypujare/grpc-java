@@ -26,7 +26,8 @@ import javax.annotation.Nullable;
  * Defines gRPC data types for Envoy protobuf messages used in xDS protocol on the server side,
  * similar to how {@link EnvoyProtoData} defines it for the client side.
  */
-final class EnvoyServerProtoData {
+@VisibleForTesting
+public final class EnvoyServerProtoData {
 
   // Prevent instantiation.
   private EnvoyServerProtoData() {
@@ -159,14 +160,15 @@ final class EnvoyServerProtoData {
   /**
    * Corresponds to Envoy proto message {@link io.envoyproxy.envoy.api.v2.listener.FilterChain}.
    */
-  static final class FilterChain {
+  @VisibleForTesting
+  public static final class FilterChain {
     // TODO(sanjaypujare): flatten structure by moving FilterChainMatch class members here.
     private final FilterChainMatch filterChainMatch;
     // TODO(sanjaypujare): remove dependency on envoy data type along with rest of the code.
     private final io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext downstreamTlsContext;
 
     @VisibleForTesting
-    FilterChain(FilterChainMatch filterChainMatch,
+    public FilterChain(FilterChainMatch filterChainMatch,
         io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext downstreamTlsContext) {
       this.filterChainMatch = filterChainMatch;
       this.downstreamTlsContext = downstreamTlsContext;
@@ -219,15 +221,17 @@ final class EnvoyServerProtoData {
    * Corresponds to Envoy proto message {@link io.envoyproxy.envoy.api.v2.Listener} & related
    * classes.
    */
-  static final class Listener {
+  @VisibleForTesting
+  public static final class Listener {
     private final String name;
     @Nullable
     private final String address;
     private final List<FilterChain> filterChains;
 
+    /** Builds a Listener from name, address and filterChains. */
     @VisibleForTesting
-    Listener(String name, String address,
-        List<FilterChain> filterChains) {
+    public Listener(String name, String address,
+                    List<FilterChain> filterChains) {
       this.name = name;
       this.address = address;
       this.filterChains = Collections.unmodifiableList(filterChains);

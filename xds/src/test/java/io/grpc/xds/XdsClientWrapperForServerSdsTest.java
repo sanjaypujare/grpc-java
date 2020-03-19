@@ -204,10 +204,4 @@ public class XdsClientWrapperForServerSdsTest {
     return new EnvoyServerProtoData.FilterChainMatch(
         destPort, prefixRanges, Arrays.<String>asList());
   }
-
-  static EnvoyServerProtoData.FilterChainMatch buildFilterChainMatch(
-      int destPort, EnvoyServerProtoData.CidrRange... prefixRanges) {
-    return new EnvoyServerProtoData.FilterChainMatch(
-        destPort, Arrays.asList(prefixRanges), Arrays.<String>asList());
-  }
 }

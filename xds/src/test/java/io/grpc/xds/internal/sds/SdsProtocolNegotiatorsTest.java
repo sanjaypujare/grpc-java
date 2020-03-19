@@ -19,6 +19,8 @@ package io.grpc.xds.internal.sds;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 
 import com.google.common.base.Strings;
 import io.envoyproxy.envoy.api.v2.auth.CertificateValidationContext;
@@ -30,6 +32,7 @@ import io.envoyproxy.envoy.api.v2.core.DataSource;
 import io.grpc.internal.testing.TestUtils;
 import io.grpc.netty.GrpcHttp2ConnectionHandler;
 import io.grpc.netty.InternalProtocolNegotiationEvent;
+import io.grpc.xds.EnvoyServerProtoData;
 import io.grpc.xds.XdsClient;
 import io.grpc.xds.XdsClientWrapperForServerSds;
 import io.grpc.xds.internal.sds.SdsProtocolNegotiators.ClientSdsHandler;
@@ -50,6 +53,7 @@ import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -57,6 +61,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -226,6 +231,40 @@ public class SdsProtocolNegotiatorsTest {
   }
 
   @Test
+  public void serverSdsHandler_listenerFromXdsClient() throws IOException {
+    ArgumentCaptor<XdsClient.ListenerWatcher> listenerWatcherCaptor = ArgumentCaptor.forClass(null);
+    verify(xdsClient).watchListenerData(eq(PORT), listenerWatcherCaptor.capture());
+    XdsClient.ListenerWatcher registeredWatcher = listenerWatcherCaptor.getValue();
+    DownstreamTlsContext downstreamTlsContext =
+        buildDownstreamTlsContextFromFilenames(SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE);
+    EnvoyServerProtoData.Listener listener1 = buildTestListener(downstreamTlsContext);
+    XdsClient.ListenerUpdate listenerUpdate =
+        XdsClient.ListenerUpdate.newBuilder().setListener(listener1).build();
+    registeredWatcher.onListenerChanged(listenerUpdate);
+
+    SdsProtocolNegotiators.ServerSdsHandler serverSdsHandler =
+        new SdsProtocolNegotiators.ServerSdsHandler(grpcHandler, null,
+            xdsClientWrapperForServerSds);
+    pipeline.addLast(serverSdsHandler);
+    channelHandlerCtx = pipeline.context(serverSdsHandler);
+    assertNotNull(channelHandlerCtx); // serverSdsHandler ctx is non-null since we just added it
+
+    // kick off protocol negotiation
+    pipeline.fireUserEventTriggered(InternalProtocolNegotiationEvent.getDefault());
+    channel.runPendingTasks(); // need this for tasks to execute on eventLoop
+    channelHandlerCtx = pipeline.context(serverSdsHandler);
+    assertThat(channelHandlerCtx).isNull();
+
+    // pipeline should have SslHandler and ServerTlsHandler
+    Iterator<Map.Entry<String, ChannelHandler>> iterator = pipeline.iterator();
+    assertThat(iterator.next().getValue()).isInstanceOf(SslHandler.class);
+    // ProtocolNegotiators.ServerTlsHandler.class is not accessible, get canonical name
+    assertThat(iterator.next().getValue().getClass().getCanonicalName())
+        .contains("ProtocolNegotiators.ServerTlsHandler");
+  }
+
+
+  @Test
   public void clientSdsProtocolNegotiatorNewHandler_fireProtocolNegotiationEvent()
       throws IOException, InterruptedException {
     UpstreamTlsContext upstreamTlsContext =
@@ -248,6 +287,13 @@ public class SdsProtocolNegotiatorsTest {
     pipeline.fireUserEventTriggered(sslEvent);
     channel.runPendingTasks(); // need this for tasks to execute on eventLoop
     assertTrue(channel.isOpen());
+  }
+
+  private static EnvoyServerProtoData.Listener buildTestListener(DownstreamTlsContext tlsContext) {
+    return new EnvoyServerProtoData.Listener(
+        "listener1",
+        "192.168.1.1",
+        Arrays.asList(new EnvoyServerProtoData.FilterChain(null, tlsContext)));
   }
 
   private static final class FakeGrpcHttp2ConnectionHandler extends GrpcHttp2ConnectionHandler {

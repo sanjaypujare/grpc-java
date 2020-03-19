@@ -418,7 +418,7 @@ final class XdsClientImpl extends XdsClient {
   }
 
   @Override
-  void watchListenerData(int port, ListenerWatcher watcher) {
+  public void watchListenerData(int port, ListenerWatcher watcher) {
     checkState(configWatcher == null,
         "ListenerWatcher cannot be set when ConfigWatcher set");
     checkState(listenerWatcher == null, "ListenerWatcher already registered");
