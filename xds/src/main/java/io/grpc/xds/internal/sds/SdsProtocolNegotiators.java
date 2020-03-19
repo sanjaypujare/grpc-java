@@ -304,9 +304,7 @@ final class SdsProtocolNegotiators {
     @Override
     protected void handlerAdded0(final ChannelHandlerContext ctx) {
       DownstreamTlsContext downstreamTlsContext =
-          xdsClientWrapperForServerSds == null
-              ? null
-              : xdsClientWrapperForServerSds.getDownstreamTlsContext(ctx.channel());
+          xdsClientWrapperForServerSds.getDownstreamTlsContext(ctx.channel());
       if (isTlsContextEmpty(downstreamTlsContext)) {
         downstreamTlsContext = downstreamTlsContextFromBuilder;
       }
