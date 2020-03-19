@@ -30,6 +30,8 @@ import io.envoyproxy.envoy.api.v2.core.DataSource;
 import io.grpc.internal.testing.TestUtils;
 import io.grpc.netty.GrpcHttp2ConnectionHandler;
 import io.grpc.netty.InternalProtocolNegotiationEvent;
+import io.grpc.xds.XdsClient;
+import io.grpc.xds.XdsClientWrapperForServerSds;
 import io.grpc.xds.internal.sds.SdsProtocolNegotiators.ClientSdsHandler;
 import io.grpc.xds.internal.sds.SdsProtocolNegotiators.ClientSdsProtocolNegotiator;
 import io.netty.channel.ChannelHandler;
@@ -50,9 +52,13 @@ import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
+
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 /** Unit tests for {@link SdsProtocolNegotiators}. */
 @RunWith(JUnit4.class)
@@ -63,6 +69,7 @@ public class SdsProtocolNegotiatorsTest {
   private static final String CLIENT_PEM_FILE = "client.pem";
   private static final String CLIENT_KEY_FILE = "client.key";
   private static final String CA_PEM_FILE = "ca.pem";
+  private static final int PORT = 7000;
 
   private final GrpcHttp2ConnectionHandler grpcHandler =
       FakeGrpcHttp2ConnectionHandler.newHandler();
@@ -70,6 +77,8 @@ public class SdsProtocolNegotiatorsTest {
   private EmbeddedChannel channel = new EmbeddedChannel();
   private ChannelPipeline pipeline = channel.pipeline();
   private ChannelHandlerContext channelHandlerCtx;
+  @Mock private XdsClient xdsClient;
+  private XdsClientWrapperForServerSds xdsClientWrapperForServerSds;
 
   private static String getTempFileNameForResourcesFile(String resFile) throws IOException {
     return Strings.isNullOrEmpty(resFile) ? null : TestUtils.loadCert(resFile).getAbsolutePath();
@@ -138,6 +147,12 @@ public class SdsProtocolNegotiatorsTest {
     return builder.build();
   }
 
+  @Before
+  public void setUp() {
+    MockitoAnnotations.initMocks(this);
+    xdsClientWrapperForServerSds = new XdsClientWrapperForServerSds(PORT, xdsClient);
+  }
+
   @Test
   public void clientSdsProtocolNegotiatorNewHandler_nullTlsContext() {
     ClientSdsProtocolNegotiator pn =
@@ -190,7 +205,8 @@ public class SdsProtocolNegotiatorsTest {
         buildDownstreamTlsContextFromFilenames(SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE);
 
     SdsProtocolNegotiators.ServerSdsHandler serverSdsHandler =
-        new SdsProtocolNegotiators.ServerSdsHandler(grpcHandler, downstreamTlsContext, null);
+        new SdsProtocolNegotiators.ServerSdsHandler(grpcHandler, downstreamTlsContext,
+            xdsClientWrapperForServerSds);
     pipeline.addLast(serverSdsHandler);
     channelHandlerCtx = pipeline.context(serverSdsHandler);
     assertNotNull(channelHandlerCtx); // serverSdsHandler ctx is non-null since we just added it

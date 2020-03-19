@@ -116,8 +116,9 @@ public final class XdsClientWrapperForServerSds {
     setClientAndWatcher(port);
   }
 
+  /** Wraps the supplied XdsClient for use in tests. */
   @VisibleForTesting
-  XdsClientWrapperForServerSds(int port, XdsClient xdsClient) {
+  public XdsClientWrapperForServerSds(int port, XdsClient xdsClient) {
     this.logId = InternalLogId.allocate("GrpcServer", Integer.toString(port));
     this.xdsClient = xdsClient;
     setClientAndWatcher(port);
