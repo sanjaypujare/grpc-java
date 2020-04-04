@@ -159,14 +159,21 @@ public class XdsSdsClientServerTest {
     int freePort = findFreePort();
     XdsServerBuilder builder =
         XdsServerBuilder.forPort(freePort).addService(new SimpleServiceImpl());
+    SdsProtocolNegotiators.ServerSdsProtocolNegotiator serverSdsProtocolNegotiator =
+        new SdsProtocolNegotiators.ServerSdsProtocolNegotiator(
+            createXdsClientWrapperForServerSds(freePort, downstreamTlsContext));
+    Server xdsServer = builder.buildServer(serverSdsProtocolNegotiator);
+    return cleanupRule.register(xdsServer).start();
+  }
+
+  /** Creates a XdsClientWrapperForServerSds for a port and tlsContext. */
+  public static XdsClientWrapperForServerSds createXdsClientWrapperForServerSds(
+      int freePort, DownstreamTlsContext downstreamTlsContext) {
     XdsClient mockXdsClient = mock(XdsClient.class);
     XdsClientWrapperForServerSds xdsClientWrapperForServerSds =
         new XdsClientWrapperForServerSds(freePort, mockXdsClient, null);
     setListenerUpdate(mockXdsClient, freePort, downstreamTlsContext);
-    SdsProtocolNegotiators.ServerSdsProtocolNegotiator serverSdsProtocolNegotiator =
-        new SdsProtocolNegotiators.ServerSdsProtocolNegotiator(null, xdsClientWrapperForServerSds);
-    Server xdsServer = builder.buildServer(serverSdsProtocolNegotiator);
-    return cleanupRule.register(xdsServer).start();
+    return xdsClientWrapperForServerSds;
   }
 
   private static int findFreePort() throws IOException {
@@ -176,7 +183,7 @@ public class XdsSdsClientServerTest {
     }
   }
 
-  private void setListenerUpdate(XdsClient xdsClient, int port,
+  private static void setListenerUpdate(XdsClient xdsClient, int port,
                               DownstreamTlsContext tlsContext) {
     ArgumentCaptor<XdsClient.ListenerWatcher> listenerWatcherCaptor = ArgumentCaptor.forClass(null);
     verify(xdsClient).watchListenerData(eq(port), listenerWatcherCaptor.capture());
