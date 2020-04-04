@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
-package io.grpc.xds.internal.sds;
+package io.grpc.xds;
 
 import static com.google.common.truth.Truth.assertThat;
+import static io.grpc.xds.XdsClientWrapperForServerSdsTest.buildFilterChainMatch;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import com.google.protobuf.BoolValue;
 import io.envoyproxy.envoy.api.v2.auth.CertificateValidationContext;
@@ -32,11 +36,17 @@ import io.grpc.testing.GrpcCleanupRule;
 import io.grpc.testing.protobuf.SimpleRequest;
 import io.grpc.testing.protobuf.SimpleResponse;
 import io.grpc.testing.protobuf.SimpleServiceGrpc;
+import io.grpc.xds.internal.sds.SdsProtocolNegotiators;
+import io.grpc.xds.internal.sds.XdsChannelBuilder;
+import io.grpc.xds.internal.sds.XdsServerBuilder;
 import java.io.IOException;
+import java.net.ServerSocket;
+import java.util.Arrays;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for {@link XdsChannelBuilder} and {@link XdsServerBuilder} for plaintext/TLS/mTLS
@@ -146,11 +156,50 @@ public class XdsSdsClientServerTest {
   }
 
   private Server getXdsServer(DownstreamTlsContext downstreamTlsContext) throws IOException {
-    XdsServerBuilder serverBuilder =
-        XdsServerBuilder.forPort(0) // get unused port
-            .addService(new SimpleServiceImpl())
-            .tlsContext(downstreamTlsContext);
-    return cleanupRule.register(serverBuilder.build()).start();
+    int freePort = findFreePort();
+    XdsServerBuilder builder =
+        XdsServerBuilder.forPort(freePort).addService(new SimpleServiceImpl());
+    XdsClient mockXdsClient = mock(XdsClient.class);
+    XdsClientWrapperForServerSds xdsClientWrapperForServerSds =
+        new XdsClientWrapperForServerSds(freePort, mockXdsClient, null);
+    setListenerUpdate(mockXdsClient, freePort, downstreamTlsContext);
+    SdsProtocolNegotiators.ServerSdsProtocolNegotiator serverSdsProtocolNegotiator =
+        new SdsProtocolNegotiators.ServerSdsProtocolNegotiator(null, xdsClientWrapperForServerSds);
+    Server xdsServer = builder.buildServer(serverSdsProtocolNegotiator);
+    return cleanupRule.register(xdsServer).start();
+  }
+
+  private static int findFreePort() throws IOException {
+    try (ServerSocket socket = new ServerSocket(0)) {
+      socket.setReuseAddress(true);
+      return socket.getLocalPort();
+    }
+  }
+
+  private void setListenerUpdate(XdsClient xdsClient, int port,
+                              DownstreamTlsContext tlsContext) {
+    ArgumentCaptor<XdsClient.ListenerWatcher> listenerWatcherCaptor = ArgumentCaptor.forClass(null);
+    verify(xdsClient).watchListenerData(eq(port), listenerWatcherCaptor.capture());
+    XdsClient.ListenerWatcher registeredWatcher = listenerWatcherCaptor.getValue();
+    EnvoyServerProtoData.Listener listener =
+            buildListener("listener1","0.0.0.0", port, tlsContext);
+    XdsClient.ListenerUpdate listenerUpdate =
+            XdsClient.ListenerUpdate.newBuilder().setListener(listener).build();
+    registeredWatcher.onListenerChanged(listenerUpdate);
+  }
+
+  static EnvoyServerProtoData.Listener buildListener(
+          String name,
+          String address,
+          int port,
+          DownstreamTlsContext tlsContext) {
+    EnvoyServerProtoData.FilterChainMatch filterChainMatch =
+            buildFilterChainMatch(port, address);
+    EnvoyServerProtoData.FilterChain filterChain1 =
+            new EnvoyServerProtoData.FilterChain(filterChainMatch, tlsContext);
+    EnvoyServerProtoData.Listener listener =
+            new EnvoyServerProtoData.Listener(name, address, Arrays.asList(filterChain1));
+    return listener;
   }
 
   private void buildClientAndTest(
