@@ -38,8 +38,10 @@ import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Logger;
 import javax.net.ssl.SSLHandshakeException;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -56,6 +58,7 @@ import org.mockito.stubbing.Answer;
  */
 @RunWith(JUnit4.class)
 public class XdsSdsClientServerTest {
+  private static final Logger logger = Logger.getLogger(XdsSdsClientServerTest.class.getName());
 
   /** Untrusted server. */
   private static final String BAD_SERVER_PEM_FILE = "badserver.pem";
@@ -71,6 +74,11 @@ public class XdsSdsClientServerTest {
     MockitoAnnotations.initMocks(this);
     testSdsNameResolverProvider = new TestSdsNameResolverProvider(callback);
     NameResolverRegistry.getDefaultRegistry().register(testSdsNameResolverProvider);
+  }
+
+  @After
+  public void tearDown() {
+    NameResolverRegistry.getDefaultRegistry().deregister(testSdsNameResolverProvider);
   }
 
   @Test
@@ -204,7 +212,7 @@ public class XdsSdsClientServerTest {
           final UpstreamTlsContext upstreamTlsContext,
           String overrideAuthority,
           String requestMessage,
-          int serverPort) {
+          final int serverPort) {
 
     XdsChannelBuilder builder =
         XdsChannelBuilder.forTarget("sdstest:///localhost:" + serverPort)/*.tlsContext(upstreamTlsContext)*/;
@@ -213,15 +221,18 @@ public class XdsSdsClientServerTest {
     }
     SimpleServiceGrpc.SimpleServiceBlockingStub blockingStub =
         SimpleServiceGrpc.newBlockingStub(cleanupRule.register(builder.build()));
-    doAnswer(new Answer() {
+    logger.info("Before answer:  port="+serverPort);
+    doAnswer(new Answer<NameResolver.ResolutionResult>() {
       @Override
-      public Object answer(InvocationOnMock invocation) throws Throwable {
+      public NameResolver.ResolutionResult answer(InvocationOnMock invocation) throws Throwable {
         // TODO: check all types, and check the address matches dest address
         // cherck for dest addr being IPV4 localhost
         Object[] args = invocation.getArguments();
+        logger.info("Inside answer1: args length="+args.length+", port="+serverPort);
         NameResolver.ResolutionResult resolutionResult = (NameResolver.ResolutionResult)args[0];
         List<EquivalentAddressGroup> addresses = resolutionResult.getAddresses();
         if (upstreamTlsContext != null && addresses != null) {
+          logger.info("Inside answer2: List size="+addresses.size()+", port="+serverPort);
           ArrayList<EquivalentAddressGroup> copyList = new ArrayList<>(addresses.size());
           for (EquivalentAddressGroup eag : addresses) {
             // TODO check that eag.getAddresses() is an IPv4 localhost address
