@@ -18,9 +18,7 @@ package io.grpc.xds;
 
 import static com.google.common.truth.Truth.assertThat;
 import static io.grpc.xds.XdsClientWrapperForServerSdsTest.buildFilterChainMatch;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 import com.google.protobuf.BoolValue;
 import io.envoyproxy.envoy.api.v2.auth.CertificateValidationContext;
@@ -46,7 +44,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for {@link XdsChannelBuilder} and {@link XdsServerBuilder} for plaintext/TLS/mTLS
@@ -133,7 +130,7 @@ public class XdsSdsClientServerTest {
             .setRequireClientCertificate(BoolValue.of(false))
             .build();
 
-    getXdsServer(downstreamTlsContext);
+    XdsClient.ListenerWatcher listenerWatcher = getXdsServer(downstreamTlsContext);
 
     String clientPem = TestUtils.loadCert("client.pem").getAbsolutePath();
     String clientKey = TestUtils.loadCert("client.key").getAbsolutePath();
@@ -154,16 +151,21 @@ public class XdsSdsClientServerTest {
         UpstreamTlsContext.newBuilder().setCommonTlsContext(commonTlsContext1).build();
 
     buildClientAndTest(upstreamTlsContext, "foo.test.google.fr", "buddy", server.getPort());
+    // another client after setting bad certs on server
+    buildClientAndTest(upstreamTlsContext, "foo.test.google.fr", "buddy", server.getPort());
   }
 
-  private void getXdsServer(DownstreamTlsContext downstreamTlsContext) throws IOException {
+  private XdsClient.ListenerWatcher getXdsServer(DownstreamTlsContext downstreamTlsContext)
+      throws IOException {
     int freePort = findFreePort();
     XdsServerBuilder builder =
         XdsServerBuilder.forPort(freePort).addService(new SimpleServiceImpl());
+    final XdsClientWrapperForServerSds xdsClientWrapperForServerSds =
+        createXdsClientWrapperForServerSds(freePort, downstreamTlsContext);
     SdsProtocolNegotiators.ServerSdsProtocolNegotiator serverSdsProtocolNegotiator =
-        new SdsProtocolNegotiators.ServerSdsProtocolNegotiator(
-            createXdsClientWrapperForServerSds(freePort, downstreamTlsContext));
+        new SdsProtocolNegotiators.ServerSdsProtocolNegotiator(xdsClientWrapperForServerSds);
     server = cleanupRule.register(builder.buildServer(serverSdsProtocolNegotiator)).start();
+    return xdsClientWrapperForServerSds.getListenerWatcher();
   }
 
   /** Creates a XdsClientWrapperForServerSds for a port and tlsContext. */
@@ -172,8 +174,8 @@ public class XdsSdsClientServerTest {
     XdsClient mockXdsClient = mock(XdsClient.class);
     XdsClientWrapperForServerSds xdsClientWrapperForServerSds =
         new XdsClientWrapperForServerSds(freePort, mockXdsClient, null);
-    XdsClient.ListenerWatcher registeredWatcher = setListenerUpdate(mockXdsClient, freePort);
-    createListenerUpdate(freePort, downstreamTlsContext, registeredWatcher);
+    createListenerUpdate(freePort, downstreamTlsContext,
+        xdsClientWrapperForServerSds.getListenerWatcher());
     return xdsClientWrapperForServerSds;
   }
 
@@ -182,13 +184,6 @@ public class XdsSdsClientServerTest {
       socket.setReuseAddress(true);
       return socket.getLocalPort();
     }
-  }
-
-  private static XdsClient.ListenerWatcher setListenerUpdate(XdsClient xdsClient, int port) {
-    ArgumentCaptor<XdsClient.ListenerWatcher> listenerWatcherCaptor = ArgumentCaptor.forClass(null);
-    verify(xdsClient).watchListenerData(eq(port), listenerWatcherCaptor.capture());
-    XdsClient.ListenerWatcher registeredWatcher = listenerWatcherCaptor.getValue();
-    return registeredWatcher;
   }
 
   private static void createListenerUpdate(
