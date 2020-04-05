@@ -23,6 +23,7 @@ import static org.mockito.Mockito.mock;
 
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
+import io.grpc.NameResolverRegistry;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
@@ -30,18 +31,20 @@ import io.grpc.testing.GrpcCleanupRule;
 import io.grpc.testing.protobuf.SimpleRequest;
 import io.grpc.testing.protobuf.SimpleResponse;
 import io.grpc.testing.protobuf.SimpleServiceGrpc;
-import io.grpc.xds.internal.sds.SdsProtocolNegotiators;
-import io.grpc.xds.internal.sds.SecretVolumeSslContextProviderTest;
-import io.grpc.xds.internal.sds.XdsChannelBuilder;
-import io.grpc.xds.internal.sds.XdsServerBuilder;
+import io.grpc.xds.internal.sds.*;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.Arrays;
 import javax.net.ssl.SSLHandshakeException;
+
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 /**
  * Unit tests for {@link XdsChannelBuilder} and {@link XdsServerBuilder} for plaintext/TLS/mTLS
@@ -56,6 +59,15 @@ public class XdsSdsClientServerTest {
 
   @Rule public final GrpcCleanupRule cleanupRule = new GrpcCleanupRule();
   private Server server;
+  private TestSdsNameResolverProvider testSdsNameResolverProvider;
+  @Mock private TestSdsNameResolver.Callback callback;
+
+  @Before
+  public void setUp() {
+    MockitoAnnotations.initMocks(this);
+    testSdsNameResolverProvider = new TestSdsNameResolverProvider(callback);
+    NameResolverRegistry.getDefaultRegistry().register(testSdsNameResolverProvider);
+  }
 
   @Test
   public void plaintextClientServer() throws IOException {
@@ -191,7 +203,7 @@ public class XdsSdsClientServerTest {
       int serverPort) {
 
     XdsChannelBuilder builder =
-        XdsChannelBuilder.forTarget("localhost:" + serverPort).tlsContext(upstreamTlsContext);
+        XdsChannelBuilder.forTarget("sdstest:///localhost:" + serverPort).tlsContext(upstreamTlsContext);
     if (overrideAuthority != null) {
       builder = builder.overrideAuthority(overrideAuthority);
     }
