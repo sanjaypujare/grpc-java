@@ -106,6 +106,7 @@ public class XdsSdsClientServerTest {
     mtlsCommonTest(upstreamTlsContext);
   }
 
+  /** mTLS - client auth enabled then update server certs to untrusted. */
   @Test
   public void mtlsClientServer_changeServerContext_expectException() throws IOException {
     UpstreamTlsContext upstreamTlsContext =
