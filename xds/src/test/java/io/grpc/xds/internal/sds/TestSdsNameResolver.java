@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TestSdsNameResolver extends DnsNameResolver {
     public interface Callback {
-        void onResult(ResolutionResult resolutionResult);
+        ResolutionResult onResult(ResolutionResult resolutionResult);
     }
 
     private Callback callback;
@@ -59,8 +59,7 @@ public class TestSdsNameResolver extends DnsNameResolver {
 
         @Override
         public void onResult(ResolutionResult resolutionResult) {
-            callback.onResult(resolutionResult);
-            chainedListener.onResult(resolutionResult);
+            chainedListener.onResult(callback.onResult(resolutionResult));
         }
 
         @Override

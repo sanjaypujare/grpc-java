@@ -19,13 +19,13 @@ package io.grpc.xds;
 import static com.google.common.truth.Truth.assertThat;
 import static io.grpc.xds.XdsClientWrapperForServerSdsTest.buildFilterChainMatch;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
-import io.grpc.NameResolverRegistry;
-import io.grpc.Server;
-import io.grpc.StatusRuntimeException;
+import io.grpc.*;
 import io.grpc.stub.StreamObserver;
 import io.grpc.testing.GrpcCleanupRule;
 import io.grpc.testing.protobuf.SimpleRequest;
@@ -35,7 +35,9 @@ import io.grpc.xds.internal.sds.*;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import javax.net.ssl.SSLHandshakeException;
 
 import org.junit.Before;
@@ -45,6 +47,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 /**
  * Unit tests for {@link XdsChannelBuilder} and {@link XdsServerBuilder} for plaintext/TLS/mTLS
@@ -197,18 +201,44 @@ public class XdsSdsClientServerTest {
   }
 
   private void buildClientAndTest(
-      UpstreamTlsContext upstreamTlsContext,
-      String overrideAuthority,
-      String requestMessage,
-      int serverPort) {
+          final UpstreamTlsContext upstreamTlsContext,
+          String overrideAuthority,
+          String requestMessage,
+          int serverPort) {
 
     XdsChannelBuilder builder =
-        XdsChannelBuilder.forTarget("sdstest:///localhost:" + serverPort).tlsContext(upstreamTlsContext);
+        XdsChannelBuilder.forTarget("sdstest:///localhost:" + serverPort)/*.tlsContext(upstreamTlsContext)*/;
     if (overrideAuthority != null) {
       builder = builder.overrideAuthority(overrideAuthority);
     }
     SimpleServiceGrpc.SimpleServiceBlockingStub blockingStub =
         SimpleServiceGrpc.newBlockingStub(cleanupRule.register(builder.build()));
+    doAnswer(new Answer() {
+      @Override
+      public Object answer(InvocationOnMock invocation) throws Throwable {
+        // TODO: check all types, and check the address matches dest address
+        // cherck for dest addr being IPV4 localhost
+        Object[] args = invocation.getArguments();
+        NameResolver.ResolutionResult resolutionResult = (NameResolver.ResolutionResult)args[0];
+        List<EquivalentAddressGroup> addresses = resolutionResult.getAddresses();
+        if (upstreamTlsContext != null && addresses != null) {
+          ArrayList<EquivalentAddressGroup> copyList = new ArrayList<>(addresses.size());
+          for (EquivalentAddressGroup eag : addresses) {
+            // TODO check that eag.getAddresses() is an IPv4 localhost address
+            EquivalentAddressGroup eagCopy =
+                    new EquivalentAddressGroup(eag.getAddresses(),
+                            eag.getAttributes()
+                                    .toBuilder()
+                                    .set(XdsAttributes.ATTR_UPSTREAM_TLS_CONTEXT, upstreamTlsContext)
+                                    .build()
+                    );
+            copyList.add(eagCopy);
+          }
+          resolutionResult = resolutionResult.toBuilder().setAddresses(copyList).build();
+        }
+        return resolutionResult;
+      }
+    }).when(callback).onResult(any(NameResolver.ResolutionResult.class));
     String resp = unaryRpc(requestMessage, blockingStub);
     assertThat(resp).isEqualTo("Hello " + requestMessage);
   }
