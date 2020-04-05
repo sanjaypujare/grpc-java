@@ -43,11 +43,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class SecretVolumeSslContextProviderTest {
 
-  private static final String SERVER_1_PEM_FILE = "server1.pem";
-  private static final String SERVER_1_KEY_FILE = "server1.key";
-  private static final String CLIENT_PEM_FILE = "client.pem";
-  private static final String CLIENT_KEY_FILE = "client.key";
-  private static final String CA_PEM_FILE = "ca.pem";
+  public static final String SERVER_1_PEM_FILE = "server1.pem";
+  public static final String SERVER_1_KEY_FILE = "server1.key";
+  public static final String CLIENT_PEM_FILE = "client.pem";
+  public static final String CLIENT_KEY_FILE = "client.key";
+  public static final String CA_PEM_FILE = "ca.pem";
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -367,16 +367,6 @@ public class SecretVolumeSslContextProviderTest {
       boolean server, String certChainFilename, String privateKeyFilename, String trustedCaFilename)
       throws IOException {
 
-    // get temp file for each file
-    if (certChainFilename != null) {
-      certChainFilename = getTempFileNameForResourcesFile(certChainFilename);
-    }
-    if (privateKeyFilename != null) {
-      privateKeyFilename = getTempFileNameForResourcesFile(privateKeyFilename);
-    }
-    if (trustedCaFilename != null) {
-      trustedCaFilename = getTempFileNameForResourcesFile(trustedCaFilename);
-    }
     return server
         ? SecretVolumeSslContextProvider.getProviderForServer(
         buildDownstreamTlsContextFromFilenames(
@@ -419,8 +409,22 @@ public class SecretVolumeSslContextProviderTest {
   /**
    * Helper method to build DownstreamTlsContext for above tests. Called from other classes as well.
    */
-  static DownstreamTlsContext buildDownstreamTlsContextFromFilenames(
+  public static DownstreamTlsContext buildDownstreamTlsContextFromFilenames(
       String privateKey, String certChain, String trustCa) {
+    // get temp file for each file
+    try {
+      if (certChain != null) {
+        certChain = getTempFileNameForResourcesFile(certChain);
+      }
+      if (privateKey != null) {
+        privateKey = getTempFileNameForResourcesFile(privateKey);
+      }
+      if (trustCa != null) {
+        trustCa = getTempFileNameForResourcesFile(trustCa);
+      }
+    } catch (IOException ioe) {
+      return null;
+    }
     return CommonTlsContextTestsUtil.buildDownstreamTlsContext(
         buildCommonTlsContextFromFilenames(privateKey, certChain, trustCa));
   }
@@ -430,6 +434,19 @@ public class SecretVolumeSslContextProviderTest {
    */
   public static UpstreamTlsContext buildUpstreamTlsContextFromFilenames(
       String privateKey, String certChain, String trustCa) {
+    try {
+      if (certChain != null) {
+        certChain = getTempFileNameForResourcesFile(certChain);
+      }
+      if (privateKey != null) {
+        privateKey = getTempFileNameForResourcesFile(privateKey);
+      }
+      if (trustCa != null) {
+        trustCa = getTempFileNameForResourcesFile(trustCa);
+      }
+    } catch (IOException ioe) {
+      return null;
+    }
     return buildUpstreamTlsContext(
         buildCommonTlsContextFromFilenames(privateKey, certChain, trustCa));
   }

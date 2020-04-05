@@ -18,28 +18,26 @@ package io.grpc.xds;
 
 import static com.google.common.truth.Truth.assertThat;
 import static io.grpc.xds.XdsClientWrapperForServerSdsTest.buildFilterChainMatch;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
-import com.google.protobuf.BoolValue;
-import io.envoyproxy.envoy.api.v2.auth.CertificateValidationContext;
-import io.envoyproxy.envoy.api.v2.auth.CommonTlsContext;
 import io.envoyproxy.envoy.api.v2.auth.DownstreamTlsContext;
-import io.envoyproxy.envoy.api.v2.auth.TlsCertificate;
 import io.envoyproxy.envoy.api.v2.auth.UpstreamTlsContext;
-import io.envoyproxy.envoy.api.v2.core.DataSource;
 import io.grpc.Server;
-import io.grpc.internal.testing.TestUtils;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import io.grpc.testing.GrpcCleanupRule;
 import io.grpc.testing.protobuf.SimpleRequest;
 import io.grpc.testing.protobuf.SimpleResponse;
 import io.grpc.testing.protobuf.SimpleServiceGrpc;
 import io.grpc.xds.internal.sds.SdsProtocolNegotiators;
+import io.grpc.xds.internal.sds.SecretVolumeSslContextProviderTest;
 import io.grpc.xds.internal.sds.XdsChannelBuilder;
 import io.grpc.xds.internal.sds.XdsServerBuilder;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.Arrays;
+import javax.net.ssl.SSLHandshakeException;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,6 +49,10 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class XdsSdsClientServerTest {
+
+  /** Untrusted server. */
+  private static final String BAD_SERVER_PEM_FILE = "badserver.pem";
+  private static final String BAD_SERVER_KEY_FILE = "badserver.key";
 
   @Rule public final GrpcCleanupRule cleanupRule = new GrpcCleanupRule();
   private Server server;
@@ -65,94 +67,66 @@ public class XdsSdsClientServerTest {
   /** TLS channel - no mTLS. */
   @Test
   public void tlsClientServer_noClientAuthentication() throws IOException {
-    String server1Pem = TestUtils.loadCert("server1.pem").getAbsolutePath();
-    String server1Key = TestUtils.loadCert("server1.key").getAbsolutePath();
-
-    TlsCertificate tlsCert =
-        TlsCertificate.newBuilder()
-            .setPrivateKey(DataSource.newBuilder().setFilename(server1Key).build())
-            .setCertificateChain(DataSource.newBuilder().setFilename(server1Pem).build())
-            .build();
-
-    CommonTlsContext commonTlsContext =
-        CommonTlsContext.newBuilder().addTlsCertificates(tlsCert).build();
-
     DownstreamTlsContext downstreamTlsContext =
-        DownstreamTlsContext.newBuilder()
-            .setCommonTlsContext(commonTlsContext)
-            .setRequireClientCertificate(BoolValue.of(false))
-            .build();
+        SecretVolumeSslContextProviderTest.buildDownstreamTlsContextFromFilenames(
+            SecretVolumeSslContextProviderTest.SERVER_1_KEY_FILE,
+            SecretVolumeSslContextProviderTest.SERVER_1_PEM_FILE,
+            null);
 
     getXdsServer(downstreamTlsContext);
 
     // for TLS client doesn't need cert but needs trustCa
-    String trustCa = TestUtils.loadCert("ca.pem").getAbsolutePath();
-    CertificateValidationContext certContext =
-        CertificateValidationContext.newBuilder()
-            .setTrustedCa(DataSource.newBuilder().setFilename(trustCa).build())
-            .build();
-
-    CommonTlsContext commonTlsContext1 =
-        CommonTlsContext.newBuilder().setValidationContext(certContext).build();
-
     UpstreamTlsContext upstreamTlsContext =
-        UpstreamTlsContext.newBuilder().setCommonTlsContext(commonTlsContext1).build();
+        SecretVolumeSslContextProviderTest.buildUpstreamTlsContextFromFilenames(
+            null, null, SecretVolumeSslContextProviderTest.CA_PEM_FILE);
     buildClientAndTest(upstreamTlsContext, "foo.test.google.fr", "buddy", server.getPort());
+  }
+
+  private XdsClient.ListenerWatcher mtlsCommonTest(UpstreamTlsContext upstreamTlsContext)
+      throws IOException {
+    DownstreamTlsContext downstreamTlsContext =
+        SecretVolumeSslContextProviderTest.buildDownstreamTlsContextFromFilenames(
+            SecretVolumeSslContextProviderTest.SERVER_1_KEY_FILE,
+            SecretVolumeSslContextProviderTest.SERVER_1_PEM_FILE,
+            SecretVolumeSslContextProviderTest.CA_PEM_FILE);
+
+    XdsClient.ListenerWatcher listenerWatcher = getXdsServer(downstreamTlsContext);
+    buildClientAndTest(upstreamTlsContext, "foo.test.google.fr", "buddy", server.getPort());
+    return listenerWatcher;
   }
 
   /** mTLS - client auth enabled. */
   @Test
-  public void mtlsClientServer_withClientAuthentication() throws IOException, InterruptedException {
-    String server1Pem = TestUtils.loadCert("server1.pem").getAbsolutePath();
-    String server1Key = TestUtils.loadCert("server1.key").getAbsolutePath();
-    String trustCa = TestUtils.loadCert("ca.pem").getAbsolutePath();
-
-    TlsCertificate tlsCert =
-        TlsCertificate.newBuilder()
-            .setPrivateKey(DataSource.newBuilder().setFilename(server1Key).build())
-            .setCertificateChain(DataSource.newBuilder().setFilename(server1Pem).build())
-            .build();
-
-    CertificateValidationContext certContext =
-        CertificateValidationContext.newBuilder()
-            .setTrustedCa(DataSource.newBuilder().setFilename(trustCa).build())
-            .build();
-
-    CommonTlsContext commonTlsContext =
-        CommonTlsContext.newBuilder()
-            .addTlsCertificates(tlsCert)
-            .setValidationContext(certContext)
-            .build();
-
-    DownstreamTlsContext downstreamTlsContext =
-        DownstreamTlsContext.newBuilder()
-            .setCommonTlsContext(commonTlsContext)
-            .setRequireClientCertificate(BoolValue.of(false))
-            .build();
-
-    XdsClient.ListenerWatcher listenerWatcher = getXdsServer(downstreamTlsContext);
-
-    String clientPem = TestUtils.loadCert("client.pem").getAbsolutePath();
-    String clientKey = TestUtils.loadCert("client.key").getAbsolutePath();
-
-    TlsCertificate tlsCert1 =
-        TlsCertificate.newBuilder()
-            .setPrivateKey(DataSource.newBuilder().setFilename(clientKey).build())
-            .setCertificateChain(DataSource.newBuilder().setFilename(clientPem).build())
-            .build();
-
-    CommonTlsContext commonTlsContext1 =
-        CommonTlsContext.newBuilder()
-            .addTlsCertificates(tlsCert1)
-            .setValidationContext(certContext)
-            .build();
-
+  public void mtlsClientServer_withClientAuthentication() throws IOException {
     UpstreamTlsContext upstreamTlsContext =
-        UpstreamTlsContext.newBuilder().setCommonTlsContext(commonTlsContext1).build();
+            SecretVolumeSslContextProviderTest.buildUpstreamTlsContextFromFilenames(
+                    SecretVolumeSslContextProviderTest.CLIENT_KEY_FILE,
+                    SecretVolumeSslContextProviderTest.CLIENT_PEM_FILE,
+                    SecretVolumeSslContextProviderTest.CA_PEM_FILE);
+    mtlsCommonTest(upstreamTlsContext);
+  }
 
-    buildClientAndTest(upstreamTlsContext, "foo.test.google.fr", "buddy", server.getPort());
-    // another client after setting bad certs on server
-    buildClientAndTest(upstreamTlsContext, "foo.test.google.fr", "buddy", server.getPort());
+  @Test
+  public void mtlsClientServer_changeServerContext_expectException() throws IOException {
+    UpstreamTlsContext upstreamTlsContext =
+            SecretVolumeSslContextProviderTest.buildUpstreamTlsContextFromFilenames(
+                    SecretVolumeSslContextProviderTest.CLIENT_KEY_FILE,
+                    SecretVolumeSslContextProviderTest.CLIENT_PEM_FILE,
+                    SecretVolumeSslContextProviderTest.CA_PEM_FILE);
+    XdsClient.ListenerWatcher listenerWatcher = mtlsCommonTest(upstreamTlsContext);
+    DownstreamTlsContext downstreamTlsContext =
+            SecretVolumeSslContextProviderTest.buildDownstreamTlsContextFromFilenames(
+                    BAD_SERVER_KEY_FILE,
+                    BAD_SERVER_PEM_FILE,
+                    SecretVolumeSslContextProviderTest.CA_PEM_FILE);
+    createListenerUpdate(server.getPort(), downstreamTlsContext, listenerWatcher);
+    try {
+      buildClientAndTest(upstreamTlsContext, "foo.test.google.fr", "buddy", server.getPort());
+      fail("exception expected");
+    } catch (StatusRuntimeException sre) {
+      assertThat(sre).hasCauseThat().isInstanceOf(SSLHandshakeException.class);
+      assertThat(sre).hasCauseThat().hasMessageThat().isEqualTo("General OpenSslEngine problem");
+    }
   }
 
   private XdsClient.ListenerWatcher getXdsServer(DownstreamTlsContext downstreamTlsContext)
