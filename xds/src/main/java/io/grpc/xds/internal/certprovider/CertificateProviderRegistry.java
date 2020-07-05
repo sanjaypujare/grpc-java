@@ -16,6 +16,8 @@
 
 package io.grpc.xds.internal.certprovider;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.LinkedHashMap;
@@ -28,6 +30,10 @@ public class CertificateProviderRegistry {
   private static CertificateProviderRegistry instance;
   private final LinkedHashMap<String, CertificateProviderProvider> providers =
       new LinkedHashMap<>();
+
+  @VisibleForTesting
+  CertificateProviderRegistry() {
+  }
 
   /** Returns the singleton registry. */
   public static synchronized CertificateProviderRegistry getInstance() {
