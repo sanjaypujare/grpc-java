@@ -32,7 +32,7 @@ import java.util.Objects;
 
 /** Global map for ref-counted CertificateProvider instances. */
 @ThreadSafe
-public class CertificateProviderStore {
+public final class CertificateProviderStore {
   private static CertificateProviderStore instance;
   private final CertificateProviderRegistry certificateProviderRegistry;
   private final ReferenceCountingMap<CertProviderKey, CertificateProvider> certProviderMap;
@@ -62,8 +62,12 @@ public class CertificateProviderStore {
 
     @Override
     public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof CertProviderKey)) {
+        return false;
+      }
       CertProviderKey that = (CertProviderKey) o;
       return notifyCertUpdates == that.notifyCertUpdates
           && Objects.equals(certName, that.certName)
@@ -87,8 +91,10 @@ public class CertificateProviderStore {
     }
   }
 
-  private static class DistributorWatcher implements CertificateProvider.Watcher {
-    private ArrayList<Watcher> downsstreamWatchers = new ArrayList<>();
+  @VisibleForTesting
+  static class DistributorWatcher implements CertificateProvider.Watcher {
+    @VisibleForTesting
+    ArrayList<Watcher> downsstreamWatchers = new ArrayList<>();
 
     synchronized void addWatcher(Watcher watcher) {
       downsstreamWatchers.add(watcher);
@@ -120,12 +126,10 @@ public class CertificateProviderStore {
     }
   }
 
-  private static class CertProviderFactory
+  private class CertProviderFactory
       implements ReferenceCountingMap.ValueFactory<CertProviderKey, CertificateProvider> {
-    private final CertificateProviderRegistry certificateProviderRegistry;
 
-    private CertProviderFactory(CertificateProviderRegistry certificateProviderRegistry) {
-      this.certificateProviderRegistry = certificateProviderRegistry;
+    private CertProviderFactory() {
     }
 
     @Override
@@ -133,7 +137,7 @@ public class CertificateProviderStore {
       CertificateProviderProvider certProviderProvider =
           certificateProviderRegistry.getProvider(key.pluginName);
       if (certProviderProvider == null) {
-        throw new IllegalArgumentException("No provider found");
+        throw new IllegalArgumentException("Provider not found.");
       }
       return certProviderProvider.createCertificateProvider(
           key.config, new DistributorWatcher(), key.notifyCertUpdates);
@@ -143,13 +147,15 @@ public class CertificateProviderStore {
   @VisibleForTesting
   CertificateProviderStore(CertificateProviderRegistry certificateProviderRegistry) {
     this.certificateProviderRegistry = certificateProviderRegistry;
-    certProviderMap = new ReferenceCountingMap<>(new CertProviderFactory(certificateProviderRegistry));
+    certProviderMap = new ReferenceCountingMap<>(new CertProviderFactory());
   }
 
-  private class HandleImpl implements Handle {
+  @VisibleForTesting
+  final class HandleImpl implements Handle {
     private final CertProviderKey key;
     private final Watcher watcher;
-    private final CertificateProvider certProvider;
+    @VisibleForTesting
+    final CertificateProvider certProvider;
 
     private HandleImpl(CertProviderKey key, Watcher watcher, CertificateProvider certProvider) {
       this.key = key;
