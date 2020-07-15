@@ -124,6 +124,9 @@ public abstract class CertificateProvider implements Closeable {
   @Override
   public abstract void close();
 
+  /** Starts the cert refresh and watcher update cycle. */
+  public abstract void start();
+
   private final DistributorWatcher watcher;
   private final boolean notifyCertUpdates;
 
@@ -134,6 +137,4 @@ public abstract class CertificateProvider implements Closeable {
   public boolean isNotifyCertUpdates() {
     return notifyCertUpdates;
   }
-
-
 }
