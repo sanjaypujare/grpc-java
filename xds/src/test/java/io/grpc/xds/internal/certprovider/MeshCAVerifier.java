@@ -1,15 +1,18 @@
 package io.grpc.xds.internal.certprovider;
 
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
 import io.grpc.Status;
 import io.grpc.internal.ExponentialBackoffPolicy;
 
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public class MeshCAVerifier {
-    public static void main(String[] args) {
+    public static void main(final String[] args) {
         if (args.length != 1) {
             System.out.println("Provide STS token as 1 arg");
             System.exit(1);
@@ -34,14 +37,18 @@ public class MeshCAVerifier {
             }
         });
 
+        GoogleCredentials oauth2Creds = new GoogleCredentials() {
+            @Override
+            public AccessToken refreshAccessToken() {
+                return new AccessToken(args[0], new Date(System.currentTimeMillis() + 5000L));
+            }
+        };
         MeshCaCertificateProvider provider = new MeshCaCertificateProvider(watcher, true,
                 "meshca.googleapis.com",
                 "https://container.googleapis.com/v1/projects/meshca-unit-test/locations/us-west2-a/clusters/meshca-cluster",
                 TimeUnit.HOURS.toSeconds(9L), 2048, "RSA", "SHA256withRSA",
-                MeshCaCertificateProvider.ChannelFactory.getInstance(), new ExponentialBackoffPolicy.Provider(), TimeUnit.HOURS.toSeconds(1L), 4);
+                MeshCaCertificateProvider.ChannelFactory.getInstance(), new ExponentialBackoffPolicy.Provider(), TimeUnit.HOURS.toSeconds(1L), 4, oauth2Creds);
 
-        // insert the OAuth token returned from STS below
-        provider.stsToken = args[0];
         provider.refreshCertificate();
         System.out.println("Put breakpoint at this line to check values");
     }

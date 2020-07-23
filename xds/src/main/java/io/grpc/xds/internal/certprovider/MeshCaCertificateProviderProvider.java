@@ -45,9 +45,16 @@ final class MeshCaCertificateProviderProvider implements CertificateProviderProv
   @Override
   public CertificateProvider createCertificateProvider(
           Object config, CertificateProvider.DistributorWatcher watcher, boolean notifyCertUpdates) {
+    /*
+      Things to extract from config:
+      gkeClusterUrl, cert validity, key-size, algo, signature-algo, renewalGracePeriod, maxRetryAttempts,
+      STS service URI, GKE SA JWT location in the file system
+
+      Construct audience from gkeClusterUrl by extracting trust-domain (as the GCP project id)
+     */
     return new MeshCaCertificateProvider(watcher, notifyCertUpdates, "meshca.googleapis.com", null,
             TimeUnit.HOURS.toSeconds(9L), 2048, "RSA", "SHA256withRSA",
             MeshCaCertificateProvider.ChannelFactory.getInstance(), new ExponentialBackoffPolicy.Provider(),
-            TimeUnit.HOURS.toSeconds(1L), 3);
+            TimeUnit.HOURS.toSeconds(1L), 3, null);
   }
 }

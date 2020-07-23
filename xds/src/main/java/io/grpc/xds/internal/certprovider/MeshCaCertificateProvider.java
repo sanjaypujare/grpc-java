@@ -16,12 +16,14 @@
 
 package io.grpc.xds.internal.certprovider;
 
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Duration;
 import google.security.meshca.v1.MeshCertificateServiceGrpc;
 import google.security.meshca.v1.Meshca;
 import io.grpc.*;
+import io.grpc.auth.MoreCallCredentials;
 import io.grpc.internal.BackoffPolicy;
 import io.grpc.xds.internal.sds.trust.CertificateUtils;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
@@ -55,12 +57,14 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static io.grpc.Status.Code.*;
 
 // TODOs
+// decode config inside MeshCaCertificateProviderProvider
 // first call to refreshCertificate
 // 2: refresh cert - few minutes before previous expiry
 // 4: close() implementation : cleanup of the provider
 // 7: grace period
 // 8: last certificate or at least its expiry
 // rename watcher to listener
+// replace long ctor param list with builder
 // in test responsesToSend to use a proper type/discriminator instead of Object
 // 1: integrate with STS once STS is in
 // 9: when to erase the last certificate in the distributor? only if the current cert in the distributor has expired
@@ -100,7 +104,7 @@ class MeshCaCertificateProvider extends CertificateProvider {
           /* put custom header */
           headers.put(KEY_FOR_ZONE_INFO, zone);
           // temporary until we have the proper StsCredential support
-          headers.put(KEY_FOR_AUTHORIZATION, "Bearer " + stsToken);
+          //headers.put(KEY_FOR_AUTHORIZATION, "Bearer " + stsToken);
           super.start(new ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(responseListener) {},
            headers);
         }
@@ -113,7 +117,7 @@ class MeshCaCertificateProvider extends CertificateProvider {
                                       String meshCaUrl, String gkeClusterURL, long validitySeconds,
                                       int keySize, String alg, String signatureAlg, ChannelFactory channelFactory,
                                       BackoffPolicy.Provider backoffPolicyProvider, long renewalGracePeriodSeconds,
-                                      int maxRetryAttempts) {
+                                      int maxRetryAttempts, GoogleCredentials oauth2Creds) {
     super(watcher, notifyCertUpdates);
     this.meshCaUri = meshCaUrl;
     this.gkeClusterURL = gkeClusterURL;
@@ -129,6 +133,7 @@ class MeshCaCertificateProvider extends CertificateProvider {
      "renewalGracePeriodSeconds");
     this.renewalGracePeriodSeconds = renewalGracePeriodSeconds;
     this.maxRetryAttempts = maxRetryAttempts;
+    this.oauth2Creds = checkNotNull(oauth2Creds, "oauth2Creds");
   }
 
   @Override
@@ -146,7 +151,7 @@ class MeshCaCertificateProvider extends CertificateProvider {
     String reqID = UUID.randomUUID().toString();
     Duration duration = Duration.newBuilder().setSeconds(validitySeconds).build();
     KeyPair keyPair = generateKeyPair();
-    String csr = generateCSR(keyPair); //new String(generateCSR(keyPair));
+    String csr = generateCSR(keyPair);
 
     ManagedChannel channel = channelFactory.createChannel(meshCaUri);
     MeshCertificateServiceGrpc.MeshCertificateServiceBlockingStub stub = createStubToMeshCA(channel);
@@ -196,7 +201,6 @@ class MeshCaCertificateProvider extends CertificateProvider {
     long tick = 0;
     for (int i = 0; i < maxRetryAttempts; i++) {
       try {
-
         long xyz = backoffPolicy.nextBackoffNanos();
         logger.info("policy-delay = " + xyz + "; currentTime= " + (tick = System.nanoTime()));
         Meshca.MeshCertificateResponse response = stub.withDeadlineAfter(xyz, TimeUnit.NANOSECONDS)
@@ -212,7 +216,7 @@ class MeshCaCertificateProvider extends CertificateProvider {
         lastException = t;
       }
     }
-    getWatcher().onError(Status.fromThrowable(lastException));
+    getWatcher().onError(Status.fromThrowable(lastException)); //TODO: only if no current valid cert
     return null;
   }
 
@@ -240,30 +244,6 @@ class MeshCaCertificateProvider extends CertificateProvider {
     return null;
   }
 
-  /*
-  You need to compile with the "-XDignore.symbol.file" option to be able to include PKCS10
-  https://stackoverflow.com/questions/20532912/generating-the-csr-using-bouncycastle-api
-  https://gist.github.com/dopoljak/e7550dd0c01a3438c24c
-  https://stackoverflow.com/questions/13639514/possible-to-generate-csr-using-java-security-without-sun-packages-or-external-li
-
-  byte[] generateCSR_sunSecurity(KeyPair keyPair) {
-    ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-    PrintStream printStream = new PrintStream(outStream);
-    try {
-      Signature sig = Signature.getInstance(signatureAlg);
-      sig.initSign(keyPair.getPrivate());
-      PKCS10 pkcs10 = new PKCS10(keyPair.getPublic());
-      pkcs10.encodeAndSign(new X500Name("CN=EXAMPLE.COM"), sig);
-      pkcs10.print(printStream);
-      byte[] csrBytes = outStream.toByteArray();
-      return csrBytes;
-    } catch (Exception ex) {
-      logger.log(Level.SEVERE, "Generating CSR", ex);
-    }
-    return null;
-  }
-   */
-
   String generateCSR(KeyPair pair) {
     PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
             new X500Principal("CN=EXAMPLE.COM"), pair.getPublic());
@@ -287,7 +267,7 @@ class MeshCaCertificateProvider extends CertificateProvider {
 
   MeshCertificateServiceGrpc.MeshCertificateServiceBlockingStub createStubToMeshCA(ManagedChannel channel) {
     MeshCertificateServiceGrpc.MeshCertificateServiceBlockingStub stub = MeshCertificateServiceGrpc.newBlockingStub(channel);
-    //stub = stub.withCallCredentials(null);  // TODO add the new StsCredentials once available
+    stub = stub.withCallCredentials(MoreCallCredentials.from(oauth2Creds));
     return stub.withInterceptors(headerInterceptor);
   }
 
@@ -356,4 +336,5 @@ class MeshCaCertificateProvider extends CertificateProvider {
   private final int keySize;
   private final String alg;
   private final String signatureAlg;
+  private final GoogleCredentials oauth2Creds;
 }

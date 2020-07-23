@@ -16,8 +16,9 @@
 
 package io.grpc.xds.internal.certprovider;
 
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Range;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.MoreExecutors;
 import google.security.meshca.v1.MeshCertificateServiceGrpc;
@@ -26,7 +27,6 @@ import io.grpc.*;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.internal.BackoffPolicy;
-import io.grpc.internal.ExponentialBackoffPolicy;
 import io.grpc.internal.testing.TestUtils;
 import io.grpc.testing.GrpcCleanupRule;
 import io.grpc.xds.internal.sds.trust.CertificateUtils;
@@ -35,20 +35,19 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.*;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.io.*;
 import java.security.PrivateKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayDeque;
+import java.util.Date;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
@@ -76,11 +75,13 @@ public class MeshCaCertificateProviderTest {
     }
   }
 
-  private static final long[] DELAY_VALUES = {100000000L, 200000000L, 400000000L};
+  private static final long START_DELAY = 200_000_000L;  // 0.2 seconds
+  private static final long[] DELAY_VALUES = {START_DELAY, START_DELAY * 2, START_DELAY * 4};
 
   private final Queue<RequestRecord> receivedRequests = new ArrayDeque<>();
   private final Queue<String> receivedStsCreds = new ArrayDeque<>();
   private final Queue<Object> responsesToSend = new ArrayDeque<>();
+  private final Queue<String> oauth2Tokens = new ArrayDeque<>();
   private final AtomicBoolean callEnded = new AtomicBoolean(true);
   @Mock
   private MeshCertificateServiceGrpc.MeshCertificateServiceImplBase mockedMeshCaService;
@@ -94,12 +95,21 @@ public class MeshCaCertificateProviderTest {
   private BackoffPolicy.Provider backoffPolicyProvider;
   @Mock
   private BackoffPolicy backoffPolicy;
+  @Spy
+  private GoogleCredentials oauth2Creds;
 
   @Before
   public void setUp() throws IOException {
     MockitoAnnotations.initMocks(this);
     when(backoffPolicyProvider.get()).thenReturn(backoffPolicy);
     when(backoffPolicy.nextBackoffNanos()).thenReturn(DELAY_VALUES[0], DELAY_VALUES[1], DELAY_VALUES[2]);
+    doAnswer(new Answer<AccessToken>() {
+      @Override
+      public AccessToken answer(InvocationOnMock invocation) throws Throwable {
+        return new AccessToken(oauth2Tokens.poll(), new Date(System.currentTimeMillis() + 1000L));
+      }
+    }).when(oauth2Creds).refreshAccessToken();
+    //when(oauth2Creds.refreshAccessToken()).thenReturn(new AccessToken(oauth2Tokens.poll(), new Date(System.currentTimeMillis() + 1000L)));
     final String meshCaUri = InProcessServerBuilder.generateName();
     MeshCertificateServiceGrpc.MeshCertificateServiceImplBase meshCaServiceImpl =
         new MeshCertificateServiceGrpc.MeshCertificateServiceImplBase() {
@@ -175,12 +185,14 @@ public class MeshCaCertificateProviderTest {
             meshCaUri,
             "https://container.googleapis.com/v1/projects/meshca-unit-test/locations/us-west2-a/clusters/meshca-cluster",
             TimeUnit.HOURS.toSeconds(9L), 2048, "RSA", "SHA256withRSA",
-            channelFactory, backoffPolicyProvider, TimeUnit.HOURS.toSeconds(1L), 4);
+            channelFactory, backoffPolicyProvider, TimeUnit.HOURS.toSeconds(1L), 4,
+            oauth2Creds);
   }
 
   @Test
   public void getCertificate() throws IOException, CertificateException {
-    provider.stsToken = TEST_STS_TOKEN;
+    //provider.stsToken = TEST_STS_TOKEN;
+    oauth2Tokens.offer(TEST_STS_TOKEN + "0");
     responsesToSend.offer(ImmutableList.of(
             getResourceContents(SERVER_0_PEM_FILE),
             getResourceContents(SERVER_1_PEM_FILE),
@@ -215,7 +227,8 @@ public class MeshCaCertificateProviderTest {
 
   @Test
   public void getCertificate_withError() throws IOException, CertificateException {
-    provider.stsToken = TEST_STS_TOKEN;
+    //provider.stsToken = TEST_STS_TOKEN;
+    oauth2Tokens.offer(TEST_STS_TOKEN + "0");
     responsesToSend.offer(new StatusRuntimeException(Status.FAILED_PRECONDITION));
     provider.refreshCertificate();
     verify(mockWatcher, never()).updateCertificate(any(PrivateKey.class), ArgumentMatchers.<X509Certificate>anyList());
@@ -226,7 +239,10 @@ public class MeshCaCertificateProviderTest {
 
   @Test
   public void getCertificate_retriesWithErrors() throws IOException, CertificateException {
-    provider.stsToken = TEST_STS_TOKEN;
+    //provider.stsToken = TEST_STS_TOKEN;
+    oauth2Tokens.offer(TEST_STS_TOKEN + "0");
+    oauth2Tokens.offer(TEST_STS_TOKEN + "1");
+    oauth2Tokens.offer(TEST_STS_TOKEN + "2");
     responsesToSend.offer(new StatusRuntimeException(Status.UNKNOWN));
     responsesToSend.offer(new StatusRuntimeException(Status.RESOURCE_EXHAUSTED));
     responsesToSend.offer(ImmutableList.of(
@@ -244,7 +260,11 @@ public class MeshCaCertificateProviderTest {
 
   @Test
   public void getCertificate_retriesWithTimeouts() throws IOException, CertificateException {
-    provider.stsToken = TEST_STS_TOKEN;
+    //provider.stsToken = TEST_STS_TOKEN;
+    oauth2Tokens.offer(TEST_STS_TOKEN + "0");
+    oauth2Tokens.offer(TEST_STS_TOKEN + "1");
+    oauth2Tokens.offer(TEST_STS_TOKEN + "2");
+    oauth2Tokens.offer(TEST_STS_TOKEN + "3");
     responsesToSend.offer(new Object());
     responsesToSend.offer(new Object());
     responsesToSend.offer(new Object());
@@ -288,7 +308,7 @@ public class MeshCaCertificateProviderTest {
   private void verifyStsCredentialsInMetadata(int count) {
     assertThat(receivedStsCreds).hasSize(count);
     for (int i = 0; i < count; i++) {
-      assertThat(receivedStsCreds.poll()).isEqualTo("Bearer " + TEST_STS_TOKEN);
+      assertThat(receivedStsCreds.poll()).isEqualTo("Bearer " + TEST_STS_TOKEN + i);
     }
   }
 }
