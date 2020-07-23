@@ -61,6 +61,7 @@ import static org.mockito.Mockito.*;
 @RunWith(JUnit4.class)
 public class MeshCaCertificateProviderTest {
   private static final Logger logger = Logger.getLogger(MeshCaCertificateProviderTest.class.getName());
+  private static final String TEST_STS_TOKEN = "test-stsToken";
 
   @Rule
   public final GrpcCleanupRule cleanupRule = new GrpcCleanupRule();
@@ -78,6 +79,7 @@ public class MeshCaCertificateProviderTest {
   private static final long[] DELAY_VALUES = {100000000L, 200000000L, 400000000L};
 
   private final Queue<RequestRecord> receivedRequests = new ArrayDeque<>();
+  private final Queue<String> receivedStsCreds = new ArrayDeque<>();
   private final Queue<Object> responsesToSend = new ArrayDeque<>();
   private final AtomicBoolean callEnded = new AtomicBoolean(true);
   @Mock
@@ -132,24 +134,27 @@ public class MeshCaCertificateProviderTest {
               responseObserver.onNext(responseToSend);
               responseObserver.onCompleted();
             } else {
-              // skip i.e. no response
-              /*
-              try {
-                Thread.sleep(5000L);
-              } catch (InterruptedException e) {
-                e.printStackTrace();
-              }
-              responseObserver.onCompleted(); */
               callEnded.set(true);
             }
           }
         };
     mockedMeshCaService =
             mock(MeshCertificateServiceGrpc.MeshCertificateServiceImplBase.class, delegatesTo(meshCaServiceImpl));
+    ServerInterceptor interceptor = new ServerInterceptor() {
+      @Override
+      public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+        String value = headers.get(MeshCaCertificateProvider.KEY_FOR_AUTHORIZATION);
+        if (value != null) {
+          receivedStsCreds.offer(value);
+        }
+        return next.startCall(call, headers);
+      }
+    };
     cleanupRule.register(
             InProcessServerBuilder
                     .forName(meshCaUri)
                     .addService(mockedMeshCaService)
+                    .intercept(interceptor)
                     .directExecutor()
                     .build()
                     .start());
@@ -175,7 +180,7 @@ public class MeshCaCertificateProviderTest {
 
   @Test
   public void getCertificate() throws IOException, CertificateException {
-    provider.stsToken = "test-stsToken";
+    provider.stsToken = TEST_STS_TOKEN;
     responsesToSend.offer(ImmutableList.of(
             getResourceContents(SERVER_0_PEM_FILE),
             getResourceContents(SERVER_1_PEM_FILE),
@@ -187,6 +192,7 @@ public class MeshCaCertificateProviderTest {
     String csr = receivedReq.getCsr();
     assertThat(receivedReq.getCsr()).startsWith("-----BEGIN NEW CERTIFICATE REQUEST-----\n");
     assertThat(receivedReq.getCsr()).endsWith("\n-----END NEW CERTIFICATE REQUEST-----\n");
+    verifyStsCredentialsInMetadata(1);
     verifyMockWatcher();
   }
 
@@ -209,17 +215,18 @@ public class MeshCaCertificateProviderTest {
 
   @Test
   public void getCertificate_withError() throws IOException, CertificateException {
-    provider.stsToken = "test-stsToken";
+    provider.stsToken = TEST_STS_TOKEN;
     responsesToSend.offer(new StatusRuntimeException(Status.FAILED_PRECONDITION));
     provider.refreshCertificate();
     verify(mockWatcher, never()).updateCertificate(any(PrivateKey.class), ArgumentMatchers.<X509Certificate>anyList());
     verify(mockWatcher, never()).updateTrustedRoots(ArgumentMatchers.<X509Certificate>anyList());
     verify(mockWatcher, times(1)).onError(Status.FAILED_PRECONDITION);
+    verifyStsCredentialsInMetadata(1);
   }
 
   @Test
   public void getCertificate_retriesWithErrors() throws IOException, CertificateException {
-    provider.stsToken = "test-stsToken";
+    provider.stsToken = TEST_STS_TOKEN;
     responsesToSend.offer(new StatusRuntimeException(Status.UNKNOWN));
     responsesToSend.offer(new StatusRuntimeException(Status.RESOURCE_EXHAUSTED));
     responsesToSend.offer(ImmutableList.of(
@@ -232,11 +239,12 @@ public class MeshCaCertificateProviderTest {
     assertThat(requestRecords[1].nanoTime - requestRecords[0].nanoTime)
         .isIn(Range.closed(9500L, 10500L)); */
     verifyMockWatcher();
+    verifyStsCredentialsInMetadata(3);
   }
 
   @Test
   public void getCertificate_retriesWithTimeouts() throws IOException, CertificateException {
-    provider.stsToken = "test-stsToken";
+    provider.stsToken = TEST_STS_TOKEN;
     responsesToSend.offer(new Object());
     responsesToSend.offer(new Object());
     responsesToSend.offer(new Object());
@@ -260,6 +268,7 @@ public class MeshCaCertificateProviderTest {
     assertThat(requestRecords[2].nanoTime - requestRecords[1].nanoTime)
             .isIn(Range.closed((long)(DELAY_VALUES[1] * 0.8), (long)(DELAY_VALUES[1] * 1.2))); */
     verifyMockWatcher();
+    verifyStsCredentialsInMetadata(4);
   }
 
   private static X509Certificate getCertFromResourceName(String resourceName) throws IOException, CertificateException {
@@ -274,5 +283,12 @@ public class MeshCaCertificateProviderTest {
       text = CharStreams.toString(reader);
     }
     return text;
+  }
+
+  private void verifyStsCredentialsInMetadata(int count) {
+    assertThat(receivedStsCreds).hasSize(count);
+    for (int i = 0; i < count; i++) {
+      assertThat(receivedStsCreds.poll()).isEqualTo("Bearer " + TEST_STS_TOKEN);
+    }
   }
 }

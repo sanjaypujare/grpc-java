@@ -61,6 +61,7 @@ import static io.grpc.Status.Code.*;
 // 7: grace period
 // 8: last certificate or at least its expiry
 // rename watcher to listener
+// in test responsesToSend to use a proper type/discriminator instead of Object
 // 1: integrate with STS once STS is in
 // 9: when to erase the last certificate in the distributor? only if the current cert in the distributor has expired
 // 10: notify error only if the current cert has expired
@@ -75,6 +76,7 @@ class MeshCaCertificateProvider extends CertificateProvider {
   @VisibleForTesting
   static final Metadata.Key<String> KEY_FOR_ZONE_INFO =
           Metadata.Key.of("x-goog-request-params", Metadata.ASCII_STRING_MARSHALLER);
+  @VisibleForTesting
   static final Metadata.Key<String> KEY_FOR_AUTHORIZATION =
           Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
 
