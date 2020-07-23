@@ -74,7 +74,7 @@ import static io.grpc.Status.Code.*;
 // 6: backoffPolicy, retryPolicy
 
 
-class MeshCaCertificateProvider extends CertificateProvider {
+final class MeshCaCertificateProvider extends CertificateProvider {
   private static final Logger logger = Logger.getLogger(MeshCaCertificateProvider.class.getName());
 
   @VisibleForTesting
