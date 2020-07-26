@@ -27,6 +27,7 @@ import io.grpc.*;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.internal.BackoffPolicy;
+import io.grpc.internal.TimeProvider;
 import io.grpc.internal.testing.TestUtils;
 import io.grpc.testing.GrpcCleanupRule;
 import io.grpc.xds.internal.sds.trust.CertificateUtils;
@@ -47,6 +48,8 @@ import java.util.ArrayDeque;
 import java.util.Date;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
@@ -61,6 +64,7 @@ import static org.mockito.Mockito.*;
 public class MeshCaCertificateProviderTest {
   private static final Logger logger = Logger.getLogger(MeshCaCertificateProviderTest.class.getName());
   private static final String TEST_STS_TOKEN = "test-stsToken";
+  public static final long RENEWAL_GRACE_PERIOD_SECONDS = TimeUnit.HOURS.toSeconds(1L);
 
   @Rule
   public final GrpcCleanupRule cleanupRule = new GrpcCleanupRule();
@@ -77,6 +81,11 @@ public class MeshCaCertificateProviderTest {
 
   private static final long START_DELAY = 200_000_000L;  // 0.2 seconds
   private static final long[] DELAY_VALUES = {START_DELAY, START_DELAY * 2, START_DELAY * 4};
+  private static final long CERT0_EXPIRY_TIME_MILLIS = 1899853658000L;
+  public static final long CERT_VALIDITY_MILLIS = TimeUnit.MILLISECONDS.convert(12, TimeUnit.HOURS);
+  // current time for 12 hour cert validity
+  private static final long CURRENT_TIME_NANOS =
+          TimeUnit.MILLISECONDS.toNanos(CERT0_EXPIRY_TIME_MILLIS - CERT_VALIDITY_MILLIS);
 
   private final Queue<RequestRecord> receivedRequests = new ArrayDeque<>();
   private final Queue<String> receivedStsCreds = new ArrayDeque<>();
@@ -97,6 +106,10 @@ public class MeshCaCertificateProviderTest {
   private BackoffPolicy backoffPolicy;
   @Spy
   private GoogleCredentials oauth2Creds;
+  @Mock
+  private ScheduledExecutorService timeService;
+  @Mock
+  private TimeProvider timeProvider;
 
   @Before
   public void setUp() throws IOException {
@@ -185,18 +198,20 @@ public class MeshCaCertificateProviderTest {
             meshCaUri,
             "https://container.googleapis.com/v1/projects/meshca-unit-test/locations/us-west2-a/clusters/meshca-cluster",
             TimeUnit.HOURS.toSeconds(9L), 2048, "RSA", "SHA256withRSA",
-            channelFactory, backoffPolicyProvider, TimeUnit.HOURS.toSeconds(1L), 4,
-            oauth2Creds);
+            channelFactory, backoffPolicyProvider, RENEWAL_GRACE_PERIOD_SECONDS, 4,
+            oauth2Creds, timeService, timeProvider);
   }
 
   @Test
   public void getCertificate() throws IOException, CertificateException {
-    //provider.stsToken = TEST_STS_TOKEN;
     oauth2Tokens.offer(TEST_STS_TOKEN + "0");
     responsesToSend.offer(ImmutableList.of(
             getResourceContents(SERVER_0_PEM_FILE),
             getResourceContents(SERVER_1_PEM_FILE),
             getResourceContents(CA_PEM_FILE)));
+    when(timeProvider.currentTimeNanos()).thenReturn(CURRENT_TIME_NANOS);
+    ScheduledFuture<?> scheduledFuture = mock(ScheduledFuture.class);
+    doReturn(scheduledFuture).when(timeService).schedule(any(Runnable.class), any(Long.TYPE), eq(TimeUnit.SECONDS));
     provider.refreshCertificate();
     Meshca.MeshCertificateRequest receivedReq = receivedRequests.poll().request;
     assertThat(receivedReq.getValidity().getSeconds()).isEqualTo(TimeUnit.HOURS.toSeconds(9L));
@@ -205,41 +220,30 @@ public class MeshCaCertificateProviderTest {
     assertThat(receivedReq.getCsr()).startsWith("-----BEGIN NEW CERTIFICATE REQUEST-----\n");
     assertThat(receivedReq.getCsr()).endsWith("\n-----END NEW CERTIFICATE REQUEST-----\n");
     verifyStsCredentialsInMetadata(1);
+    verify(timeService, times(1)).schedule(any(Runnable.class),
+       eq(TimeUnit.MILLISECONDS.toSeconds(CERT_VALIDITY_MILLIS - TimeUnit.SECONDS.toMillis(RENEWAL_GRACE_PERIOD_SECONDS))),
+        eq(TimeUnit.SECONDS));
     verifyMockWatcher();
-  }
-
-  private void verifyMockWatcher() throws IOException, CertificateException {
-    ArgumentCaptor<List<X509Certificate>> certChainCaptor = ArgumentCaptor.forClass(null);
-    verify(mockWatcher, times(1)).updateCertificate(any(PrivateKey.class), certChainCaptor.capture());
-    List<X509Certificate> certChain = certChainCaptor.getValue();
-    assertThat(certChain).hasSize(3);
-    assertThat(certChain.get(0)).isEqualTo(getCertFromResourceName(SERVER_0_PEM_FILE));
-    assertThat(certChain.get(1)).isEqualTo(getCertFromResourceName(SERVER_1_PEM_FILE));
-    assertThat(certChain.get(2)).isEqualTo(getCertFromResourceName(CA_PEM_FILE));
-
-    ArgumentCaptor<List<X509Certificate>> rootsCaptor = ArgumentCaptor.forClass(null);
-    verify(mockWatcher, times(1)).updateTrustedRoots(rootsCaptor.capture());
-    List<X509Certificate> roots = rootsCaptor.getValue();
-    assertThat(roots).hasSize(1);
-    assertThat(roots.get(0)).isEqualTo(getCertFromResourceName(CA_PEM_FILE));
-    verify(mockWatcher, never()).onError(any(Status.class));
   }
 
   @Test
   public void getCertificate_withError() throws IOException, CertificateException {
-    //provider.stsToken = TEST_STS_TOKEN;
     oauth2Tokens.offer(TEST_STS_TOKEN + "0");
     responsesToSend.offer(new StatusRuntimeException(Status.FAILED_PRECONDITION));
+    ScheduledFuture<?> scheduledFuture = mock(ScheduledFuture.class);
+    doReturn(scheduledFuture).when(timeService).schedule(any(Runnable.class), any(Long.TYPE), eq(TimeUnit.SECONDS));
     provider.refreshCertificate();
     verify(mockWatcher, never()).updateCertificate(any(PrivateKey.class), ArgumentMatchers.<X509Certificate>anyList());
     verify(mockWatcher, never()).updateTrustedRoots(ArgumentMatchers.<X509Certificate>anyList());
     verify(mockWatcher, times(1)).onError(Status.FAILED_PRECONDITION);
+    verify(timeService, times(1)).schedule(any(Runnable.class),
+            eq(MeshCaCertificateProvider.INITIAL_DELAY_SECONDS),
+            eq(TimeUnit.SECONDS));
     verifyStsCredentialsInMetadata(1);
   }
 
   @Test
   public void getCertificate_retriesWithErrors() throws IOException, CertificateException {
-    //provider.stsToken = TEST_STS_TOKEN;
     oauth2Tokens.offer(TEST_STS_TOKEN + "0");
     oauth2Tokens.offer(TEST_STS_TOKEN + "1");
     oauth2Tokens.offer(TEST_STS_TOKEN + "2");
@@ -249,11 +253,17 @@ public class MeshCaCertificateProviderTest {
             getResourceContents(SERVER_0_PEM_FILE),
             getResourceContents(SERVER_1_PEM_FILE),
             getResourceContents(CA_PEM_FILE)));
+    when(timeProvider.currentTimeNanos()).thenReturn(CURRENT_TIME_NANOS);
+    ScheduledFuture<?> scheduledFuture = mock(ScheduledFuture.class);
+    doReturn(scheduledFuture).when(timeService).schedule(any(Runnable.class), any(Long.TYPE), eq(TimeUnit.SECONDS));
     provider.refreshCertificate();
     assertThat(receivedRequests.size()).isEqualTo(3);
     /*RequestRecord[] requestRecords = receivedRequests.toArray(new RequestRecord[0]);
     assertThat(requestRecords[1].nanoTime - requestRecords[0].nanoTime)
         .isIn(Range.closed(9500L, 10500L)); */
+    verify(timeService, times(1)).schedule(any(Runnable.class),
+            eq(TimeUnit.MILLISECONDS.toSeconds(CERT_VALIDITY_MILLIS - TimeUnit.SECONDS.toMillis(RENEWAL_GRACE_PERIOD_SECONDS))),
+            eq(TimeUnit.SECONDS));
     verifyMockWatcher();
     verifyStsCredentialsInMetadata(3);
   }
@@ -290,6 +300,24 @@ public class MeshCaCertificateProviderTest {
     verifyMockWatcher();
     verifyStsCredentialsInMetadata(4);
   }
+
+  private void verifyMockWatcher() throws IOException, CertificateException {
+    ArgumentCaptor<List<X509Certificate>> certChainCaptor = ArgumentCaptor.forClass(null);
+    verify(mockWatcher, times(1)).updateCertificate(any(PrivateKey.class), certChainCaptor.capture());
+    List<X509Certificate> certChain = certChainCaptor.getValue();
+    assertThat(certChain).hasSize(3);
+    assertThat(certChain.get(0)).isEqualTo(getCertFromResourceName(SERVER_0_PEM_FILE));
+    assertThat(certChain.get(1)).isEqualTo(getCertFromResourceName(SERVER_1_PEM_FILE));
+    assertThat(certChain.get(2)).isEqualTo(getCertFromResourceName(CA_PEM_FILE));
+
+    ArgumentCaptor<List<X509Certificate>> rootsCaptor = ArgumentCaptor.forClass(null);
+    verify(mockWatcher, times(1)).updateTrustedRoots(rootsCaptor.capture());
+    List<X509Certificate> roots = rootsCaptor.getValue();
+    assertThat(roots).hasSize(1);
+    assertThat(roots.get(0)).isEqualTo(getCertFromResourceName(CA_PEM_FILE));
+    verify(mockWatcher, never()).onError(any(Status.class));
+  }
+
 
   private static X509Certificate getCertFromResourceName(String resourceName) throws IOException, CertificateException {
     return CertificateUtils.toX509Certificate(new ByteArrayInputStream(getResourceContents(resourceName).getBytes()));

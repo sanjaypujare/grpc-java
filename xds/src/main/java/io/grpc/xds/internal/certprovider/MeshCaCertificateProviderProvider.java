@@ -17,9 +17,20 @@
 package io.grpc.xds.internal.certprovider;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.grpc.InternalLogId;
+import io.grpc.SynchronizationContext;
 import io.grpc.internal.ExponentialBackoffPolicy;
+import io.grpc.internal.SharedResourceHolder;
+import io.grpc.internal.TimeProvider;
+import io.grpc.xds.XdsClientWrapperForServerSds;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.util.concurrent.DefaultThreadFactory;
 
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -53,7 +64,7 @@ final class MeshCaCertificateProviderProvider implements CertificateProviderProv
   private static final String KEY_ALGO_DEFAULT = "RSA";  // aka keyType
   private static final int KEY_SIZE_DEFAULT = 2048;
   private static final String SIGNATURE_ALGO_DEFAULT = "SHA256withRSA";
-  private static final int MAX_RETRY_ATTEMPTS_DEFAULT = 3;
+  private static final int MAX_RETRY_ATTEMPTS_DEFAULT = 10;
   private static final String STS_URL_DEFAULT = "https://securetoken.googleapis.com/v1/identitybindingtoken";
 
   static {
@@ -82,7 +93,8 @@ final class MeshCaCertificateProviderProvider implements CertificateProviderProv
     return new MeshCaCertificateProvider(watcher, notifyCertUpdates, "meshca.googleapis.com", null,
             TimeUnit.HOURS.toSeconds(9L), 2048, "RSA", "SHA256withRSA",
             MeshCaCertificateProvider.ChannelFactory.getInstance(), new ExponentialBackoffPolicy.Provider(),
-            TimeUnit.HOURS.toSeconds(1L), 3, null);
+            TimeUnit.HOURS.toSeconds(1L), 3, null,
+            Executors.newSingleThreadScheduledExecutor(), TimeProvider.SYSTEM_TIME_PROVIDER);
   }
 
   static Config validateAndTranslateConfig(Object config) {

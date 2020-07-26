@@ -25,6 +25,7 @@ import google.security.meshca.v1.Meshca;
 import io.grpc.*;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.internal.BackoffPolicy;
+import io.grpc.internal.TimeProvider;
 import io.grpc.xds.internal.sds.trust.CertificateUtils;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
@@ -39,27 +40,27 @@ import javax.security.auth.x500.X500Principal;
 import java.io.*;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.Signature;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.*;
 import static io.grpc.Status.Code.*;
 
 // TODOs
 // decode config inside MeshCaCertificateProviderProvider
 // first call to refreshCertificate
 // 2: refresh cert - few minutes before previous expiry
+//    look at LoadReportClient.LrsStream.scheduleNextLoadReport() & XdsClientWrapperForServerSds
 // 4: close() implementation : cleanup of the provider
 // 7: grace period
 // 8: last certificate or at least its expiry
@@ -71,6 +72,7 @@ import static io.grpc.Status.Code.*;
 // 10: notify error only if the current cert has expired
 // 3: cleanup of the code: add final, private and appropriate access specifiers
 // 5: unit tests
+// check the zone value in metadata on the server side in unit test
 // 6: backoffPolicy, retryPolicy
 
 
@@ -83,6 +85,9 @@ final class MeshCaCertificateProvider extends CertificateProvider {
   @VisibleForTesting
   static final Metadata.Key<String> KEY_FOR_AUTHORIZATION =
           Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
+
+  @VisibleForTesting
+  static final long INITIAL_DELAY_SECONDS = 2L;
 
   /**
    * A interceptor to handle client header.
@@ -114,12 +119,14 @@ final class MeshCaCertificateProvider extends CertificateProvider {
 
 
   protected MeshCaCertificateProvider(DistributorWatcher watcher, boolean notifyCertUpdates,
-                                      String meshCaUrl, String gkeClusterURL, long validitySeconds,
+                                      String meshCaUri, String gkeClusterURL, long validitySeconds,
                                       int keySize, String alg, String signatureAlg, ChannelFactory channelFactory,
                                       BackoffPolicy.Provider backoffPolicyProvider, long renewalGracePeriodSeconds,
-                                      int maxRetryAttempts, GoogleCredentials oauth2Creds) {
+                                      int maxRetryAttempts, GoogleCredentials oauth2Creds,
+                                      ScheduledExecutorService scheduledExecutorService,
+                                      TimeProvider timeProvider) {
     super(watcher, notifyCertUpdates);
-    this.meshCaUri = meshCaUrl;
+    this.meshCaUri = meshCaUri;
     this.gkeClusterURL = gkeClusterURL;
     this.zone = parseZone(gkeClusterURL);
     this.headerInterceptor = new HeaderInterceptor(zone);
@@ -134,34 +141,105 @@ final class MeshCaCertificateProvider extends CertificateProvider {
     this.renewalGracePeriodSeconds = renewalGracePeriodSeconds;
     this.maxRetryAttempts = maxRetryAttempts;
     this.oauth2Creds = checkNotNull(oauth2Creds, "oauth2Creds");
+    this.syncContext = createSynchronizationContext(meshCaUri);
+    this.scheduledExecutorService = checkNotNull(scheduledExecutorService, "scheduledExecutorService");
+    this.timeProvider = checkNotNull(timeProvider, "timeProvider");
+  }
+
+  // TODO: should move this to MeshCaCertificateProviderProvider?
+  private SynchronizationContext createSynchronizationContext(String details) {
+    final InternalLogId logId =
+            InternalLogId.allocate("XdsClientWrapperForServerSds", details);
+    return new SynchronizationContext(
+            new Thread.UncaughtExceptionHandler() {
+              // needed by syncContext
+              private boolean panicMode;
+
+              @Override
+              public void uncaughtException(Thread t, Throwable e) {
+                logger.log(
+                        Level.SEVERE,
+                        "[" + logId + "] Uncaught exception in the SynchronizationContext. Panic!",
+                        e);
+                panic(e);
+              }
+
+              void panic(final Throwable t) {
+                if (panicMode) {
+                  // Preserve the first panic information
+                  return;
+                }
+                panicMode = true;
+                close();
+              }
+            });
   }
 
   @Override
   public void start() {
-    // TODO start the first refresh immediately
+    scheduleNextRefreshCertificate(INITIAL_DELAY_SECONDS);
   }
 
   @Override
   public void close() {
     // TODO stop everything and tear down this provider
+    // TODO: check non null and in good state
+    // TODO: anything else to clean up?
+    if (scheduledTask != null) {
+      scheduledTask.scheduledHandle.cancel();
+      scheduledTask = null;
+    }
+    getWatcher().close();
+  }
+
+  private void scheduleNextRefreshCertificate(long delayInSeconds) {
+    // check the current scheduledHandle
+    if (scheduledTask != null) {
+      checkState(
+          !scheduledTask.scheduledHandle.isPending(), "Inconsistent state in scheduledHandle");
+    }
+    scheduledTask = new RefreshCertificateTask(delayInSeconds);
   }
 
   void refreshCertificate() {
-    // Assign a unique request ID for all the retries.
-    String reqID = UUID.randomUUID().toString();
-    Duration duration = Duration.newBuilder().setSeconds(validitySeconds).build();
-    KeyPair keyPair = generateKeyPair();
-    String csr = generateCSR(keyPair);
+    long refreshDelaySeconds = INITIAL_DELAY_SECONDS;
+    try {
+      refreshDelaySeconds = computeDelayFromExistingCertificate();
+      // Assign a unique request ID for all the retries.
+      String reqID = UUID.randomUUID().toString();
+      Duration duration = Duration.newBuilder().setSeconds(validitySeconds).build();
+      KeyPair keyPair = generateKeyPair();
+      String csr = generateCSR(keyPair);
 
-    ManagedChannel channel = channelFactory.createChannel(meshCaUri);
-    MeshCertificateServiceGrpc.MeshCertificateServiceBlockingStub stub = createStubToMeshCA(channel);
-    List<X509Certificate> x509Chain = makeRequestWithRetries(stub, reqID, duration, csr);
-    shutdownChannel(channel);
-    if (x509Chain != null) {
-      getWatcher().updateCertificate(keyPair.getPrivate(), x509Chain);
-      getWatcher().updateTrustedRoots(ImmutableList.of(x509Chain.get(x509Chain.size() - 1)));
+      ManagedChannel channel = channelFactory.createChannel(meshCaUri);
+      MeshCertificateServiceGrpc.MeshCertificateServiceBlockingStub stub =
+          createStubToMeshCA(channel);
+      List<X509Certificate> x509Chain = makeRequestWithRetries(stub, reqID, duration, csr);
+      shutdownChannel(channel);
+      if (x509Chain != null) {
+        refreshDelaySeconds = computeDelayToCertExpirySeconds(x509Chain.get(0)) - renewalGracePeriodSeconds;
+        getWatcher().updateCertificate(keyPair.getPrivate(), x509Chain);
+        getWatcher().updateTrustedRoots(ImmutableList.of(x509Chain.get(x509Chain.size() - 1)));
+      }
+    } finally {
+      scheduleNextRefreshCertificate(refreshDelaySeconds);
     }
-    // TODO set the timer for the next refresh: validity minus grace period
+  }
+
+  private long computeDelayFromExistingCertificate() {
+    X509Certificate lastCert = getWatcher().getLastIdentityCert();
+    if (lastCert == null) {
+      // TODO(sanjaypujare): consider exponential backoff when refresh consistently fails
+      return INITIAL_DELAY_SECONDS;
+    }
+    long delayToCertExpirySeconds = computeDelayToCertExpirySeconds(lastCert)/2;
+    return Math.max(delayToCertExpirySeconds, INITIAL_DELAY_SECONDS);
+  }
+
+  private long computeDelayToCertExpirySeconds(X509Certificate lastCert) {
+    checkNotNull(lastCert, "lastCert");
+    return TimeUnit.MILLISECONDS.toSeconds(lastCert.getNotAfter().getTime() -
+      TimeUnit.MILLISECONDS.convert(timeProvider.currentTimeNanos(), TimeUnit.NANOSECONDS));
   }
 
   private static void shutdownChannel(ManagedChannel channel) {
@@ -276,10 +354,27 @@ final class MeshCaCertificateProvider extends CertificateProvider {
     // output: us-central1-c
     Pattern p = Pattern.compile(".*/projects/(.*)/locations/(.*)/clusters/.*");
     Matcher matcher = p.matcher(gkeClusterURL);
+    matcher.find();
     if (matcher.groupCount() < 3) {
       return "";
     }
     return matcher.group(2);
+  }
+
+  @VisibleForTesting
+  class RefreshCertificateTask implements Runnable {
+    private RefreshCertificateTask(long delayInSeconds) {
+      this.delayInSeconds = delayInSeconds;
+      scheduledHandle = syncContext.schedule(
+              this, delayInSeconds, TimeUnit.SECONDS, scheduledExecutorService);
+    }
+
+    @Override
+    public void run() {
+      refreshCertificate();
+    }
+    private final long delayInSeconds;
+    private final SynchronizationContext.ScheduledHandle scheduledHandle;
   }
 
   /**
@@ -337,4 +432,9 @@ final class MeshCaCertificateProvider extends CertificateProvider {
   private final String alg;
   private final String signatureAlg;
   private final GoogleCredentials oauth2Creds;
+  final SynchronizationContext syncContext;
+  final ScheduledExecutorService scheduledExecutorService;
+  //SynchronizationContext.ScheduledHandle scheduledHandle;
+  RefreshCertificateTask scheduledTask;
+  private final TimeProvider timeProvider;
 }

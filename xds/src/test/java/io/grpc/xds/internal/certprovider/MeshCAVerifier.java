@@ -4,11 +4,13 @@ import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import io.grpc.Status;
 import io.grpc.internal.ExponentialBackoffPolicy;
+import io.grpc.internal.TimeProvider;
 
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class MeshCAVerifier {
@@ -47,7 +49,9 @@ public class MeshCAVerifier {
                 "meshca.googleapis.com",
                 "https://container.googleapis.com/v1/projects/meshca-unit-test/locations/us-west2-a/clusters/meshca-cluster",
                 TimeUnit.HOURS.toSeconds(9L), 2048, "RSA", "SHA256withRSA",
-                MeshCaCertificateProvider.ChannelFactory.getInstance(), new ExponentialBackoffPolicy.Provider(), TimeUnit.HOURS.toSeconds(1L), 4, oauth2Creds);
+                MeshCaCertificateProvider.ChannelFactory.getInstance(), new ExponentialBackoffPolicy.Provider(),
+                TimeUnit.HOURS.toSeconds(1L), 4, oauth2Creds,
+                Executors.newSingleThreadScheduledExecutor(), TimeProvider.SYSTEM_TIME_PROVIDER);
 
         provider.refreshCertificate();
         System.out.println("Put breakpoint at this line to check values");
