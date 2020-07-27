@@ -282,6 +282,9 @@ public class MeshCaCertificateProviderTest {
             getResourceContents(SERVER_0_PEM_FILE),
             getResourceContents(SERVER_1_PEM_FILE),
             getResourceContents(CA_PEM_FILE)));
+    when(timeProvider.currentTimeNanos()).thenReturn(CURRENT_TIME_NANOS);
+    ScheduledFuture<?> scheduledFuture = mock(ScheduledFuture.class);
+    doReturn(scheduledFuture).when(timeService).schedule(any(Runnable.class), any(Long.TYPE), eq(TimeUnit.SECONDS));
     provider.refreshCertificate();
     assertThat(receivedRequests.size()).isEqualTo(4);
     RequestRecord[] requestRecords = receivedRequests.toArray(new RequestRecord[0]);
@@ -297,6 +300,9 @@ public class MeshCaCertificateProviderTest {
         .isIn(Range.closed((long)(DELAY_VALUES[0] * 0.8), (long)(DELAY_VALUES[0] * 1.2)));
     assertThat(requestRecords[2].nanoTime - requestRecords[1].nanoTime)
             .isIn(Range.closed((long)(DELAY_VALUES[1] * 0.8), (long)(DELAY_VALUES[1] * 1.2))); */
+    verify(timeService, times(1)).schedule(any(Runnable.class),
+            eq(TimeUnit.MILLISECONDS.toSeconds(CERT_VALIDITY_MILLIS - TimeUnit.SECONDS.toMillis(RENEWAL_GRACE_PERIOD_SECONDS))),
+            eq(TimeUnit.SECONDS));
     verifyMockWatcher();
     verifyStsCredentialsInMetadata(4);
   }

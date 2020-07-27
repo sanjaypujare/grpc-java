@@ -202,26 +202,24 @@ final class MeshCaCertificateProvider extends CertificateProvider {
   }
 
   void refreshCertificate() {
-    long refreshDelaySeconds = INITIAL_DELAY_SECONDS;
+    long refreshDelaySeconds = computeDelayFromExistingCertificate();
+    ManagedChannel channel = channelFactory.createChannel(meshCaUri);
     try {
-      refreshDelaySeconds = computeDelayFromExistingCertificate();
       // Assign a unique request ID for all the retries.
       String reqID = UUID.randomUUID().toString();
       Duration duration = Duration.newBuilder().setSeconds(validitySeconds).build();
       KeyPair keyPair = generateKeyPair();
       String csr = generateCSR(keyPair);
-
-      ManagedChannel channel = channelFactory.createChannel(meshCaUri);
       MeshCertificateServiceGrpc.MeshCertificateServiceBlockingStub stub =
           createStubToMeshCA(channel);
       List<X509Certificate> x509Chain = makeRequestWithRetries(stub, reqID, duration, csr);
-      shutdownChannel(channel);
       if (x509Chain != null) {
         refreshDelaySeconds = computeDelayToCertExpirySeconds(x509Chain.get(0)) - renewalGracePeriodSeconds;
         getWatcher().updateCertificate(keyPair.getPrivate(), x509Chain);
         getWatcher().updateTrustedRoots(ImmutableList.of(x509Chain.get(x509Chain.size() - 1)));
       }
     } finally {
+      shutdownChannel(channel);
       scheduleNextRefreshCertificate(refreshDelaySeconds);
     }
   }
