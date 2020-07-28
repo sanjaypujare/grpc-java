@@ -236,8 +236,8 @@ final class MeshCaCertificateProvider extends CertificateProvider {
 
   private long computeDelayToCertExpirySeconds(X509Certificate lastCert) {
     checkNotNull(lastCert, "lastCert");
-    return TimeUnit.MILLISECONDS.toSeconds(lastCert.getNotAfter().getTime() -
-      TimeUnit.MILLISECONDS.convert(timeProvider.currentTimeNanos(), TimeUnit.NANOSECONDS));
+    long certExpiryNanos = TimeUnit.MILLISECONDS.toNanos(lastCert.getNotAfter().getTime());
+    return TimeUnit.NANOSECONDS.toSeconds(certExpiryNanos - timeProvider.currentTimeNanos());
   }
 
   private static void shutdownChannel(ManagedChannel channel) {
