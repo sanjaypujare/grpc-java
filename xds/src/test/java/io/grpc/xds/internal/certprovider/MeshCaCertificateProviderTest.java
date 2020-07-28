@@ -259,10 +259,36 @@ public class MeshCaCertificateProviderTest {
     provider.refreshCertificate();
     verify(mockWatcher, never()).updateCertificate(any(PrivateKey.class), ArgumentMatchers.<X509Certificate>anyList());
     verify(mockWatcher, never()).updateTrustedRoots(ArgumentMatchers.<X509Certificate>anyList());
-    verify(mockWatcher, times(1)).onError(Status.FAILED_PRECONDITION);
+    verify(mockWatcher, never()).onError(Status.FAILED_PRECONDITION);
     verify(timeService, times(1)).schedule(any(Runnable.class),
             eq(5400L),
             eq(TimeUnit.SECONDS));
+    assertThat(provider.getWatcher().getLastIdentityCert()).isNotNull();
+    verifyStsCredentialsInMetadata(1);
+  }
+
+  @Test
+  public void getCertificate_withError_withExistingExpiredCert() throws IOException, CertificateException {
+    PrivateKey mockKey = mock(PrivateKey.class);
+    X509Certificate mockCert = mock(X509Certificate.class);
+    // have current cert expire in 3 seconds from current time
+    long threeSecondsFromNowMillis = TimeUnit.NANOSECONDS.toMillis(CURRENT_TIME_NANOS + TimeUnit.SECONDS.toNanos(3));
+    when(mockCert.getNotAfter()).thenReturn(new Date(threeSecondsFromNowMillis));
+    provider.getWatcher().updateCertificate(mockKey, ImmutableList.of(mockCert));
+    reset(mockWatcher);
+    oauth2Tokens.offer(TEST_STS_TOKEN + "0");
+    responsesToSend.offer(new StatusRuntimeException(Status.FAILED_PRECONDITION));
+    when(timeProvider.currentTimeNanos()).thenReturn(CURRENT_TIME_NANOS);
+    ScheduledFuture<?> scheduledFuture = mock(ScheduledFuture.class);
+    doReturn(scheduledFuture).when(timeService).schedule(any(Runnable.class), any(Long.TYPE), eq(TimeUnit.SECONDS));
+    provider.refreshCertificate();
+    verify(mockWatcher, never()).updateCertificate(any(PrivateKey.class), ArgumentMatchers.<X509Certificate>anyList());
+    verify(mockWatcher, never()).updateTrustedRoots(ArgumentMatchers.<X509Certificate>anyList());
+    verify(mockWatcher, times(1)).onError(Status.FAILED_PRECONDITION);
+    verify(timeService, times(1)).schedule(any(Runnable.class),
+            eq(MeshCaCertificateProvider.INITIAL_DELAY_SECONDS),
+            eq(TimeUnit.SECONDS));
+    assertThat(provider.getWatcher().getLastIdentityCert()).isNull();
     verifyStsCredentialsInMetadata(1);
   }
 

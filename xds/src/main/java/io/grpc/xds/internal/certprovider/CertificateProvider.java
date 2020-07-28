@@ -117,7 +117,7 @@ public abstract class CertificateProvider implements Closeable {
       cleanupLastValues();
     }
 
-    private void cleanupLastValues() {
+    void cleanupLastValues() {
       lastKey = null;
       lastCertChain = null;
       lastTrustedRoots = null;

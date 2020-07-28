@@ -87,7 +87,7 @@ final class MeshCaCertificateProvider extends CertificateProvider {
           Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER);
 
   @VisibleForTesting
-  static final long INITIAL_DELAY_SECONDS = 2L;
+  static final long INITIAL_DELAY_SECONDS = 4L;
 
   /**
    * A interceptor to handle client header.
@@ -284,7 +284,7 @@ final class MeshCaCertificateProvider extends CertificateProvider {
         return getX509CertificatesFromResponse(response);
       } catch (Throwable t) {
         if (!retriableThrowable(t)) {
-          getWatcher().onError(Status.fromThrowable(t));
+          checkCertAndGenerateError(t);
           return null;
         }
         long curTime = System.nanoTime();
@@ -292,8 +292,21 @@ final class MeshCaCertificateProvider extends CertificateProvider {
         lastException = t;
       }
     }
-    getWatcher().onError(Status.fromThrowable(lastException)); //TODO: only if no current valid cert
+    checkCertAndGenerateError(lastException);
     return null;
+  }
+
+  private void checkCertAndGenerateError(Throwable t) {
+    //TODO: only if no current valid cert
+    X509Certificate curretCert = getWatcher().getLastIdentityCert();
+    if (curretCert != null) {
+      long delaySeconds = computeDelayToCertExpirySeconds(curretCert);
+      if (delaySeconds > INITIAL_DELAY_SECONDS) {
+        return; // nothing to do since a valid cert exists
+      }
+      getWatcher().cleanupLastValues();
+    }
+    getWatcher().onError(Status.fromThrowable(t));
   }
 
   private static boolean retriableThrowable(Throwable t) {
