@@ -59,7 +59,8 @@ final class SdsX509TrustManager extends X509ExtendedTrustManager implements X509
   }
 
   // Copied from OkHostnameVerifier.verifyHostName().
-  private static boolean verifyDnsNameInPattern(String pattern, String sanToVerify) {
+  private static boolean verifyDnsNameInPattern(String pattern, StringMatcher sanToVerifyMatcher) {
+    String sanToVerify = sanToVerifyMatcher.getExact();
     // Basic sanity checks
     // Check length == 0 instead of .isEmpty() to support Java 5.
     if (sanToVerify == null
@@ -151,8 +152,8 @@ final class SdsX509TrustManager extends X509ExtendedTrustManager implements X509
   }
 
   private static boolean verifyDnsNameInSanList(String altNameFromCert,
-                                                List<String> verifySanList) {
-    for (String verifySan : verifySanList) {
+                                                List<StringMatcher> verifySanList) {
+    for (StringMatcher verifySan : verifySanList) {
       if (verifyDnsNameInPattern(altNameFromCert, verifySan)) {
         return true;
       }
@@ -168,16 +169,16 @@ final class SdsX509TrustManager extends X509ExtendedTrustManager implements X509
    * @param verifySanList list of SANs from certificate context
    * @return true if there is a match
    */
-  private static boolean verifyStringInSanList(String stringFromCert, List<String> verifySanList) {
-    for (String sanToVerify : verifySanList) {
-      if (Ascii.equalsIgnoreCase(sanToVerify, stringFromCert)) {
+  private static boolean verifyStringInSanList(String stringFromCert, List<StringMatcher> verifySanList) {
+    for (StringMatcher sanToVerify : verifySanList) {
+      if (Ascii.equalsIgnoreCase(sanToVerify.getExact(), stringFromCert)) {
         return true;
       }
     }
     return false;
   }
 
-  private static boolean verifyOneSanInList(List<?> entry, List<String> verifySanList)
+  private static boolean verifyOneSanInList(List<?> entry, List<StringMatcher> verifySanList)
       throws CertificateParsingException {
     // from OkHostnameVerifier.getSubjectAltNames
     if (entry == null || entry.size() < 2) {
@@ -200,8 +201,7 @@ final class SdsX509TrustManager extends X509ExtendedTrustManager implements X509
   }
 
   // logic from Envoy::Extensions::TransportSockets::Tls::ContextImpl::verifySubjectAltName
-  @SuppressWarnings("UnusedMethod") // TODO(#7166): support StringMatcher list.
-  private static void verifySubjectAltNameInLeaf(X509Certificate cert, List<String> verifyList)
+  private static void verifySubjectAltNameInLeaf(X509Certificate cert, List<StringMatcher> verifyList)
       throws CertificateException {
     Collection<List<?>> names = cert.getSubjectAlternativeNames();
     if (names == null || names.isEmpty()) {
@@ -232,10 +232,7 @@ final class SdsX509TrustManager extends X509ExtendedTrustManager implements X509
     if (peerCertChain == null || peerCertChain.length < 1) {
       throw new CertificateException("Peer certificate(s) missing");
     }
-    // verify SANs only in the top cert (leaf cert)
-    // v2 version: verifySubjectAltNameInLeaf(peerCertChain[0], verifyList);
-    // TODO(#7166): Implement v3 version.
-    throw new UnsupportedOperationException();
+    verifySubjectAltNameInLeaf(peerCertChain[0], verifyList);
   }
 
   @Override
