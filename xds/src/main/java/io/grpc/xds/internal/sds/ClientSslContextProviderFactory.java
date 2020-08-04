@@ -52,6 +52,20 @@ final class ClientSslContextProviderFactory
       } catch (IOException ioe) {
         throw new RuntimeException(ioe);
       }
+    } else if (CommonTlsContextUtil.hasCertProviderInstance(
+            upstreamTlsContext.getCommonTlsContext())) {
+      try {
+        return CertProviderClientSslContextProvider.getProvider(
+              upstreamTlsContext,
+              Bootstrapper.getInstance().readBootstrap().getNode().toEnvoyProtoNode(),
+              Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+                      .setNameFormat("client-certprovider-sslcontext-provider-%d")
+                      .setDaemon(true)
+                      .build()),
+              /* channelExecutor= */ null);
+      } catch (IOException ioe) {
+        throw new RuntimeException(ioe);
+      }
     }
     throw new UnsupportedOperationException(
         "UpstreamTlsContext to have all filenames or all SdsConfig");

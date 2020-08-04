@@ -48,6 +48,11 @@ final class CommonTlsContextUtil {
         && !commonTlsContext.hasValidationContext();
   }
 
+  static boolean hasCertProviderInstance(CommonTlsContext commonTlsContext) {
+    checkNotNull(commonTlsContext, "commonTlsContext");
+    return (commonTlsContext.hasTlsCertificateCertificateProviderInstance());
+  }
+
   @Nullable
   static CertificateValidationContext getCertificateValidationContext(
       CommonTlsContext commonTlsContext) {

@@ -42,7 +42,7 @@ public final class CertificateProviderStore {
 
   /** Opaque Handle returned by {@link #createOrGetProvider}. */
   @VisibleForTesting
-  final class Handle implements Closeable {
+  public final class Handle implements Closeable {
     private final CertProviderKey key;
     private final Watcher watcher;
     @VisibleForTesting

@@ -325,7 +325,7 @@ final class EnvoyProtoData {
       return listeningAddresses;
     }
 
-    io.envoyproxy.envoy.config.core.v3.Node toEnvoyProtoNode() {
+    public io.envoyproxy.envoy.config.core.v3.Node toEnvoyProtoNode() {
       io.envoyproxy.envoy.config.core.v3.Node.Builder builder =
           io.envoyproxy.envoy.config.core.v3.Node.newBuilder();
       builder.setId(id);
