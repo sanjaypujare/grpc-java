@@ -75,7 +75,7 @@ public abstract class Bootstrapper {
 
   @VisibleForTesting
   @SuppressWarnings("deprecation")
-  static BootstrapInfo parseConfig(String rawData) throws IOException {
+  public static BootstrapInfo parseConfig(String rawData) throws IOException {
     XdsLogger logger = XdsLogger.withPrefix(LOG_PREFIX);
     logger.log(XdsLogLevel.INFO, "Reading bootstrap information");
     @SuppressWarnings("unchecked")
@@ -160,7 +160,13 @@ public abstract class Bootstrapper {
     nodeBuilder.setUserAgentVersion(buildVersion.getImplementationVersion());
     nodeBuilder.addClientFeatures(CLIENT_FEATURE_DISABLE_OVERPROVISIONING);
 
-    return new BootstrapInfo(servers, nodeBuilder.build());
+    Map<String, ?> certProviders = JsonUtil.getObject(rawBootstrap, "cert_providers");
+    if (certProviders != null) {
+      for (String key : certProviders.keySet()) {
+        Object value = certProviders.get(key);
+      }
+    }
+    return new BootstrapInfo(servers, nodeBuilder.build(), certProviders);
   }
 
   /**
@@ -233,11 +239,13 @@ public abstract class Bootstrapper {
   public static class BootstrapInfo {
     private List<ServerInfo> servers;
     private final Node node;
+    private final Map<String, ?> certProviders;
 
     @VisibleForTesting
-    BootstrapInfo(List<ServerInfo> servers, Node node) {
+    BootstrapInfo(List<ServerInfo> servers, Node node, Map<String, ?> certProviders) {
       this.servers = servers;
       this.node = node;
+      this.certProviders = certProviders;
     }
 
     /**
@@ -252,6 +260,10 @@ public abstract class Bootstrapper {
      */
     public Node getNode() {
       return node;
+    }
+
+    public Map<String, ?> getCertProviders() {
+      return certProviders;
     }
   }
 }

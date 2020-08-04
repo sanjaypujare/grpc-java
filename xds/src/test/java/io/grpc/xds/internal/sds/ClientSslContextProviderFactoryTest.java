@@ -20,20 +20,32 @@ import static com.google.common.truth.Truth.assertThat;
 import static io.grpc.xds.internal.sds.CommonTlsContextTestsUtil.CA_PEM_FILE;
 import static io.grpc.xds.internal.sds.CommonTlsContextTestsUtil.CLIENT_KEY_FILE;
 import static io.grpc.xds.internal.sds.CommonTlsContextTestsUtil.CLIENT_PEM_FILE;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.CommonTlsContext;
+import io.grpc.xds.Bootstrapper;
 import io.grpc.xds.EnvoyServerProtoData.UpstreamTlsContext;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.io.IOException;
 
 /** Unit tests for {@link ClientSslContextProviderFactory}. */
 @RunWith(JUnit4.class)
 public class ClientSslContextProviderFactoryTest {
 
-  ClientSslContextProviderFactory clientSslContextProviderFactory =
-      new ClientSslContextProviderFactory();
+  Bootstrapper bootstrapper;
+  ClientSslContextProviderFactory clientSslContextProviderFactory;
+
+  @Before
+  public void setUp() {
+    bootstrapper = mock(Bootstrapper.class);
+    clientSslContextProviderFactory = new ClientSslContextProviderFactory(bootstrapper);
+  }
 
   @Test
   public void createSslContextProvider_allFilenames() {
@@ -58,10 +70,10 @@ public class ClientSslContextProviderFactoryTest {
       SslContextProvider unused =
           clientSslContextProviderFactory.create(upstreamTlsContext);
       Assert.fail("no exception thrown");
-    } catch (UnsupportedOperationException expected) {
+    } catch (IllegalArgumentException expected) {
       assertThat(expected)
           .hasMessageThat()
-          .isEqualTo("UpstreamTlsContext to have all filenames or all SdsConfig");
+          .isEqualTo("unexpected TlsCertificateSdsSecretConfigs");
     }
   }
 
@@ -80,10 +92,45 @@ public class ClientSslContextProviderFactoryTest {
       SslContextProvider unused =
           clientSslContextProviderFactory.create(upstreamTlsContext);
       Assert.fail("no exception thrown");
-    } catch (UnsupportedOperationException expected) {
+    } catch (IllegalStateException expected) {
       assertThat(expected)
           .hasMessageThat()
-          .isEqualTo("UpstreamTlsContext to have all filenames or all SdsConfig");
+          .isEqualTo("incorrect ValidationContextTypeCase");
     }
   }
+
+  @Test
+  public void createCertProviderClientSslContextProvider() throws IOException {
+    UpstreamTlsContext upstreamTlsContext =
+        CommonTlsContextTestsUtil.buildUpstreamTlsContextForCertProviderInstance(
+            "gcp_id", "cert-default", "gcp_id", "root-default");
+
+    String rawData = "{\n"
+            + "  \"node\": {\n"
+            + "    \"id\": \"ENVOY_NODE_ID\",\n"
+            + "    \"cluster\": \"ENVOY_CLUSTER\",\n"
+            + "    \"locality\": {\n"
+            + "      \"region\": \"ENVOY_REGION\",\n"
+            + "      \"zone\": \"ENVOY_ZONE\",\n"
+            + "      \"sub_zone\": \"ENVOY_SUBZONE\"\n"
+            + "    },\n"
+            + "    \"metadata\": {\n"
+            + "      \"TRAFFICDIRECTOR_INTERCEPTION_PORT\": \"ENVOY_PORT\",\n"
+            + "      \"TRAFFICDIRECTOR_NETWORK_NAME\": \"VPC_NETWORK_NAME\"\n"
+            + "    }\n"
+            + "  },\n"
+            + "  \"xds_servers\": [\n"
+            + "    {\n"
+            + "      \"server_uri\": \"trafficdirector-bar.googleapis.com:443\",\n"
+            + "      \"channel_creds\": []\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+    Bootstrapper.BootstrapInfo bootstrapInfo = bootstrapper.parseConfig(rawData);
+    when(bootstrapper.readBootstrap()).thenReturn(bootstrapInfo);
+    SslContextProvider sslContextProvider =
+        clientSslContextProviderFactory.create(upstreamTlsContext);
+    assertThat(sslContextProvider).isNotNull();
+  }
+
 }

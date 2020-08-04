@@ -29,6 +29,16 @@ import java.util.concurrent.Executors;
 final class ClientSslContextProviderFactory
     implements ValueFactory<UpstreamTlsContext, SslContextProvider> {
 
+  private Bootstrapper bootstrapper;
+
+  ClientSslContextProviderFactory() {
+    this(Bootstrapper.getInstance());
+  }
+
+  ClientSslContextProviderFactory(Bootstrapper bootstrapper) {
+    this.bootstrapper = bootstrapper;
+  }
+
   /** Creates an SslContextProvider from the given UpstreamTlsContext. */
   @Override
   public SslContextProvider create(UpstreamTlsContext upstreamTlsContext) {
@@ -43,7 +53,7 @@ final class ClientSslContextProviderFactory
       try {
         return SdsClientSslContextProvider.getProvider(
             upstreamTlsContext,
-            Bootstrapper.getInstance().readBootstrap().getNode().toEnvoyProtoNodeV2(),
+            bootstrapper.readBootstrap().getNode().toEnvoyProtoNodeV2(),
             Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
                 .setNameFormat("client-sds-sslcontext-provider-%d")
                 .setDaemon(true)
@@ -57,7 +67,7 @@ final class ClientSslContextProviderFactory
       try {
         return CertProviderClientSslContextProvider.getProvider(
               upstreamTlsContext,
-              Bootstrapper.getInstance().readBootstrap().getNode().toEnvoyProtoNode(),
+              bootstrapper.readBootstrap().getNode().toEnvoyProtoNode(),
               Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
                       .setNameFormat("client-certprovider-sslcontext-provider-%d")
                       .setDaemon(true)

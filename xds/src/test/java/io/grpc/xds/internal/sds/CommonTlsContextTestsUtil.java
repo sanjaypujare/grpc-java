@@ -432,4 +432,32 @@ public class CommonTlsContextTestsUtil {
     return EnvoyServerProtoData.UpstreamTlsContext.fromEnvoyProtoUpstreamTlsContext(
         upstreamTlsContext);
   }
+
+  private static CommonTlsContext buildCommonTlsContextForCertProviderInstance(
+      String certInstanceName, String certName, String rootInstanceName, String rootCertName) {
+    CommonTlsContext.CertificateProviderInstance.Builder certInstanceBuilder =
+        CommonTlsContext.CertificateProviderInstance.newBuilder()
+            .setInstanceName(certInstanceName)
+            .setCertificateName(certName);
+
+    CommonTlsContext.CertificateProviderInstance.Builder rootInstanceBuilder =
+        CommonTlsContext.CertificateProviderInstance.newBuilder()
+            .setInstanceName(rootInstanceName)
+            .setCertificateName(rootCertName);
+    return CommonTlsContext.newBuilder()
+        .setTlsCertificateCertificateProviderInstance(certInstanceBuilder)
+        .setValidationContextCertificateProviderInstance(rootInstanceBuilder)
+        .build();
+  }
+
+  /**
+   * Helper method to build UpstreamTlsContext for above tests. Called from other classes as well.
+   */
+  public static EnvoyServerProtoData.UpstreamTlsContext buildUpstreamTlsContextForCertProviderInstance(
+          @Nullable String certInstanceName, @Nullable String certName,
+          @Nullable String rootInstanceName, @Nullable String rootCertName) {
+    return buildUpstreamTlsContext(
+            buildCommonTlsContextForCertProviderInstance(certInstanceName, certName,
+                    rootInstanceName, rootCertName));
+  }
 }

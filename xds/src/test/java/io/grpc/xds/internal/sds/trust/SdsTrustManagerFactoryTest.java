@@ -151,6 +151,26 @@ public class SdsTrustManagerFactoryTest {
   }
 
   @Test
+  public void constructorRootCert_checkClientTrusted_throwsException()
+          throws CertificateException, IOException, CertStoreException {
+    X509Certificate x509Cert = TestUtils.loadX509Cert(CA_PEM_FILE);
+    CertificateValidationContext staticValidationContext = buildStaticValidationContext("san1", "san2");
+    SdsTrustManagerFactory factory =
+            new SdsTrustManagerFactory(new X509Certificate[]{x509Cert}, staticValidationContext);
+    SdsX509TrustManager sdsX509TrustManager = (SdsX509TrustManager) factory.getTrustManagers()[0];
+    X509Certificate[] clientChain =
+            CertificateUtils.toX509Certificates(TestUtils.loadCert(SERVER_1_PEM_FILE));
+    try {
+      sdsX509TrustManager.checkClientTrusted(clientChain, "RSA");
+      Assert.fail("no exception thrown");
+    } catch (CertificateException expected) {
+      assertThat(expected)
+              .hasMessageThat()
+              .contains("Peer certificate SAN check failed");
+    }
+  }
+
+  @Test
   public void checkServerTrusted_goodCert()
       throws CertificateException, IOException, CertStoreException {
     SdsTrustManagerFactory factory =

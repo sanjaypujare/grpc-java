@@ -16,6 +16,7 @@
 
 package io.grpc.xds.internal.sds;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static io.grpc.xds.internal.sds.CommonTlsContextUtil.getCertificateValidationContext;
 import static io.grpc.xds.internal.sds.CommonTlsContextUtil.validateCertificateContext;
@@ -61,6 +62,8 @@ final class SecretVolumeClientSslContextProvider extends SslContextProvider {
   static SecretVolumeClientSslContextProvider getProvider(UpstreamTlsContext upstreamTlsContext) {
     checkNotNull(upstreamTlsContext, "upstreamTlsContext");
     CommonTlsContext commonTlsContext = upstreamTlsContext.getCommonTlsContext();
+    checkArgument(commonTlsContext.getTlsCertificateSdsSecretConfigsCount() == 0,
+    "unexpected TlsCertificateSdsSecretConfigs");
     CertificateValidationContext certificateValidationContext =
         getCertificateValidationContext(commonTlsContext);
     // first validate
