@@ -112,29 +112,13 @@ public class ClientSslContextProviderFactoryTest {
 
   @Test
   public void createCertProviderClientSslContextProvider() throws IOException {
-    final CertificateProviderProvider mockProviderProvider = mock(CertificateProviderProvider.class);
-    when(mockProviderProvider.getName()).thenReturn("testca");
     final CertificateProvider.DistributorWatcher[] watcherCaptor = new CertificateProvider.DistributorWatcher[1];
-    when(mockProviderProvider.createCertificateProvider(any(Object.class),
-      any(CertificateProvider.DistributorWatcher.class), eq(true))).thenAnswer(new Answer<CertificateProvider>() {
-      @Override
-      public CertificateProvider answer(InvocationOnMock invocation) throws Throwable {
-        Object[] args = invocation.getArguments();
-        CertificateProvider.DistributorWatcher watcher = (CertificateProvider.DistributorWatcher) args[1];
-        watcherCaptor[0] = watcher;
-        return new TestCertificateProvider(watcher,
-        true,
-        args[0],
-                mockProviderProvider,
-        false);
-      }
-    });
-    certificateProviderRegistry.register(mockProviderProvider);
+    createAndRegisterProviderProvider(certificateProviderRegistry, watcherCaptor, "testca", 0);
     UpstreamTlsContext upstreamTlsContext =
         CommonTlsContextTestsUtil.buildUpstreamTlsContextForCertProviderInstance(
             "gcp_id", "cert-default", "gcp_id", "root-default");
 
-    Bootstrapper.BootstrapInfo bootstrapInfo = getTestBootstrapInfo();
+    Bootstrapper.BootstrapInfo bootstrapInfo = TestCertificateProvider.getTestBootstrapInfo();
     when(bootstrapper.readBootstrap()).thenReturn(bootstrapInfo);
     SslContextProvider sslContextProvider =
         clientSslContextProviderFactory.create(upstreamTlsContext);
@@ -144,48 +128,16 @@ public class ClientSslContextProviderFactoryTest {
 
   @Test
   public void createCertProviderClientSslContextProvider_2providers() throws IOException {
-    final CertificateProviderProvider mockProviderProviderTestCa = mock(CertificateProviderProvider.class);
-    when(mockProviderProviderTestCa.getName()).thenReturn("testca");
     final CertificateProvider.DistributorWatcher[] watcherCaptor = new CertificateProvider.DistributorWatcher[2];
-    when(mockProviderProviderTestCa.createCertificateProvider(any(Object.class),
-            any(CertificateProvider.DistributorWatcher.class), eq(true))).thenAnswer(new Answer<CertificateProvider>() {
-      @Override
-      public CertificateProvider answer(InvocationOnMock invocation) throws Throwable {
-        Object[] args = invocation.getArguments();
-        CertificateProvider.DistributorWatcher watcher = (CertificateProvider.DistributorWatcher) args[1];
-        watcherCaptor[0] = watcher;
-        return new TestCertificateProvider(watcher,
-                true,
-                args[0],
-                mockProviderProviderTestCa,
-                false);
-      }
-    });
-    certificateProviderRegistry.register(mockProviderProviderTestCa);
+    createAndRegisterProviderProvider(certificateProviderRegistry, watcherCaptor, "testca", 0);
 
-    final CertificateProviderProvider mockProviderProviderFile = mock(CertificateProviderProvider.class);
-    when(mockProviderProviderFile.getName()).thenReturn("file_watcher");
-    when(mockProviderProviderFile.createCertificateProvider(any(Object.class),
-            any(CertificateProvider.DistributorWatcher.class), eq(true))).thenAnswer(new Answer<CertificateProvider>() {
-      @Override
-      public CertificateProvider answer(InvocationOnMock invocation) throws Throwable {
-        Object[] args = invocation.getArguments();
-        CertificateProvider.DistributorWatcher watcher = (CertificateProvider.DistributorWatcher) args[1];
-        watcherCaptor[1] = watcher;
-        return new TestCertificateProvider(watcher,
-                true,
-                args[0],
-                mockProviderProviderFile,
-                false);
-      }
-    });
-    certificateProviderRegistry.register(mockProviderProviderFile);
+    createAndRegisterProviderProvider(certificateProviderRegistry, watcherCaptor, "file_watcher", 1);
 
     UpstreamTlsContext upstreamTlsContext =
             CommonTlsContextTestsUtil.buildUpstreamTlsContextForCertProviderInstance(
                     "gcp_id", "cert-default", "file_provider", "root-default");
 
-    Bootstrapper.BootstrapInfo bootstrapInfo = getTestBootstrapInfo();
+    Bootstrapper.BootstrapInfo bootstrapInfo = TestCertificateProvider.getTestBootstrapInfo();
     when(bootstrapper.readBootstrap()).thenReturn(bootstrapInfo);
     SslContextProvider sslContextProvider =
             clientSslContextProviderFactory.create(upstreamTlsContext);
@@ -194,50 +146,32 @@ public class ClientSslContextProviderFactoryTest {
     verifyWatcher(sslContextProvider, watcherCaptor[1]);
   }
 
+  private static void createAndRegisterProviderProvider(CertificateProviderRegistry certificateProviderRegistry,
+  final CertificateProvider.DistributorWatcher[] watcherCaptor, String testca, final int i) {
+    final CertificateProviderProvider mockProviderProviderTestCa = mock(CertificateProviderProvider.class);
+    when(mockProviderProviderTestCa.getName()).thenReturn(testca);
+
+    when(mockProviderProviderTestCa.createCertificateProvider(any(Object.class),
+            any(CertificateProvider.DistributorWatcher.class), eq(true))).thenAnswer(new Answer<CertificateProvider>() {
+      @Override
+      public CertificateProvider answer(InvocationOnMock invocation) throws Throwable {
+        Object[] args = invocation.getArguments();
+        CertificateProvider.DistributorWatcher watcher = (CertificateProvider.DistributorWatcher) args[1];
+        watcherCaptor[i] = watcher;
+        return new TestCertificateProvider(watcher,
+                true,
+                args[0],
+                mockProviderProviderTestCa,
+                false);
+      }
+    });
+    certificateProviderRegistry.register(mockProviderProviderTestCa);
+  }
+
   private void verifyWatcher(SslContextProvider sslContextProvider, CertificateProvider.DistributorWatcher watcherCaptor) {
     assertThat(watcherCaptor).isNotNull();
     assertThat(watcherCaptor.getDownsstreamWatchers()).hasSize(1);
     assertThat(watcherCaptor.getDownsstreamWatchers().iterator().next()).isSameInstanceAs(sslContextProvider);
   }
 
-  private static Bootstrapper.BootstrapInfo getTestBootstrapInfo() throws IOException {
-    String rawData =
-            "{\n"
-                    + "  \"xds_servers\": [],\n"
-                    + "  \"certificate_providers\": {\n"
-                    + "    \"gcp_id\": {\n"
-                    + "      \"plugin_name\": \"testca\",\n"
-                    + "      \"config\": {\n"
-                    + "        \"server\": {\n"
-                    + "          \"api_type\": \"GRPC\",\n"
-                    + "          \"grpc_services\": [{\n"
-                    + "            \"google_grpc\": {\n"
-                    + "              \"target_uri\": \"meshca.com\",\n"
-                    + "              \"channel_credentials\": {\"google_default\": {}},\n"
-                    + "              \"call_credentials\": [{\n"
-                    + "                \"sts_service\": {\n"
-                    + "                  \"token_exchange_service\": \"securetoken.googleapis.com\",\n"
-                    + "                  \"subject_token_path\": \"/etc/secret/sajwt.token\"\n"
-                    + "                }\n"
-                    + "              }]\n" // end call_credentials
-                    + "            },\n" // end google_grpc
-                    + "            \"time_out\": {\"seconds\": 10}\n"
-                    + "          }]\n" // end grpc_services
-                    + "        },\n" // end server
-                    + "        \"certificate_lifetime\": {\"seconds\": 86400},\n"
-                    + "        \"renewal_grace_period\": {\"seconds\": 3600},\n"
-                    + "        \"key_type\": \"RSA\",\n"
-                    + "        \"key_size\": 2048,\n"
-                    + "        \"location\": \"https://container.googleapis.com/v1/project/test-project1/locations/test-zone2/clusters/test-cluster3\"\n"
-                    + "      }\n" // end config
-                    + "    },\n" // end gcp_id
-                    + "    \"file_provider\": {\n"
-                    + "      \"plugin_name\": \"file_watcher\",\n"
-                    + "      \"config\": {\"path\": \"/etc/secret/certs\"}\n"
-                    + "    }\n"
-                    + "  }\n"
-                    + "}";
-
-    return Bootstrapper.parseConfig(rawData);
-  }
 }
