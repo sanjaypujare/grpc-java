@@ -146,7 +146,7 @@ public class ClientSslContextProviderFactoryTest {
     verifyWatcher(sslContextProvider, watcherCaptor[1]);
   }
 
-  private static void createAndRegisterProviderProvider(CertificateProviderRegistry certificateProviderRegistry,
+  static void createAndRegisterProviderProvider(CertificateProviderRegistry certificateProviderRegistry,
   final CertificateProvider.DistributorWatcher[] watcherCaptor, String testca, final int i) {
     final CertificateProviderProvider mockProviderProviderTestCa = mock(CertificateProviderProvider.class);
     when(mockProviderProviderTestCa.getName()).thenReturn(testca);

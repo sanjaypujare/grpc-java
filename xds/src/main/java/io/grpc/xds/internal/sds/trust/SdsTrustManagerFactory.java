@@ -68,9 +68,9 @@ public final class SdsTrustManagerFactory extends SimpleTrustManagerFactory {
       CertificateValidationContext certificateValidationContext,
       boolean validationContextIsStatic)
       throws CertStoreException {
-    checkNotNull(certificateValidationContext, "certificateValidationContext");
     if (validationContextIsStatic) {
-      checkArgument(!certificateValidationContext.hasTrustedCa(),
+      checkArgument(certificateValidationContext == null
+        || !certificateValidationContext.hasTrustedCa(),
       "only static certificateValidationContext expected");
     }
     sdsX509TrustManager = createSdsX509TrustManager(certs, certificateValidationContext);
@@ -79,6 +79,7 @@ public final class SdsTrustManagerFactory extends SimpleTrustManagerFactory {
   private static X509Certificate[] getTrustedCaFromCertContext(
       CertificateValidationContext certificateValidationContext)
       throws CertificateException, IOException {
+    checkNotNull(certificateValidationContext, "certificateValidationContext");
     final SpecifierCase specifierCase =
         certificateValidationContext.getTrustedCa().getSpecifierCase();
     if (specifierCase == SpecifierCase.FILENAME) {
