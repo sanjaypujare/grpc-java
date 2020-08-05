@@ -23,6 +23,7 @@ import io.grpc.Status;
 import io.grpc.xds.internal.sds.Closeable;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -64,6 +65,10 @@ public abstract class CertificateProvider implements Closeable {
       if (lastTrustedRoots != null) {
         sendLastTrustedRootsUpdate(watcher);
       }
+    }
+
+    @VisibleForTesting public Set<Watcher> getDownsstreamWatchers() {
+      return Collections.unmodifiableSet(downsstreamWatchers);
     }
 
     synchronized void removeWatcher(Watcher watcher) {

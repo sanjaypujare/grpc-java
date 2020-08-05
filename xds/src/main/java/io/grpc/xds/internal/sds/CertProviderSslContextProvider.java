@@ -73,9 +73,11 @@ abstract class CertProviderSslContextProvider extends SslContextProvider impleme
     this.certInstance = certInstance;
     this.rootCertInstance = rootCertInstance;
     this.staticCertificateValidationContext = staticCertValidationContext;
+    String certInstanceName = null;
     if (certInstance != null && certInstance.isInitialized()) {
+      certInstanceName = certInstance.getInstanceName();
       Map<String, ?> certProviderInstanceConfig =
-              getCertProviderConfig(certProviders, certInstance.getInstanceName());
+              getCertProviderConfig(certProviders, certInstanceName);
       certHandle =
               certificateProviderStore
               .createOrGetProvider(
@@ -87,7 +89,8 @@ abstract class CertProviderSslContextProvider extends SslContextProvider impleme
     } else {
       certHandle = null;
     }
-    if (rootCertInstance != null && rootCertInstance.isInitialized()) {
+    if (rootCertInstance != null && rootCertInstance.isInitialized() &&
+      !rootCertInstance.getInstanceName().equals(certInstanceName)) {
       Map<String, ?> certProviderInstanceConfig =
               getCertProviderConfig(certProviders, rootCertInstance.getInstanceName());
       rootCertHandle =
