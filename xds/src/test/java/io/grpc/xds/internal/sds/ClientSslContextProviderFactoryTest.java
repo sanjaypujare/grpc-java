@@ -20,17 +20,22 @@ import static com.google.common.truth.Truth.assertThat;
 import static io.grpc.xds.internal.sds.CommonTlsContextTestsUtil.CA_PEM_FILE;
 import static io.grpc.xds.internal.sds.CommonTlsContextTestsUtil.CLIENT_KEY_FILE;
 import static io.grpc.xds.internal.sds.CommonTlsContextTestsUtil.CLIENT_PEM_FILE;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.CommonTlsContext;
 import io.grpc.xds.Bootstrapper;
 import io.grpc.xds.EnvoyServerProtoData.UpstreamTlsContext;
+import io.grpc.xds.internal.certprovider.*;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.io.IOException;
 
@@ -39,12 +44,18 @@ import java.io.IOException;
 public class ClientSslContextProviderFactoryTest {
 
   Bootstrapper bootstrapper;
+  CertificateProviderRegistry certificateProviderRegistry;
+  CertificateProviderStore certificateProviderStore;
+  CertProviderClientSslContextProvider.Factory certProviderClientSslContextProviderFactory;
   ClientSslContextProviderFactory clientSslContextProviderFactory;
 
   @Before
   public void setUp() {
     bootstrapper = mock(Bootstrapper.class);
-    clientSslContextProviderFactory = new ClientSslContextProviderFactory(bootstrapper);
+    certificateProviderRegistry = new CertificateProviderRegistry();
+    certificateProviderStore = new CertificateProviderStore(certificateProviderRegistry);
+    certProviderClientSslContextProviderFactory = new CertProviderClientSslContextProvider.Factory(certificateProviderStore);
+    clientSslContextProviderFactory = new ClientSslContextProviderFactory(bootstrapper, certProviderClientSslContextProviderFactory);
   }
 
   @Test
@@ -101,36 +112,67 @@ public class ClientSslContextProviderFactoryTest {
 
   @Test
   public void createCertProviderClientSslContextProvider() throws IOException {
+    final CertificateProviderProvider mockProviderProvider = mock(CertificateProviderProvider.class);
+    when(mockProviderProvider.getName()).thenReturn("testca");
+    when(mockProviderProvider.createCertificateProvider(any(Object.class),
+      any(CertificateProvider.DistributorWatcher.class), eq(true))).thenAnswer(new Answer<CertificateProvider>() {
+      @Override
+      public CertificateProvider answer(InvocationOnMock invocation) throws Throwable {
+        Object[] args = invocation.getArguments();
+        CertificateProvider.DistributorWatcher watcher = (CertificateProvider.DistributorWatcher) args[1];
+        return new TestCertificateProvider(watcher,
+        true,
+        args[0],
+                mockProviderProvider,
+        false);
+      }
+    });
+    certificateProviderRegistry.register(mockProviderProvider);
     UpstreamTlsContext upstreamTlsContext =
         CommonTlsContextTestsUtil.buildUpstreamTlsContextForCertProviderInstance(
             "gcp_id", "cert-default", "gcp_id", "root-default");
 
-    String rawData = "{\n"
-            + "  \"node\": {\n"
-            + "    \"id\": \"ENVOY_NODE_ID\",\n"
-            + "    \"cluster\": \"ENVOY_CLUSTER\",\n"
-            + "    \"locality\": {\n"
-            + "      \"region\": \"ENVOY_REGION\",\n"
-            + "      \"zone\": \"ENVOY_ZONE\",\n"
-            + "      \"sub_zone\": \"ENVOY_SUBZONE\"\n"
-            + "    },\n"
-            + "    \"metadata\": {\n"
-            + "      \"TRAFFICDIRECTOR_INTERCEPTION_PORT\": \"ENVOY_PORT\",\n"
-            + "      \"TRAFFICDIRECTOR_NETWORK_NAME\": \"VPC_NETWORK_NAME\"\n"
-            + "    }\n"
-            + "  },\n"
-            + "  \"xds_servers\": [\n"
-            + "    {\n"
-            + "      \"server_uri\": \"trafficdirector-bar.googleapis.com:443\",\n"
-            + "      \"channel_creds\": []\n"
-            + "    }\n"
-            + "  ]\n"
-            + "}";
+    String rawData =
+            "{\n"
+                    + "  \"xds_servers\": [],\n"
+                    + "  \"certificate_providers\": {\n"
+                    + "    \"gcp_id\": {\n"
+                    + "      \"plugin_name\": \"testca\",\n"
+                    + "      \"config\": {\n"
+                    + "        \"server\": {\n"
+                    + "          \"api_type\": \"GRPC\",\n"
+                    + "          \"grpc_services\": [{\n"
+                    + "            \"google_grpc\": {\n"
+                    + "              \"target_uri\": \"meshca.com\",\n"
+                    + "              \"channel_credentials\": {\"google_default\": {}},\n"
+                    + "              \"call_credentials\": [{\n"
+                    + "                \"sts_service\": {\n"
+                    + "                  \"token_exchange_service\": \"securetoken.googleapis.com\",\n"
+                    + "                  \"subject_token_path\": \"/etc/secret/sajwt.token\"\n"
+                    + "                }\n"
+                    + "              }]\n" // end call_credentials
+                    + "            },\n" // end google_grpc
+                    + "            \"time_out\": {\"seconds\": 10}\n"
+                    + "          }]\n" // end grpc_services
+                    + "        },\n" // end server
+                    + "        \"certificate_lifetime\": {\"seconds\": 86400},\n"
+                    + "        \"renewal_grace_period\": {\"seconds\": 3600},\n"
+                    + "        \"key_type\": \"RSA\",\n"
+                    + "        \"key_size\": 2048,\n"
+                    + "        \"location\": \"https://container.googleapis.com/v1/project/test-project1/locations/test-zone2/clusters/test-cluster3\"\n"
+                    + "      }\n" // end config
+                    + "    },\n" // end gcp_id
+                    + "    \"file_provider\": {\n"
+                    + "      \"plugin_name\": \"file_watcher\",\n"
+                    + "      \"config\": {\"path\": \"/etc/secret/certs\"}\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}";
+
     Bootstrapper.BootstrapInfo bootstrapInfo = bootstrapper.parseConfig(rawData);
     when(bootstrapper.readBootstrap()).thenReturn(bootstrapInfo);
     SslContextProvider sslContextProvider =
         clientSslContextProviderFactory.create(upstreamTlsContext);
-    assertThat(sslContextProvider).isNotNull();
+    assertThat(sslContextProvider).isInstanceOf(CertProviderClientSslContextProvider.class);
   }
-
 }

@@ -20,18 +20,15 @@ import io.envoyproxy.envoy.config.core.v3.Node;
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.CertificateValidationContext;
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.CommonTlsContext;
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.CommonTlsContext.CombinedCertificateValidationContext;
-import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.SdsSecretConfig;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.xds.EnvoyServerProtoData.UpstreamTlsContext;
+import io.grpc.xds.internal.certprovider.CertificateProviderStore;
 import io.grpc.xds.internal.sds.trust.SdsTrustManagerFactory;
 import io.netty.handler.ssl.SslContextBuilder;
 
-import java.io.IOException;
-import java.security.PrivateKey;
 import java.security.cert.CertStoreException;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -40,56 +37,72 @@ import static com.google.common.base.Preconditions.checkNotNull;
 final class CertProviderClientSslContextProvider extends CertProviderSslContextProvider {
 
   private CertProviderClientSslContextProvider(
-      Node node,
-      CommonTlsContext.CertificateProviderInstance certInstance,
-      CommonTlsContext.CertificateProviderInstance rootCertInstance,
-      CertificateValidationContext staticCertValidationContext,
-      Executor watcherExecutor,
-      Executor channelExecutor,
-      UpstreamTlsContext upstreamTlsContext) {
+          Node node,
+          Map<String, ?> certProviders,
+          CommonTlsContext.CertificateProviderInstance certInstance,
+          CommonTlsContext.CertificateProviderInstance rootCertInstance,
+          CertificateValidationContext staticCertValidationContext,
+          Executor watcherExecutor,
+          Executor channelExecutor,
+          UpstreamTlsContext upstreamTlsContext, CertificateProviderStore certificateProviderStore) {
     super(node,
+        certProviders,
         certInstance,
         rootCertInstance,
         staticCertValidationContext,
         watcherExecutor,
-        channelExecutor, upstreamTlsContext);
+        channelExecutor, upstreamTlsContext,
+        certificateProviderStore);
   }
 
-  static CertProviderClientSslContextProvider getProvider(
-      UpstreamTlsContext upstreamTlsContext,
-      Node node,
-      Executor watcherExecutor,
-      Executor channelExecutor) {
-    checkNotNull(upstreamTlsContext, "upstreamTlsContext");
-    CommonTlsContext commonTlsContext = upstreamTlsContext.getCommonTlsContext();
-    CommonTlsContext.CertificateProviderInstance rootCertInstance = null;
-    CertificateValidationContext staticCertValidationContext = null;
-    if (commonTlsContext.hasCombinedValidationContext()) {
-      CombinedCertificateValidationContext combinedValidationContext =
-          commonTlsContext.getCombinedValidationContext();
-      if (combinedValidationContext.hasValidationContextCertificateProviderInstance()) {
-        rootCertInstance = combinedValidationContext.getValidationContextCertificateProviderInstance();
-      }
-      if (combinedValidationContext.hasDefaultValidationContext()) {
-        staticCertValidationContext = combinedValidationContext.getDefaultValidationContext();
-      }
-    } else if (commonTlsContext.hasValidationContextCertificateProviderInstance()) {
-      rootCertInstance = commonTlsContext.getValidationContextCertificateProviderInstance();
-    } else if (commonTlsContext.hasValidationContext()) {
-      staticCertValidationContext = commonTlsContext.getValidationContext();
+  /** Creates CertProviderClientSslContextProvider. */
+  final static class Factory {
+      private static final Factory DEFAULT_INSTANCE = new Factory(CertificateProviderStore.getInstance());
+
+    static Factory getInstance() {
+      return DEFAULT_INSTANCE;
     }
-    CommonTlsContext.CertificateProviderInstance certInstance = null;
-    if (commonTlsContext.hasTlsCertificateCertificateProviderInstance()) {
-      certInstance = commonTlsContext.getTlsCertificateCertificateProviderInstance();
-    }
-    return new CertProviderClientSslContextProvider(
-        node,
-        certInstance,
-        rootCertInstance,
-        staticCertValidationContext,
-        watcherExecutor,
-        channelExecutor,
-        upstreamTlsContext);
+
+      Factory(CertificateProviderStore certificateProviderStore) {
+        this.certificateProviderStore = certificateProviderStore;
+      }
+
+      private final CertificateProviderStore certificateProviderStore;
+
+      CertProviderClientSslContextProvider getProvider(UpstreamTlsContext upstreamTlsContext, Node node, Map<String, ?> certProviders, Executor watcherExecutor, Executor channelExecutor) {
+        checkNotNull(upstreamTlsContext, "upstreamTlsContext");
+        CommonTlsContext commonTlsContext = upstreamTlsContext.getCommonTlsContext();
+        CommonTlsContext.CertificateProviderInstance rootCertInstance = null;
+        CertificateValidationContext staticCertValidationContext = null;
+        if (commonTlsContext.hasCombinedValidationContext()) {
+          CombinedCertificateValidationContext combinedValidationContext =
+                  commonTlsContext.getCombinedValidationContext();
+          if (combinedValidationContext.hasValidationContextCertificateProviderInstance()) {
+            rootCertInstance = combinedValidationContext.getValidationContextCertificateProviderInstance();
+          }
+          if (combinedValidationContext.hasDefaultValidationContext()) {
+            staticCertValidationContext = combinedValidationContext.getDefaultValidationContext();
+          }
+        } else if (commonTlsContext.hasValidationContextCertificateProviderInstance()) {
+          rootCertInstance = commonTlsContext.getValidationContextCertificateProviderInstance();
+        } else if (commonTlsContext.hasValidationContext()) {
+          staticCertValidationContext = commonTlsContext.getValidationContext();
+        }
+        CommonTlsContext.CertificateProviderInstance certInstance = null;
+        if (commonTlsContext.hasTlsCertificateCertificateProviderInstance()) {
+          certInstance = commonTlsContext.getTlsCertificateCertificateProviderInstance();
+        }
+        return new CertProviderClientSslContextProvider(
+                node,
+                certProviders,
+                certInstance,
+                rootCertInstance,
+                staticCertValidationContext,
+                watcherExecutor,
+                channelExecutor,
+                upstreamTlsContext,
+                certificateProviderStore);
+      }
   }
 
   @Override

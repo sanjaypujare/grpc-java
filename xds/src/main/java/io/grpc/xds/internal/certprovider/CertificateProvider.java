@@ -48,7 +48,7 @@ public abstract class CertificateProvider implements Closeable {
   }
 
   @VisibleForTesting
-  static final class DistributorWatcher implements Watcher {
+  public static final class DistributorWatcher implements Watcher {
     private PrivateKey lastKey;
     private List<X509Certificate> lastCertChain;
     private List<X509Certificate> lastTrustedRoots;

@@ -36,6 +36,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -59,36 +60,42 @@ abstract class CertProviderSslContextProvider extends SslContextProvider impleme
   @Nullable protected List<X509Certificate> lastTrustedRoots;
 
   CertProviderSslContextProvider(
-      Node node,
-      CertificateProviderInstance certInstance,
-      CertificateProviderInstance rootCertInstance,
-      CertificateValidationContext staticCertValidationContext,
-      Executor watcherExecutor,
-      Executor channelExecutor,
-      BaseTlsContext tlsContext) {
+          Node node,
+          Map<String, ?> certProviders,
+          CertificateProviderInstance certInstance,
+          CertificateProviderInstance rootCertInstance,
+          CertificateValidationContext staticCertValidationContext,
+          Executor watcherExecutor,
+          Executor channelExecutor,
+          BaseTlsContext tlsContext,
+          CertificateProviderStore certificateProviderStore) {
     super(tlsContext);
     this.certInstance = certInstance;
     this.rootCertInstance = rootCertInstance;
     this.staticCertificateValidationContext = staticCertValidationContext;
     if (certInstance != null && certInstance.isInitialized()) {
+      Map<String, ?> certProviderInstanceConfig =
+              getCertProviderConfig(certProviders, certInstance.getInstanceName());
       certHandle =
-          CertificateProviderStore.getInstance()
+              certificateProviderStore
               .createOrGetProvider(
                   certInstance.getCertificateName(),
-                  certInstance.getInstanceName(),
-                  getCertProviderConfig(node),
+                      (String)certProviderInstanceConfig.get("plugin_name"),
+                      certProviderInstanceConfig.get("config"),
                   this,
                   true);
     } else {
       certHandle = null;
     }
     if (rootCertInstance != null && rootCertInstance.isInitialized()) {
+      Map<String, ?> certProviderInstanceConfig =
+              getCertProviderConfig(certProviders, rootCertInstance.getInstanceName());
       rootCertHandle =
-          CertificateProviderStore.getInstance()
+              certificateProviderStore
               .createOrGetProvider(
                   rootCertInstance.getCertificateName(),
-                  rootCertInstance.getInstanceName(),
-                  getCertProviderConfig(node),
+                      (String)certProviderInstanceConfig.get("plugin_name"),
+                  certProviderInstanceConfig.get("config"),
                   this,
                   true);
     } else {
@@ -96,9 +103,8 @@ abstract class CertProviderSslContextProvider extends SslContextProvider impleme
     }
   }
 
-  protected Object getCertProviderConfig(Node node) {
-    // TODO: implement
-    return null;
+  protected Map<String, ?> getCertProviderConfig(Map<String, ?> certProviders, String pluginInstanceName) {
+    return (Map<String, ?>)certProviders.get(pluginInstanceName);
   }
 
   @Override

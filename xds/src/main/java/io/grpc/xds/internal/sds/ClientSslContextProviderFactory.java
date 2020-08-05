@@ -29,14 +29,16 @@ import java.util.concurrent.Executors;
 final class ClientSslContextProviderFactory
     implements ValueFactory<UpstreamTlsContext, SslContextProvider> {
 
-  private Bootstrapper bootstrapper;
+  private final Bootstrapper bootstrapper;
+  private final CertProviderClientSslContextProvider.Factory certProviderClientSslContextProviderFactory;
 
   ClientSslContextProviderFactory() {
-    this(Bootstrapper.getInstance());
+    this(Bootstrapper.getInstance(), CertProviderClientSslContextProvider.Factory.getInstance());
   }
 
-  ClientSslContextProviderFactory(Bootstrapper bootstrapper) {
+  ClientSslContextProviderFactory(Bootstrapper bootstrapper, CertProviderClientSslContextProvider.Factory factory) {
     this.bootstrapper = bootstrapper;
+    this.certProviderClientSslContextProviderFactory = factory;
   }
 
   /** Creates an SslContextProvider from the given UpstreamTlsContext. */
@@ -65,10 +67,11 @@ final class ClientSslContextProviderFactory
     } else if (CommonTlsContextUtil.hasCertProviderInstance(
             upstreamTlsContext.getCommonTlsContext())) {
       try {
-        return CertProviderClientSslContextProvider.getProvider(
+        return certProviderClientSslContextProviderFactory.getProvider(
               upstreamTlsContext,
               bootstrapper.readBootstrap().getNode().toEnvoyProtoNode(),
-              Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+                bootstrapper.readBootstrap().getCertProviders(),
+                 Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
                       .setNameFormat("client-certprovider-sslcontext-provider-%d")
                       .setDaemon(true)
                       .build()),

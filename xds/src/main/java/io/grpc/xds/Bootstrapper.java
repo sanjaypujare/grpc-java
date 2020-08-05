@@ -160,12 +160,7 @@ public abstract class Bootstrapper {
     nodeBuilder.setUserAgentVersion(buildVersion.getImplementationVersion());
     nodeBuilder.addClientFeatures(CLIENT_FEATURE_DISABLE_OVERPROVISIONING);
 
-    Map<String, ?> certProviders = JsonUtil.getObject(rawBootstrap, "cert_providers");
-    if (certProviders != null) {
-      for (String key : certProviders.keySet()) {
-        Object value = certProviders.get(key);
-      }
-    }
+    Map<String, ?> certProviders = JsonUtil.getObject(rawBootstrap, "certificate_providers");
     return new BootstrapInfo(servers, nodeBuilder.build(), certProviders);
   }
 
