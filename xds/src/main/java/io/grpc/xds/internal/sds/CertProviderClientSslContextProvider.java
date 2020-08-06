@@ -42,16 +42,13 @@ final class CertProviderClientSslContextProvider extends CertProviderSslContextP
           CommonTlsContext.CertificateProviderInstance certInstance,
           CommonTlsContext.CertificateProviderInstance rootCertInstance,
           CertificateValidationContext staticCertValidationContext,
-          Executor watcherExecutor,
-          Executor channelExecutor,
           UpstreamTlsContext upstreamTlsContext, CertificateProviderStore certificateProviderStore) {
     super(node,
         certProviders,
         certInstance,
         rootCertInstance,
         staticCertValidationContext,
-        watcherExecutor,
-        channelExecutor, upstreamTlsContext,
+            upstreamTlsContext,
         certificateProviderStore);
   }
 
@@ -69,7 +66,7 @@ final class CertProviderClientSslContextProvider extends CertProviderSslContextP
 
       private final CertificateProviderStore certificateProviderStore;
 
-      CertProviderClientSslContextProvider getProvider(UpstreamTlsContext upstreamTlsContext, Node node, Map<String, ?> certProviders, Executor watcherExecutor, Executor channelExecutor) {
+      CertProviderClientSslContextProvider getProvider(UpstreamTlsContext upstreamTlsContext, Node node, Map<String, ?> certProviders) {
         checkNotNull(upstreamTlsContext, "upstreamTlsContext");
         CommonTlsContext commonTlsContext = upstreamTlsContext.getCommonTlsContext();
         CommonTlsContext.CertificateProviderInstance rootCertInstance = null;
@@ -98,8 +95,6 @@ final class CertProviderClientSslContextProvider extends CertProviderSslContextP
                 certInstance,
                 rootCertInstance,
                 staticCertValidationContext,
-                watcherExecutor,
-                channelExecutor,
                 upstreamTlsContext,
                 certificateProviderStore);
       }

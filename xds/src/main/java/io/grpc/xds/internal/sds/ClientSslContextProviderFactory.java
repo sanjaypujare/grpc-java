@@ -70,12 +70,7 @@ final class ClientSslContextProviderFactory
         return certProviderClientSslContextProviderFactory.getProvider(
               upstreamTlsContext,
               bootstrapper.readBootstrap().getNode().toEnvoyProtoNode(),
-                bootstrapper.readBootstrap().getCertProviders(),
-                 Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
-                      .setNameFormat("client-certprovider-sslcontext-provider-%d")
-                      .setDaemon(true)
-                      .build()),
-              /* channelExecutor= */ null);
+                bootstrapper.readBootstrap().getCertProviders());
       } catch (IOException ioe) {
         throw new RuntimeException(ioe);
       }

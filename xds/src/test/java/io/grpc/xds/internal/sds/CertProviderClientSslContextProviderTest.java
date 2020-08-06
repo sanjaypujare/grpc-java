@@ -17,13 +17,9 @@
 package io.grpc.xds.internal.sds;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.envoyproxy.envoy.api.v2.core.Node;
-import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.CommonTlsContext;
-import io.envoyproxy.envoy.type.matcher.v3.StringMatcher;
-import io.grpc.Status.Code;
 import io.grpc.internal.testing.TestUtils;
 import io.grpc.xds.Bootstrapper;
 import io.grpc.xds.EnvoyServerProtoData;
@@ -50,9 +46,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -60,12 +53,9 @@ import java.util.regex.Pattern;
 
 import static com.google.common.truth.Truth.assertThat;
 import static io.grpc.xds.internal.sds.CommonTlsContextTestsUtil.*;
-import static io.grpc.xds.internal.sds.SdsClientTest.getOneCertificateValidationContextSecret;
-import static io.grpc.xds.internal.sds.SdsClientTest.getOneTlsCertSecret;
 import static io.grpc.xds.internal.sds.SecretVolumeSslContextProviderTest.doChecksOnSslContext;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /** Unit tests for {@link CertProviderClientSslContextProvider}. */
 @RunWith(JUnit4.class)
@@ -95,25 +85,24 @@ public class CertProviderClientSslContextProviderTest {
 
   /** Helper method to build CertProviderClientSslContextProvider. */
   private CertProviderClientSslContextProvider getSslContextProvider(String certInstanceName, String rootInstanceName,
-                                                                     Bootstrapper.BootstrapInfo bootstrapInfo) {
+                                                                     Bootstrapper.BootstrapInfo bootstrapInfo,
+                                                                     Iterable<String> alpnProtocols) {
     EnvoyServerProtoData.UpstreamTlsContext upstreamTlsContext =
             CommonTlsContextTestsUtil.buildUpstreamTlsContextForCertProviderInstance(
-                    certInstanceName, "cert-default", rootInstanceName, "root-default");
+                    certInstanceName, "cert-default", rootInstanceName,
+                    "root-default", alpnProtocols);
     return certProviderClientSslContextProviderFactory.getProvider(upstreamTlsContext, bootstrapInfo.getNode().toEnvoyProtoNode(),
-        bootstrapInfo.getCertProviders(), MoreExecutors.directExecutor(), MoreExecutors.directExecutor());
+        bootstrapInfo.getCertProviders());
   }
 
   // copied from SdsSslContextProviderTest.testProviderForClient
   @Test
   public void testProviderForClient() throws Exception {
-    //when(serverMock.getSecretFor(/* name= */ "cert1"))
-    //    .thenReturn(getOneTlsCertSecret(/* name= */ "cert1", CLIENT_KEY_FILE, CLIENT_PEM_FILE));
-    //when(serverMock.getSecretFor("valid1"))
-    //    .thenReturn(getOneCertificateValidationContextSecret(/* name= */ "valid1", CA_PEM_FILE));
     final CertificateProvider.DistributorWatcher[] watcherCaptor = new CertificateProvider.DistributorWatcher[1];
     ClientSslContextProviderFactoryTest.createAndRegisterProviderProvider(certificateProviderRegistry, watcherCaptor, "testca", 0);
     CertProviderClientSslContextProvider provider =
-            getSslContextProvider("gcp_id", "gcp_id", TestCertificateProvider.getTestBootstrapInfo());
+            getSslContextProvider("gcp_id", "gcp_id",
+            TestCertificateProvider.getTestBootstrapInfo(), null);
 
     assertThat(provider.lastKey).isNull();
     assertThat(provider.lastCertChain).isNull();
@@ -137,6 +126,24 @@ public class CertProviderClientSslContextProviderTest {
         SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
 
     doChecksOnSslContext(false, testCallback.updatedSslContext, /* expectedApnProtos= */ null);
+    SecretVolumeSslContextProviderTest.TestCallback testCallback1 =
+            SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
+    assertThat(testCallback1.updatedSslContext).isSameInstanceAs(testCallback.updatedSslContext);
+
+    // root cert update
+    watcherCaptor[0].updateTrustedRoots(ImmutableList.of(getCertFromResourceName(SERVER_0_PEM_FILE)));
+    assertThat(provider.lastKey).isNull();
+    assertThat(provider.lastCertChain).isNull();
+    assertThat(provider.lastTrustedRoots).isNotNull();
+    testCallback1 = SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
+    assertThat(testCallback1.updatedSslContext).isSameInstanceAs(testCallback.updatedSslContext);
+    watcherCaptor[0].updateCertificate(getPrivateKey(SERVER_1_KEY_FILE), ImmutableList.of(getCertFromResourceName(SERVER_1_PEM_FILE)));
+    assertThat(provider.lastKey).isNull();
+    assertThat(provider.lastCertChain).isNull();
+    assertThat(provider.lastTrustedRoots).isNull();
+    assertThat(provider.sslContext).isNotNull();
+    testCallback1 = SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
+    assertThat(testCallback1.updatedSslContext).isNotSameInstanceAs(testCallback.updatedSslContext);
   }
 
   // copy remaining methods from SdsSslContextProviderTest

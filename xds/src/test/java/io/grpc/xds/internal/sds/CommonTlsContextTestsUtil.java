@@ -434,7 +434,8 @@ public class CommonTlsContextTestsUtil {
   }
 
   private static CommonTlsContext buildCommonTlsContextForCertProviderInstance(
-      String certInstanceName, String certName, String rootInstanceName, String rootCertName) {
+          String certInstanceName, String certName, String rootInstanceName, String rootCertName,
+          Iterable<String> alpnProtocols) {
     CommonTlsContext.CertificateProviderInstance.Builder certInstanceBuilder =
         CommonTlsContext.CertificateProviderInstance.newBuilder()
             .setInstanceName(certInstanceName)
@@ -444,10 +445,13 @@ public class CommonTlsContextTestsUtil {
         CommonTlsContext.CertificateProviderInstance.newBuilder()
             .setInstanceName(rootInstanceName)
             .setCertificateName(rootCertName);
-    return CommonTlsContext.newBuilder()
-        .setTlsCertificateCertificateProviderInstance(certInstanceBuilder)
-        .setValidationContextCertificateProviderInstance(rootInstanceBuilder)
-        .build();
+    CommonTlsContext.Builder builder = CommonTlsContext.newBuilder()
+            .setTlsCertificateCertificateProviderInstance(certInstanceBuilder)
+            .setValidationContextCertificateProviderInstance(rootInstanceBuilder);
+    if (alpnProtocols != null) {
+      builder.addAllAlpnProtocols(alpnProtocols);
+    }
+    return builder.build();
   }
 
   /**
@@ -455,9 +459,10 @@ public class CommonTlsContextTestsUtil {
    */
   public static EnvoyServerProtoData.UpstreamTlsContext buildUpstreamTlsContextForCertProviderInstance(
           @Nullable String certInstanceName, @Nullable String certName,
-          @Nullable String rootInstanceName, @Nullable String rootCertName) {
+          @Nullable String rootInstanceName, @Nullable String rootCertName,
+          Iterable<String> alpnProtocols) {
     return buildUpstreamTlsContext(
             buildCommonTlsContextForCertProviderInstance(certInstanceName, certName,
-                    rootInstanceName, rootCertName));
+                    rootInstanceName, rootCertName, alpnProtocols));
   }
 }

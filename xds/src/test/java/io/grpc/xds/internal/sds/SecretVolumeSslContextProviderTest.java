@@ -32,6 +32,8 @@ import java.io.IOException;
 import java.security.cert.CertStoreException;
 import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.concurrent.Executor;
+
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -442,8 +444,12 @@ public class SecretVolumeSslContextProviderTest {
    * a synchronous callback - so need to provide a listener.
    */
   static TestCallback getValueThruCallback(SslContextProvider provider) {
+    return getValueThruCallback(provider, MoreExecutors.directExecutor());
+  }
+
+  static TestCallback getValueThruCallback(SslContextProvider provider, Executor executor) {
     TestCallback testCallback = new TestCallback();
-    provider.addCallback(testCallback, MoreExecutors.directExecutor());
+    provider.addCallback(testCallback, executor);
     return testCallback;
   }
 

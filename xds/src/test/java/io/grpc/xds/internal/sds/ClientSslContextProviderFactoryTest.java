@@ -116,7 +116,7 @@ public class ClientSslContextProviderFactoryTest {
     createAndRegisterProviderProvider(certificateProviderRegistry, watcherCaptor, "testca", 0);
     UpstreamTlsContext upstreamTlsContext =
         CommonTlsContextTestsUtil.buildUpstreamTlsContextForCertProviderInstance(
-            "gcp_id", "cert-default", "gcp_id", "root-default");
+            "gcp_id", "cert-default", "gcp_id", "root-default", null);
 
     Bootstrapper.BootstrapInfo bootstrapInfo = TestCertificateProvider.getTestBootstrapInfo();
     when(bootstrapper.readBootstrap()).thenReturn(bootstrapInfo);
@@ -135,7 +135,7 @@ public class ClientSslContextProviderFactoryTest {
 
     UpstreamTlsContext upstreamTlsContext =
             CommonTlsContextTestsUtil.buildUpstreamTlsContextForCertProviderInstance(
-                    "gcp_id", "cert-default", "file_provider", "root-default");
+                    "gcp_id", "cert-default", "file_provider", "root-default", null);
 
     Bootstrapper.BootstrapInfo bootstrapInfo = TestCertificateProvider.getTestBootstrapInfo();
     when(bootstrapper.readBootstrap()).thenReturn(bootstrapInfo);

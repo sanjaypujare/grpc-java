@@ -65,8 +65,6 @@ abstract class CertProviderSslContextProvider extends SslContextProvider impleme
           CertificateProviderInstance certInstance,
           CertificateProviderInstance rootCertInstance,
           CertificateValidationContext staticCertValidationContext,
-          Executor watcherExecutor,
-          Executor channelExecutor,
           BaseTlsContext tlsContext,
           CertificateProviderStore certificateProviderStore) {
     super(tlsContext);
@@ -170,11 +168,11 @@ abstract class CertProviderSslContextProvider extends SslContextProvider impleme
       if (lastKey != null && lastTrustedRoots != null) {
         updateSslContext();
       }
-    } else if (isClientSideTls()) { // client side TLS
+    } else if (isClientSideTls()) {
       if (lastTrustedRoots != null) {
         updateSslContext();
       }
-    } else if (isServerSideTls()) {  // server side TLS
+    } else if (isServerSideTls()) {
       if (lastKey != null) {
         updateSslContext();
       }

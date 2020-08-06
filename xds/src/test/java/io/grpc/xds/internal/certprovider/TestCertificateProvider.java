@@ -40,7 +40,18 @@ public class TestCertificateProvider extends CertificateProvider {
     this.certProviderProvider = certificateProviderProvider;
   }
 
-    public static Bootstrapper.BootstrapInfo getTestBootstrapInfo() throws IOException {
+  @Override
+  public void close() {
+    closeCalled++;
+  }
+
+  @Override
+  public void start() {
+    startCalled++;
+  }
+
+  // TODO: move elsewhere
+  public static Bootstrapper.BootstrapInfo getTestBootstrapInfo() throws IOException {
     String rawData =
             "{\n"
                     + "  \"xds_servers\": [],\n"
@@ -78,15 +89,5 @@ public class TestCertificateProvider extends CertificateProvider {
                     + "  }\n"
                     + "}";
     return Bootstrapper.parseConfig(rawData);
-  }
-
-    @Override
-  public void close() {
-    closeCalled++;
-  }
-
-  @Override
-  public void start() {
-    startCalled++;
   }
 }
