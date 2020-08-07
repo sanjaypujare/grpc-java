@@ -436,18 +436,17 @@ public class CommonTlsContextTestsUtil {
   private static CommonTlsContext buildCommonTlsContextForCertProviderInstance(
           String certInstanceName, String certName, String rootInstanceName, String rootCertName,
           Iterable<String> alpnProtocols) {
-    CommonTlsContext.CertificateProviderInstance.Builder certInstanceBuilder =
-        CommonTlsContext.CertificateProviderInstance.newBuilder()
-            .setInstanceName(certInstanceName)
-            .setCertificateName(certName);
-
-    CommonTlsContext.CertificateProviderInstance.Builder rootInstanceBuilder =
-        CommonTlsContext.CertificateProviderInstance.newBuilder()
-            .setInstanceName(rootInstanceName)
-            .setCertificateName(rootCertName);
-    CommonTlsContext.Builder builder = CommonTlsContext.newBuilder()
-            .setTlsCertificateCertificateProviderInstance(certInstanceBuilder)
-            .setValidationContextCertificateProviderInstance(rootInstanceBuilder);
+    CommonTlsContext.Builder builder = CommonTlsContext.newBuilder();
+    if (certInstanceName != null) {
+      builder = builder.setTlsCertificateCertificateProviderInstance(CommonTlsContext.CertificateProviderInstance.newBuilder()
+                      .setInstanceName(certInstanceName)
+                      .setCertificateName(certName));
+    }
+    if (rootInstanceName != null) {
+      builder = builder.setValidationContextCertificateProviderInstance(CommonTlsContext.CertificateProviderInstance.newBuilder()
+                      .setInstanceName(rootInstanceName)
+                      .setCertificateName(rootCertName));
+    }
     if (alpnProtocols != null) {
       builder.addAllAlpnProtocols(alpnProtocols);
     }

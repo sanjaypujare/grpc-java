@@ -101,7 +101,7 @@ public class CertProviderClientSslContextProviderTest {
 
   // copied from SdsSslContextProviderTest.testProviderForClient
   @Test
-  public void testProviderForClient() throws Exception {
+  public void testProviderForClient_mtls() throws Exception {
     final CertificateProvider.DistributorWatcher[] watcherCaptor = new CertificateProvider.DistributorWatcher[1];
     ClientSslContextProviderFactoryTest.createAndRegisterProviderProvider(certificateProviderRegistry, watcherCaptor, "testca", 0);
     CertProviderClientSslContextProvider provider =
@@ -176,6 +176,33 @@ public class CertProviderClientSslContextProviderTest {
 
     doChecksOnSslContext(false, testCallback.updatedSslContext, /* expectedApnProtos= */ null);
   }
+
+  @Test
+  public void testProviderForClient_tls() throws Exception {
+    final CertificateProvider.DistributorWatcher[] watcherCaptor = new CertificateProvider.DistributorWatcher[1];
+    ClientSslContextProviderFactoryTest.createAndRegisterProviderProvider(certificateProviderRegistry, watcherCaptor, "testca", 0);
+    CertProviderClientSslContextProvider provider =
+            getSslContextProvider(/* certInstanceName= */ null, "gcp_id",
+                    TestCertificateProvider.getTestBootstrapInfo(), null);
+
+    assertThat(provider.lastKey).isNull();
+    assertThat(provider.lastCertChain).isNull();
+    assertThat(provider.lastTrustedRoots).isNull();
+    assertThat(provider.sslContext).isNull();
+
+    // now generate root cert update
+    watcherCaptor[0].updateTrustedRoots(ImmutableList.of(getCertFromResourceName(CA_PEM_FILE)));
+    assertThat(provider.sslContext).isNotNull();
+    assertThat(provider.lastKey).isNull();
+    assertThat(provider.lastCertChain).isNull();
+    assertThat(provider.lastTrustedRoots).isNull();
+
+    SecretVolumeSslContextProviderTest.TestCallback testCallback =
+            SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
+
+    doChecksOnSslContext(false, testCallback.updatedSslContext, /* expectedApnProtos= */ null);
+  }
+
 
   static class QueuedExecutor implements Executor {
 
