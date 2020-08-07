@@ -46,11 +46,15 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static io.grpc.xds.internal.sds.CommonTlsContextTestsUtil.*;
 import static io.grpc.xds.internal.sds.SecretVolumeSslContextProviderTest.doChecksOnSslContext;
@@ -130,13 +134,15 @@ public class CertProviderClientSslContextProviderTest {
             SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
     assertThat(testCallback1.updatedSslContext).isSameInstanceAs(testCallback.updatedSslContext);
 
-    // root cert update
+    // just do root cert update: sslContext should still be the same
     watcherCaptor[0].updateTrustedRoots(ImmutableList.of(getCertFromResourceName(SERVER_0_PEM_FILE)));
     assertThat(provider.lastKey).isNull();
     assertThat(provider.lastCertChain).isNull();
     assertThat(provider.lastTrustedRoots).isNotNull();
     testCallback1 = SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
     assertThat(testCallback1.updatedSslContext).isSameInstanceAs(testCallback.updatedSslContext);
+
+    // now update id cert: sslContext should be updated i.e.different from the previous one
     watcherCaptor[0].updateCertificate(getPrivateKey(SERVER_1_KEY_FILE), ImmutableList.of(getCertFromResourceName(SERVER_1_PEM_FILE)));
     assertThat(provider.lastKey).isNull();
     assertThat(provider.lastCertChain).isNull();
@@ -144,6 +150,54 @@ public class CertProviderClientSslContextProviderTest {
     assertThat(provider.sslContext).isNotNull();
     testCallback1 = SecretVolumeSslContextProviderTest.getValueThruCallback(provider);
     assertThat(testCallback1.updatedSslContext).isNotSameInstanceAs(testCallback.updatedSslContext);
+  }
+
+  @Test
+  public void testProviderForClient_queueExecutor() throws Exception {
+    final CertificateProvider.DistributorWatcher[] watcherCaptor = new CertificateProvider.DistributorWatcher[1];
+    ClientSslContextProviderFactoryTest.createAndRegisterProviderProvider(certificateProviderRegistry, watcherCaptor, "testca", 0);
+    CertProviderClientSslContextProvider provider =
+            getSslContextProvider("gcp_id", "gcp_id",
+                    TestCertificateProvider.getTestBootstrapInfo(), null);
+    QueuedExecutor queuedExecutor = new QueuedExecutor();
+
+    SecretVolumeSslContextProviderTest.TestCallback testCallback =
+            SecretVolumeSslContextProviderTest.getValueThruCallback(provider, queuedExecutor);
+    assertThat(queuedExecutor.runQueue).isEmpty();
+
+    // now generate cert update
+    watcherCaptor[0].updateCertificate(getPrivateKey(CLIENT_KEY_FILE), ImmutableList.of(getCertFromResourceName(CLIENT_PEM_FILE)));
+    assertThat(queuedExecutor.runQueue).isEmpty(); // still empty
+
+    // now generate root cert update
+    watcherCaptor[0].updateTrustedRoots(ImmutableList.of(getCertFromResourceName(CA_PEM_FILE)));
+    assertThat(queuedExecutor.runQueue).hasSize(1);
+    queuedExecutor.drain();
+
+    doChecksOnSslContext(false, testCallback.updatedSslContext, /* expectedApnProtos= */ null);
+  }
+
+  static class QueuedExecutor implements Executor {
+
+    /** A list of Runnables to be run in order. */
+    private final Queue<Runnable> runQueue = new ConcurrentLinkedQueue<>();
+
+    @Override
+    public synchronized void execute(Runnable r) {
+      runQueue.add(checkNotNull(r, "'r' must not be null."));
+    }
+
+    public synchronized void drain() {
+      Runnable r;
+      while ((r = runQueue.poll()) != null) {
+        try {
+          r.run();
+        } catch (RuntimeException e) {
+          // Log it and keep going.
+          logger.log(Level.SEVERE, "Exception while executing runnable " + r, e);
+        }
+      }
+    }
   }
 
   // copy remaining methods from SdsSslContextProviderTest
