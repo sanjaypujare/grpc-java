@@ -152,12 +152,12 @@ public final class XdsClientWrapperForServerSds {
             timeService,
             new ExponentialBackoffPolicy.Provider(),
             GrpcUtil.STOPWATCH_SUPPLIER);
-    start(xdsClientImpl);
+    start(xdsClientImpl, bootstrapInfo.getListenerResourceIds());
   }
 
   /** Accepts an XdsClient and starts a watch. */
   @VisibleForTesting
-  public void start(XdsClient xdsClient) {
+  public void start(XdsClient xdsClient, List<String> listenerResourceIds) {
     checkState(this.xdsClient == null, "start() called more than once");
     checkNotNull(xdsClient, "xdsClient");
     this.xdsClient = xdsClient;
@@ -184,7 +184,7 @@ public final class XdsClientWrapperForServerSds {
             logger.log(Level.SEVERE, "ListenerWatcher in XdsClientWrapperForServerSds: {0}", error);
           }
         };
-    xdsClient.watchListenerData(port, listenerWatcher);
+    xdsClient.watchListenerData(listenerResourceIds, port, listenerWatcher);
   }
 
   /**

@@ -178,7 +178,11 @@ public abstract class Bootstrapper {
         certProviders.put(name, certificateProviderInfo);
       }
     }
-    return new BootstrapInfo(servers, nodeBuilder.build(), certProviders);
+    return new BootstrapInfo(
+        servers,
+        nodeBuilder.build(),
+        certProviders,
+        JsonUtil.getListOfStrings(rawBootstrap, "grpc_server_resource_name_id"));
   }
 
   static <T> T checkForNull(T value, String fieldName) throws IOException {
@@ -283,13 +287,18 @@ public abstract class Bootstrapper {
     private List<ServerInfo> servers;
     private final Node node;
     @Nullable private final Map<String, CertificateProviderInfo> certProviders;
+    @Nullable private List<String> listenerResourceIds;
 
     @VisibleForTesting
     BootstrapInfo(
-        List<ServerInfo> servers, Node node, Map<String, CertificateProviderInfo> certProviders) {
+        List<ServerInfo> servers,
+        Node node,
+        Map<String, CertificateProviderInfo> certProviders,
+        List<String> listenerResourceIds) {
       this.servers = servers;
       this.node = node;
       this.certProviders = certProviders;
+      this.listenerResourceIds = listenerResourceIds;
     }
 
     /**
@@ -309,6 +318,11 @@ public abstract class Bootstrapper {
     /** Returns the cert-providers config map. */
     public Map<String, CertificateProviderInfo> getCertProviders() {
       return Collections.unmodifiableMap(certProviders);
+    }
+
+    /** Returns the grpc server resource-id components. */
+    public List<String> getListenerResourceIds() {
+      return Collections.unmodifiableList(listenerResourceIds);
     }
   }
 }

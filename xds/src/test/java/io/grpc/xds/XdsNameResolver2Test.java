@@ -115,7 +115,7 @@ public class XdsNameResolver2Test {
                     "trafficdirector.googleapis.com",
                     ImmutableList.<ChannelCreds>of(), ImmutableList.<String>of())),
             Node.newBuilder().build(),
-            null);
+            null, null);
       }
     };
     resolver = new XdsNameResolver2(AUTHORITY, serviceConfigParser, syncContext, bootstrapper,

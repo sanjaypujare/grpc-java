@@ -23,6 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import io.grpc.xds.EnvoyServerProtoData.DownstreamTlsContext;
 import io.grpc.xds.internal.sds.CommonTlsContextTestsUtil;
 import io.netty.channel.Channel;
@@ -147,7 +148,7 @@ public class XdsClientWrapperForServerSdsTest {
     XdsClient mockXdsClient = mock(XdsClient.class);
     XdsClientWrapperForServerSds xdsClientWrapperForServerSds =
         new XdsClientWrapperForServerSds(port);
-    xdsClientWrapperForServerSds.start(mockXdsClient);
+    xdsClientWrapperForServerSds.start(mockXdsClient, null);
     generateListenerUpdateToWatcher(
         port, downstreamTlsContext, xdsClientWrapperForServerSds.getListenerWatcher());
     return xdsClientWrapperForServerSds;
@@ -166,7 +167,7 @@ public class XdsClientWrapperForServerSdsTest {
   public void setUp() throws IOException {
     MockitoAnnotations.initMocks(this);
     xdsClientWrapperForServerSds = new XdsClientWrapperForServerSds(PORT);
-    xdsClientWrapperForServerSds.start(xdsClient);
+    xdsClientWrapperForServerSds.start(xdsClient, ImmutableList.of("grpc", "server"));
     tlsContexts[0] = null;
     tlsContexts[1] =
         CommonTlsContextTestsUtil.buildTestInternalDownstreamTlsContext("CERT1", "VA1");
@@ -187,7 +188,9 @@ public class XdsClientWrapperForServerSdsTest {
   public void commonFilterChainMatchTest()
       throws UnknownHostException {
     ArgumentCaptor<XdsClient.ListenerWatcher> listenerWatcherCaptor = ArgumentCaptor.forClass(null);
-    verify(xdsClient).watchListenerData(eq(PORT), listenerWatcherCaptor.capture());
+    verify(xdsClient)
+        .watchListenerData(
+            eq(ImmutableList.of("grpc", "server")), eq(PORT), listenerWatcherCaptor.capture());
     XdsClient.ListenerWatcher registeredWatcher = listenerWatcherCaptor.getValue();
     InetAddress ipLocalAddress = Inet4Address.getByName("10.1.2.3");
     InetSocketAddress localAddress = new InetSocketAddress(ipLocalAddress, PORT);

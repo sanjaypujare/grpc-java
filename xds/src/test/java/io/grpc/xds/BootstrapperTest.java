@@ -19,6 +19,7 @@ package io.grpc.xds;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.grpc.internal.GrpcUtil;
@@ -305,6 +306,7 @@ public class BootstrapperTest {
     String rawData =
         "{\n"
             + "  \"xds_servers\": [],\n"
+            + "  \"grpc_server_resource_name_id\": [\"grpc\", \"server\"],\n"
             + "  \"certificate_providers\": {\n"
             + "    \"gcp_id\": {\n"
             + "      \"plugin_name\": \"meshca\",\n"
@@ -352,6 +354,7 @@ public class BootstrapperTest {
     assertThat(fileProvider.getConfig()).isInstanceOf(Map.class);
     Map<String, ?> meshCaConfig = (Map<String, ?>)gcpId.getConfig();
     assertThat(meshCaConfig.get("key_size")).isEqualTo(2048);
+    assertThat(info.getListenerResourceIds()).isEqualTo(ImmutableList.of("grpc", "server"));
   }
 
   @Test

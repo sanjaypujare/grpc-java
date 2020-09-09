@@ -516,7 +516,7 @@ abstract class XdsClient {
   /**
    * Registers a watcher for a Listener with the given port.
    */
-  void watchListenerData(int port, ListenerWatcher watcher) {
+  void watchListenerData(List<String> listenerResourceIds, int port, ListenerWatcher watcher) {
   }
 
   /**

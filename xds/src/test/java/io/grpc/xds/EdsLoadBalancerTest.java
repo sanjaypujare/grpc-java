@@ -233,7 +233,7 @@ public class EdsLoadBalancerTest {
     final List<ServerInfo> serverList = ImmutableList.of(
         new ServerInfo("trafficdirector.googleapis.com", ImmutableList.<ChannelCreds>of(), null));
     Node node = Node.newBuilder().build();
-    BootstrapInfo bootstrapInfo = new BootstrapInfo(serverList, node, null);
+    BootstrapInfo bootstrapInfo = new BootstrapInfo(serverList, node, null, null);
     doReturn(bootstrapInfo).when(bootstrapper).readBootstrap();
 
     if (isFullFlow) {

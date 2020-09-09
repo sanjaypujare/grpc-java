@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import io.grpc.inprocess.InProcessSocketAddress;
 import io.grpc.xds.EnvoyServerProtoData.DownstreamTlsContext;
 import io.netty.channel.Channel;
@@ -56,7 +57,7 @@ public class XdsClientWrapperForServerSdsTestMisc {
   public void setUp() throws IOException {
     MockitoAnnotations.initMocks(this);
     xdsClientWrapperForServerSds = new XdsClientWrapperForServerSds(PORT);
-    xdsClientWrapperForServerSds.start(xdsClient);
+    xdsClientWrapperForServerSds.start(xdsClient, ImmutableList.of("grpc", "server"));
   }
 
   @After
@@ -66,7 +67,9 @@ public class XdsClientWrapperForServerSdsTestMisc {
 
   @Test
   public void verifyListenerWatcherRegistered() {
-    verify(xdsClient).watchListenerData(eq(PORT), any(XdsClient.ListenerWatcher.class));
+    verify(xdsClient)
+        .watchListenerData(
+            eq(ImmutableList.of("grpc", "server")), eq(PORT), any(XdsClient.ListenerWatcher.class));
   }
 
   @Test
@@ -101,7 +104,9 @@ public class XdsClientWrapperForServerSdsTestMisc {
     InetAddress ipLocalAddress = InetAddress.getByName("10.1.2.3");
     InetSocketAddress localAddress = new InetSocketAddress(ipLocalAddress, PORT);
     ArgumentCaptor<XdsClient.ListenerWatcher> listenerWatcherCaptor = ArgumentCaptor.forClass(null);
-    verify(xdsClient).watchListenerData(eq(PORT), listenerWatcherCaptor.capture());
+    verify(xdsClient)
+        .watchListenerData(
+            eq(ImmutableList.of("grpc", "server")), eq(PORT), listenerWatcherCaptor.capture());
     XdsClient.ListenerWatcher registeredWatcher = listenerWatcherCaptor.getValue();
     when(channel.localAddress()).thenReturn(localAddress);
     EnvoyServerProtoData.Listener listener =
@@ -116,7 +121,9 @@ public class XdsClientWrapperForServerSdsTestMisc {
 
   private DownstreamTlsContext commonTestPrep(SocketAddress localAddress) {
     ArgumentCaptor<XdsClient.ListenerWatcher> listenerWatcherCaptor = ArgumentCaptor.forClass(null);
-    verify(xdsClient).watchListenerData(eq(PORT), listenerWatcherCaptor.capture());
+    verify(xdsClient)
+        .watchListenerData(
+            eq(ImmutableList.of("grpc", "server")), eq(PORT), listenerWatcherCaptor.capture());
     XdsClient.ListenerWatcher registeredWatcher = listenerWatcherCaptor.getValue();
     when(channel.localAddress()).thenReturn(localAddress);
     EnvoyServerProtoData.Listener listener =

@@ -66,7 +66,6 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.testing.GrpcCleanupRule;
 import io.grpc.xds.Bootstrapper.ChannelCreds;
 import io.grpc.xds.Bootstrapper.ServerInfo;
-import io.grpc.xds.EnvoyProtoData.Address;
 import io.grpc.xds.EnvoyProtoData.Node;
 import io.grpc.xds.XdsClient.ConfigWatcher;
 import io.grpc.xds.XdsClient.ListenerUpdate;
@@ -235,21 +234,22 @@ public class XdsClientImplTestForListener {
     if (NODE.getMetadata() != null) {
       newMetadata.putAll(NODE.getMetadata());
     }
-    newMetadata.put("TRAFFICDIRECTOR_PROXYLESS", "1");
-    Address listeningAddress = new Address("0.0.0.0", PORT);
+    //newMetadata.put("TRAFFICDIRECTOR_PROXYLESS", "1");
+    //Address listeningAddress = new Address("0.0.0.0", PORT);
     return NODE.toBuilder()
-        .setMetadata(newMetadata)
-        .addListeningAddresses(listeningAddress)
+//        .setMetadata(newMetadata)
+//        .addListeningAddresses(listeningAddress)
         .build();
   }
 
   private static DiscoveryRequest buildDiscoveryRequest(
-      Node node, String versionInfo, String typeUrl, String nonce) {
+          Node node, String versionInfo, String typeUrl, String nonce, List<String> resourceNames) {
     return DiscoveryRequest.newBuilder()
         .setVersionInfo(versionInfo)
         .setNode(node.toEnvoyProtoNodeV2())
         .setTypeUrl(typeUrl)
         .setResponseNonce(nonce)
+        .addAllResourceNames(resourceNames)
         .build();
   }
 
@@ -258,7 +258,7 @@ public class XdsClientImplTestForListener {
   public void ldsResponse_configAndListenerWatcher_expectError() {
     xdsClient.watchConfigData("somehost:80", configWatcher);
     try {
-      xdsClient.watchListenerData(PORT, listenerWatcher);
+      xdsClient.watchListenerData(null, PORT, listenerWatcher);
       fail("expected exception");
     } catch (IllegalStateException expected) {
       assertThat(expected)
@@ -270,7 +270,7 @@ public class XdsClientImplTestForListener {
   /** Error when ListenerWatcher and then ConfigWatcher registered. */
   @Test
   public void ldsResponse_listenerAndConfigWatcher_expectError() {
-    xdsClient.watchListenerData(PORT, listenerWatcher);
+    xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), PORT, listenerWatcher);
     try {
       xdsClient.watchConfigData("somehost:80", configWatcher);
       fail("expected exception");
@@ -284,9 +284,9 @@ public class XdsClientImplTestForListener {
   /** Error when 2 ListenerWatchers registered. */
   @Test
   public void ldsResponse_2listenerWatchers_expectError() {
-    xdsClient.watchListenerData(PORT, listenerWatcher);
+    xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), PORT, listenerWatcher);
     try {
-      xdsClient.watchListenerData(80, listenerWatcher);
+      xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), 80, listenerWatcher);
       fail("expected exception");
     } catch (IllegalStateException expected) {
       assertThat(expected)
@@ -300,14 +300,14 @@ public class XdsClientImplTestForListener {
    */
   @Test
   public void ldsResponse_nonMatchingFilterChain_notFoundError() {
-    xdsClient.watchListenerData(PORT, listenerWatcher);
+    xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), PORT, listenerWatcher);
     StreamObserver<DiscoveryResponse> responseObserver = responseObservers.poll();
     StreamObserver<DiscoveryRequest> requestObserver = requestObservers.poll();
 
     // Client sends an LDS request with null in lds resource name
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
     assertThat(fakeClock.getPendingTasks(LISTENER_RESOURCE_FETCH_TIMEOUT_TASK_FILTER)).hasSize(1);
 
     List<Any> listeners = ImmutableList.of(
@@ -336,7 +336,7 @@ public class XdsClientImplTestForListener {
     // Client sends an ACK LDS request.
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "0",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     verify(listenerWatcher, never()).onListenerChanged(any(ListenerUpdate.class));
     verify(listenerWatcher, never()).onResourceDoesNotExist(":" + PORT);
@@ -349,14 +349,14 @@ public class XdsClientImplTestForListener {
   /** Client receives a Listener with listener address and mismatched port. */
   @Test
   public void ldsResponseWith_listenerAddressPortMismatch() {
-    xdsClient.watchListenerData(PORT, listenerWatcher);
+    xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), PORT, listenerWatcher);
     StreamObserver<DiscoveryResponse> responseObserver = responseObservers.poll();
     StreamObserver<DiscoveryRequest> requestObserver = requestObservers.poll();
 
     // Client sends an LDS request with null in lds resource name
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
     assertThat(fakeClock.getPendingTasks(LISTENER_RESOURCE_FETCH_TIMEOUT_TASK_FILTER)).hasSize(1);
 
     final FilterChain filterChainOutbound = buildFilterChain(buildFilterChainMatch(8000), null);
@@ -388,7 +388,7 @@ public class XdsClientImplTestForListener {
     // Client sends an ACK LDS request.
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "0",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     verify(listenerWatcher, never()).onListenerChanged(any(ListenerUpdate.class));
     verify(listenerWatcher, never()).onResourceDoesNotExist(":" + PORT);
@@ -401,14 +401,14 @@ public class XdsClientImplTestForListener {
   /** Client receives a Listener with all match. */
   @Test
   public void ldsResponseWith_matchingListenerFound() throws InvalidProtocolBufferException {
-    xdsClient.watchListenerData(PORT, listenerWatcher);
+    xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), PORT, listenerWatcher);
     StreamObserver<DiscoveryResponse> responseObserver = responseObservers.poll();
     StreamObserver<DiscoveryRequest> requestObserver = requestObservers.poll();
 
     // Client sends an LDS request with null in lds resource name
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
     assertThat(fakeClock.getPendingTasks(LISTENER_RESOURCE_FETCH_TIMEOUT_TASK_FILTER)).hasSize(1);
 
     final FilterChain filterChainOutbound = buildFilterChain(buildFilterChainMatch(8000), null);
@@ -440,7 +440,7 @@ public class XdsClientImplTestForListener {
     // Client sends an ACK LDS request.
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "0",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     ArgumentCaptor<ListenerUpdate> listenerUpdateCaptor = ArgumentCaptor.forClass(null);
     verify(listenerWatcher, times(1)).onListenerChanged(listenerUpdateCaptor.capture());
@@ -476,14 +476,14 @@ public class XdsClientImplTestForListener {
   /** Client receives LDS responses for updating Listener previously received. */
   @Test
   public void notifyUpdatedListener() throws InvalidProtocolBufferException {
-    xdsClient.watchListenerData(PORT, listenerWatcher);
+    xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), PORT, listenerWatcher);
     StreamObserver<DiscoveryResponse> responseObserver = responseObservers.poll();
     StreamObserver<DiscoveryRequest> requestObserver = requestObservers.poll();
 
     // Client sends an LDS request with null in lds resource name
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
     assertThat(fakeClock.getPendingTasks(LISTENER_RESOURCE_FETCH_TIMEOUT_TASK_FILTER)).hasSize(1);
 
     final FilterChain filterChainOutbound = buildFilterChain(buildFilterChainMatch(8000), null);
@@ -515,7 +515,7 @@ public class XdsClientImplTestForListener {
     // Client sends an ACK LDS request.
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "0",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     ArgumentCaptor<ListenerUpdate> listenerUpdateCaptor = ArgumentCaptor.forClass(null);
     verify(listenerWatcher, times(1)).onListenerChanged(listenerUpdateCaptor.capture());
@@ -538,7 +538,7 @@ public class XdsClientImplTestForListener {
     // Client sends an ACK LDS request.
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "1",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0001")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0001", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     // Updated listener is notified to config watcher.
     listenerUpdateCaptor = ArgumentCaptor.forClass(null);
@@ -572,14 +572,14 @@ public class XdsClientImplTestForListener {
   @Ignore
   @Test
   public void ldsResponse_nonMatchingIpAddress() {
-    xdsClient.watchListenerData(PORT, listenerWatcher);
+    xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), PORT, listenerWatcher);
     StreamObserver<DiscoveryResponse> responseObserver = responseObservers.poll();
     StreamObserver<DiscoveryRequest> requestObserver = requestObservers.poll();
 
     // Client sends an LDS request with null in lds resource name
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
     assertThat(fakeClock.getPendingTasks(LISTENER_RESOURCE_FETCH_TIMEOUT_TASK_FILTER)).hasSize(1);
 
     final FilterChain filterChainInbound = buildFilterChain(buildFilterChainMatch(8000), null);
@@ -611,7 +611,7 @@ public class XdsClientImplTestForListener {
     // Client sends an ACK LDS request.
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "0",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     verify(listenerWatcher, never()).onError(any(Status.class));
     verify(listenerWatcher, never()).onListenerChanged(any(ListenerUpdate.class));
@@ -620,14 +620,14 @@ public class XdsClientImplTestForListener {
   /** Client receives LDS response containing non-matching port in the filterMatch. */
   @Test
   public void ldsResponse_nonMatchingPort() {
-    xdsClient.watchListenerData(PORT, listenerWatcher);
+    xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), PORT, listenerWatcher);
     StreamObserver<DiscoveryResponse> responseObserver = responseObservers.poll();
     StreamObserver<DiscoveryRequest> requestObserver = requestObservers.poll();
 
     // Client sends an LDS request with null in lds resource name
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
     assertThat(fakeClock.getPendingTasks(LISTENER_RESOURCE_FETCH_TIMEOUT_TASK_FILTER)).hasSize(1);
 
     final FilterChain filterChainInbound = buildFilterChain(buildFilterChainMatch(8000), null);
@@ -660,7 +660,7 @@ public class XdsClientImplTestForListener {
     // Client sends an ACK LDS request.
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "0",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "0000", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     verify(listenerWatcher, never()).onListenerChanged(any(ListenerUpdate.class));
     verify(listenerWatcher, never()).onResourceDoesNotExist(":" + PORT);
@@ -678,7 +678,7 @@ public class XdsClientImplTestForListener {
     InOrder inOrder =
         Mockito.inOrder(mockedDiscoveryService, backoffPolicyProvider, backoffPolicy1,
             backoffPolicy2);
-    xdsClient.watchListenerData(PORT, listenerWatcher);
+    xdsClient.watchListenerData(ImmutableList.of("grpc", "server"), PORT, listenerWatcher);
 
     ArgumentCaptor<StreamObserver<DiscoveryResponse>> responseObserverCaptor =
         ArgumentCaptor.forClass(null);
@@ -689,7 +689,7 @@ public class XdsClientImplTestForListener {
     StreamObserver<DiscoveryRequest> requestObserver = requestObservers.poll();
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     final FilterChain filterChainOutbound = buildFilterChain(buildFilterChainMatch(8000), null);
     final FilterChain filterChainInbound = buildFilterChain(buildFilterChainMatch(PORT,
@@ -726,7 +726,7 @@ public class XdsClientImplTestForListener {
     // Retry resumes requests for all wanted resources.
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     // Management server becomes unreachable.
     responseObserver.onError(Status.UNAVAILABLE.asException());
@@ -745,7 +745,7 @@ public class XdsClientImplTestForListener {
     requestObserver = requestObservers.poll();
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     // Management server is still not reachable.
     responseObserver.onError(Status.UNAVAILABLE.asException());
@@ -764,7 +764,7 @@ public class XdsClientImplTestForListener {
     requestObserver = requestObservers.poll();
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     // Management server sends back a LDS response.
     response = buildDiscoveryResponseV2("1", listeners,
@@ -787,7 +787,7 @@ public class XdsClientImplTestForListener {
 
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     // Management server becomes unreachable again.
     responseObserver.onError(Status.UNAVAILABLE.asException());
@@ -805,7 +805,7 @@ public class XdsClientImplTestForListener {
     requestObserver = requestObservers.poll();
     verify(requestObserver)
         .onNext(eq(buildDiscoveryRequest(getNodeToVerify(), "",
-            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "")));
+            XdsClientImpl.ADS_TYPE_URL_LDS_V2, "", ImmutableList.of("grpc/server?udpa.resource.listening_address=0.0.0.0:7000"))));
 
     verifyNoMoreInteractions(mockedDiscoveryService, backoffPolicyProvider, backoffPolicy1,
         backoffPolicy2);
