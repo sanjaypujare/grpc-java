@@ -42,10 +42,12 @@ public class HelloWorldClientTls {
 
     private static SslContext buildSslContext(String trustCertCollectionFilePath,
                                               String clientCertChainFilePath,
-                                              String clientPrivateKeyFilePath) throws SSLException {
+                                              String clientPrivateKeyFilePath) throws Exception {
         SslContextBuilder builder = GrpcSslContexts.forClient();
         if (trustCertCollectionFilePath != null) {
-            builder.trustManager(new File(trustCertCollectionFilePath));
+            // new File(trustCertCollectionFilePath)
+            builder.trustManager(new io.grpc.xds.internal.sds.trust.SdsTrustManagerFactory(
+                toX509Certificates(trustCertCollectionFilePath), null));
         }
         if (clientCertChainFilePath != null && clientPrivateKeyFilePath != null) {
             builder.keyManager(new File(clientCertChainFilePath), new File(clientPrivateKeyFilePath));
@@ -53,15 +55,25 @@ public class HelloWorldClientTls {
         return builder.build();
     }
 
+    static java.security.cert.X509Certificate[] toX509Certificates(String file) throws Exception {
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(file);
+            java.io.BufferedInputStream bis = new java.io.BufferedInputStream(fis)) {
+            java.util.Collection<? extends java.security.cert.Certificate> certs =
+                java.security.cert.CertificateFactory.getInstance("X.509").generateCertificates(bis);
+            return certs.toArray(new java.security.cert.X509Certificate[0]);
+        }
+    }
+
     /**
      * Construct client connecting to HelloWorld server at {@code host:port}.
      */
     public HelloWorldClientTls(String host,
                                int port,
-                               SslContext sslContext) throws SSLException {
+                               SslContext sslContext,
+                               String overrideAuthority) throws Exception {
 
         this(NettyChannelBuilder.forAddress(host, port)
-                .overrideAuthority("foo.test.google.fr")  /* Only for using provided test certs. */
+                .overrideAuthority(overrideAuthority)  /* Only for using provided test certs. */
                 .sslContext(sslContext)
                 .build());
     }
@@ -100,9 +112,9 @@ public class HelloWorldClientTls {
      */
     public static void main(String[] args) throws Exception {
 
-        if (args.length < 2 || args.length == 4 || args.length > 5) {
+        if (args.length < 2 || args.length == 4 || args.length > 6) {
             System.out.println("USAGE: HelloWorldClientTls host port [trustCertCollectionFilePath " +
-                    "[clientCertChainFilePath clientPrivateKeyFilePath]]\n  Note: clientCertChainFilePath and " +
+                    "[clientCertChainFilePath clientPrivateKeyFilePath] [overrideAuthority]]\n  Note: clientCertChainFilePath and " +
                     "clientPrivateKeyFilePath are only needed if mutual auth is desired.");
             System.exit(0);
         }
@@ -112,15 +124,15 @@ public class HelloWorldClientTls {
             case 2:
                 /* Use default CA. Only for real server certificates. */
                 client = new HelloWorldClientTls(args[0], Integer.parseInt(args[1]),
-                        buildSslContext(null, null, null));
+                        buildSslContext(null, null, null), "foo.test.google.fr");
                 break;
             case 3:
                 client = new HelloWorldClientTls(args[0], Integer.parseInt(args[1]),
-                        buildSslContext(args[2], null, null));
+                        buildSslContext(args[2], null, null), "foo.test.google.fr");
                 break;
             default:
                 client = new HelloWorldClientTls(args[0], Integer.parseInt(args[1]),
-                        buildSslContext(args[2], args[3], args[4]));
+                        buildSslContext(args[2], args[3], args[4]), args[5]);
         }
 
         try {
