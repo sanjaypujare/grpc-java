@@ -72,8 +72,16 @@ task helloWorldTlsClient(type: CreateStartScripts) {
     classpath = startScripts.classpath
 }
 
+task helloWorldXdsClient(type: CreateStartScripts) {
+    mainClassName = 'io.grpc.examples.helloworldtls.HelloWorldClientXds'
+    applicationName = 'hello-world-xds-client'
+    outputDir = new File(project.buildDir, 'tmp')
+    classpath = startScripts.classpath
+}
+
 applicationDistribution.into('bin') {
     from(helloWorldTlsServer)
     from(helloWorldTlsClient)
+    from(helloWorldXdsClient)
     fileMode = 0755
 }
