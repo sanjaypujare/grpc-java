@@ -40,7 +40,7 @@ java_library(
 java_binary(
     name = "hello-world-tls-client",
     testonly = 1,
-    main_class = "io.grpc.examples.helloworldtls.HelloWorldClientTls",
+    main_class = "io.grpc.examples.helloworldtls.HelloWorldClientXds",
     runtime_deps = [
         ":example-tls",
     ],
