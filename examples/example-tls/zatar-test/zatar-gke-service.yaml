@@ -47,7 +47,13 @@ spec:
         name: zatar-grpc-server
         ports:
         - containerPort: 8000
-        resources: {}
+        resources:
+          limits:
+            cpu: 800m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
         volumeMounts:
         - mountPath: /var/run/gke-spiffe/certs
           name: gke-spiffe-certs-volume
