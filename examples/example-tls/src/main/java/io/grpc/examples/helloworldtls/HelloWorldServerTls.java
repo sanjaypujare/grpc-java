@@ -132,8 +132,8 @@ public class HelloWorldServerTls {
 
         @Override
         public void sayHello(HelloRequest req, StreamObserver<HelloReply> responseObserver) {
-            HelloReply reply = HelloReply.newBuilder().setMessage("Hello " + req.getName()
-              + " from IP-address " + myIpAddress).build();
+            HelloReply reply = HelloReply.newBuilder().setMessage("Hello to client '" + req.getName()
+              + "' from server IP-address " + myIpAddress).build();
             responseObserver.onNext(reply);
             responseObserver.onCompleted();
         }

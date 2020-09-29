@@ -26,6 +26,7 @@ import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.File;
+import java.net.InetAddress;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -39,6 +40,7 @@ public class HelloWorldClientTls {
 
     private final ManagedChannel channel;
     private final GreeterGrpc.GreeterBlockingStub blockingStub;
+    private final String localIpAddress;
 
     private static SslContext buildSslContext(String trustCertCollectionFilePath,
                                               String clientCertChainFilePath,
@@ -81,9 +83,10 @@ public class HelloWorldClientTls {
     /**
      * Construct client for accessing RouteGuide server using the existing channel.
      */
-    HelloWorldClientTls(ManagedChannel channel) {
+    HelloWorldClientTls(ManagedChannel channel) throws Exception {
         this.channel = channel;
         blockingStub = GreeterGrpc.newBlockingStub(channel);
+        this.localIpAddress = InetAddress.getLocalHost().getHostAddress();
     }
 
     public void shutdown() throws InterruptedException {
@@ -95,7 +98,7 @@ public class HelloWorldClientTls {
      */
     public void greet(String name) {
         logger.info("Will try to greet " + name + " ...");
-        HelloRequest request = HelloRequest.newBuilder().setName(name).build();
+        HelloRequest request = HelloRequest.newBuilder().setName(localIpAddress).build();
         HelloReply response;
         try {
             response = blockingStub.sayHello(request);
