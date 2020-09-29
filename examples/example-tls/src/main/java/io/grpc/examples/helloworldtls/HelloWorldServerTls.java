@@ -28,7 +28,9 @@ import io.netty.handler.ssl.SslContextBuilder;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.logging.Logger;
 
 /**
@@ -43,15 +45,17 @@ public class HelloWorldServerTls {
     private final String certChainFilePath;
     private final String privateKeyFilePath;
     private final String trustCertCollectionFilePath;
+    private final String localIpAddress;
 
     public HelloWorldServerTls(int port,
                                String certChainFilePath,
                                String privateKeyFilePath,
-                               String trustCertCollectionFilePath) {
+                               String trustCertCollectionFilePath) throws UnknownHostException {
         this.port = port;
         this.certChainFilePath = certChainFilePath;
         this.privateKeyFilePath = privateKeyFilePath;
         this.trustCertCollectionFilePath = trustCertCollectionFilePath;
+        this.localIpAddress = InetAddress.getLocalHost().getHostAddress();
     }
 
     private SslContextBuilder getSslContextBuilder() {
@@ -66,7 +70,7 @@ public class HelloWorldServerTls {
 
     private void start() throws IOException {
         server = NettyServerBuilder.forPort(port)
-                .addService(new GreeterImpl())
+                .addService(new GreeterImpl(localIpAddress))
                 .sslContext(getSslContextBuilder().build())
                 .build()
                 .start();
@@ -120,10 +124,16 @@ public class HelloWorldServerTls {
     }
 
     static class GreeterImpl extends GreeterGrpc.GreeterImplBase {
+        private final String myIpAddress;
+
+        GreeterImpl(String localIpAddress) {
+            this.myIpAddress = localIpAddress;
+        }
 
         @Override
         public void sayHello(HelloRequest req, StreamObserver<HelloReply> responseObserver) {
-            HelloReply reply = HelloReply.newBuilder().setMessage("Hello " + req.getName()).build();
+            HelloReply reply = HelloReply.newBuilder().setMessage("Hello " + req.getName()
+              + " from IP-address " + myIpAddress).build();
             responseObserver.onNext(reply);
             responseObserver.onCompleted();
         }
