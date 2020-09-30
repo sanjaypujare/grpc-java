@@ -37,12 +37,13 @@ spec:
     metadata:
       labels:
         k8s-app: zatar-grpc-server
+        version: production
     spec:
       containers:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/meshca-gke-test/zatar-grpc-xds:1.02
+        image: gcr.io/meshca-gke-test/zatar-grpc-xds:1.03
         imagePullPolicy: IfNotPresent
         name: zatar-grpc-server
         ports:
@@ -88,7 +89,7 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/meshca-gke-test/zatar-grpc-xds:1.02
+        image: gcr.io/meshca-gke-test/zatar-grpc-xds:1.03
         imagePullPolicy: IfNotPresent
         name: zatar-grpc-client
         #ports:
