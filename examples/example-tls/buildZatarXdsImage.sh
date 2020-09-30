@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 IMAGENAME=zatar-grpc-xds
-TAG=1.01
+TAG=1.02
 PROJECTID=meshca-gke-test
 
 echo Building ${IMAGENAME}:${TAG}
