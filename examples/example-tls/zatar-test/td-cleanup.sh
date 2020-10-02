@@ -1,0 +1,19 @@
+#!/bin/bash -x
+
+# this script deletes all the TD artifacts created earlier
+
+gcloud compute forwarding-rules delete zatar-grpc-forwarding-rule --global -q
+
+gcloud compute target-http-proxies delete zatar-grpc-proxy --global -q
+
+gcloud compute url-maps remove-host-rule zatar-grpc-url-map --host zatar-grpc-server
+
+gcloud compute url-maps remove-path-matcher zatar-grpc-url-map --path-matcher-name zatar-grpc-path-matcher --global -q
+
+gcloud compute url-maps delete zatar-grpc-url-map --global -q
+
+gcloud compute backend-services delete zatar-grpc-service --global -q
+
+gcloud compute firewall-rules delete fw-allow-health-checks  -q
+
+gcloud compute health-checks delete zatar-test-health-check --global -q
