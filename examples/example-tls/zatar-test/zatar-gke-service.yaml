@@ -1,4 +1,34 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: zatar-grpc-server
+  labels:
+    name: zatar-grpc-server
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zatar-grpc-client
+  labels:
+    name: zatar-grpc-client
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zatar-grpc-server
+  namespace: zatar-grpc-server
+  annotations:
+    iam.gke.io/gcp-service-account: zatar-grpc-server@meshca-gke-test.iam.gserviceaccount.com
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zatar-grpc-client
+  namespace: zatar-grpc-client
+  annotations:
+    iam.gke.io/gcp-service-account: zatar-grpc-client@meshca-gke-test.iam.gserviceaccount.com
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: zatar-grpc-server
@@ -25,6 +55,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: zatar-grpc-server
+  namespace: zatar-grpc-server
   labels:
     k8s-app: zatar-grpc-server
 spec:
@@ -59,7 +90,7 @@ spec:
         - mountPath: /var/run/gke-spiffe/certs
           name: gke-spiffe-certs-volume
           readOnly: true
-      serviceAccountName: default
+      serviceAccountName: zatar-grpc-server
       volumes:
       - name: gke-spiffe-certs-volume
         csi:
@@ -72,6 +103,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: zatar-grpc-client
+  namespace: zatar-grpc-client
   labels:
     k8s-app: zatar-grpc-client
 spec:
@@ -105,7 +137,7 @@ spec:
         - mountPath: /var/run/gke-spiffe/certs
           name: gke-spiffe-certs-volume
           readOnly: true
-      serviceAccountName: default
+      serviceAccountName: zatar-grpc-client
       volumes:
       - name: gke-spiffe-certs-volume
         csi:
