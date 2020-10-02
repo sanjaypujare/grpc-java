@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-# this script deletes all the TD artifacts created earlier
+# this script deletes all the TD artifacts created in td-setup.sh
 
 gcloud compute forwarding-rules delete zatar-grpc-forwarding-rule --global -q
 

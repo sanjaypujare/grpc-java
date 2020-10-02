@@ -18,7 +18,7 @@ metadata:
   name: zatar-grpc-server
   namespace: zatar-grpc-server
   annotations:
-    iam.gke.io/gcp-service-account: zatar-grpc-server@meshca-gke-test.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: 635862331669-compute@developer.gserviceaccount.com
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -26,7 +26,7 @@ metadata:
   name: zatar-grpc-client
   namespace: zatar-grpc-client
   annotations:
-    iam.gke.io/gcp-service-account: zatar-grpc-client@meshca-gke-test.iam.gserviceaccount.com
+    iam.gke.io/gcp-service-account: 635862331669-compute@developer.gserviceaccount.com
 ---
 apiVersion: v1
 kind: Service
