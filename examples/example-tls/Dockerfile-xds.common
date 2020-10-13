@@ -14,6 +14,9 @@ ENV JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
 
 ENV GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT=true
 
+ARG builddate
+ENV IMAGE_DATE=$builddate
+
 CMD ["/bin/sleep","inf"]
 
 EXPOSE 8000

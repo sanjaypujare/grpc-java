@@ -74,8 +74,8 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/meshca-gke-test/zatar-grpc-xds:1.04
-        imagePullPolicy: IfNotPresent
+        image: gcr.io/meshca-gke-test/zatar-grpc-xds:1.05
+        imagePullPolicy: Always
         name: zatar-grpc-server
         ports:
         - containerPort: 8000
@@ -121,8 +121,8 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/meshca-gke-test/zatar-grpc-xds:1.04
-        imagePullPolicy: IfNotPresent
+        image: gcr.io/meshca-gke-test/zatar-grpc-xds:1.05
+        imagePullPolicy: Always
         name: zatar-grpc-client
         #ports:
         #- containerPort: 8000
