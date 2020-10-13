@@ -97,6 +97,7 @@ public class HelloWorldClientTls {
      * Say hello to server.
      */
     public void greet(String name) {
+        logger.info("IMAGE_DATE=" + System.getenv("IMAGE_DATE"));
         logger.info("Will try to greet " + name + " ...");
         HelloRequest request = HelloRequest.newBuilder().setName(localIpAddress).build();
         HelloReply response;

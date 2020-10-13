@@ -113,7 +113,7 @@ public class HelloWorldServerTls {
                     "to enable Mutual TLS.");
             System.exit(0);
         }
-
+        logger.info("IMAGE_DATE=" + System.getenv("IMAGE_DATE"));
         final HelloWorldServerTls server = new HelloWorldServerTls(
                 Integer.parseInt(args[0]),
                 args[1],

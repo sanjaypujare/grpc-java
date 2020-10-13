@@ -88,7 +88,7 @@ public class HelloWorldServerXds {
                     "USAGE: HelloWorldServerTls port");
             System.exit(0);
         }
-
+        logger.info("IMAGE_DATE=" + System.getenv("IMAGE_DATE"));
         final HelloWorldServerXds server = new HelloWorldServerXds(
                 Integer.parseInt(args[0])
         );
