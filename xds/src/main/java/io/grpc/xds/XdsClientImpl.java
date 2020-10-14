@@ -463,7 +463,7 @@ final class XdsClientImpl extends XdsClient {
     }
     //newMetadata.put("TRAFFICDIRECTOR_PROXYLESS", "1");
     // old Envoy style
-    //newMetadata.put("TRAFFICDIRECTOR_INTERCEPTION_PORT", "15001");
+    newMetadata.put("TRAFFICDIRECTOR_INBOUND_INTERCEPTION_PORT", "15001");
     newMetadata.put("TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS", "" + port);
     // end old Envoy style
     // TODO(sanjaypujare): eliminate usage of listening_addresses.
