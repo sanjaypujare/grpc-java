@@ -220,11 +220,15 @@ public class XdsClientImplTestForListener {
     if (NODE.getMetadata() != null) {
       newMetadata.putAll(NODE.getMetadata());
     }
-    newMetadata.put("TRAFFICDIRECTOR_PROXYLESS", "1");
+    //newMetadata.put("TRAFFICDIRECTOR_PROXYLESS", "1");
+    // old Envoy style
+    //newMetadata.put("TRAFFICDIRECTOR_INTERCEPTION_PORT", "15001");
+    newMetadata.put("TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS", "" + PORT);
+    // end old Envoy style
     Address listeningAddress = new Address("0.0.0.0", PORT);
     return NODE.toBuilder()
         .setMetadata(newMetadata)
-        .addListeningAddresses(listeningAddress)
+        //.addListeningAddresses(listeningAddress)
         .build();
   }
 
