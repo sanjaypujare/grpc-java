@@ -1,6 +1,6 @@
 {
   "node": {
-    "id": "sanjay-gke-meshca-10-14-2020-15-24",
+    "id": "sanjay-gke-meshca-test~10.0.0.1~10-14-2020-15-24",
     "locality": {
       "zone": "us-west1-b",
       "region": "region",
