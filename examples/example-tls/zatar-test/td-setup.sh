@@ -57,6 +57,18 @@ gcloud alpha network-security server-tls-policies import server_mtls_policy \
 gcloud alpha network-services endpoint-config-selectors import ecs_mtls_psms \
   --source=zatar-test/ecs-mtls-psms.yaml --location=global
 
+# Create MTLS policy on the client side and attach to our backendService
+gcloud alpha network-security client-tls-policies import client_mtls_policy \
+  --source=zatar-test/client-mtls-policy.yaml --location=global
+
+gcloud compute backend-services export zatar-grpc-service --global \
+  --destination=/tmp/zatar-grpc-service.yaml
+
+cat /tmp/zatar-grpc-service.yaml zatar-test/client-security-settings.yaml >/tmp/zatar-grpc-service1.yaml
+
+gcloud alpha  compute backend-services import zatar-grpc-service --global \
+  --source=/tmp/zatar-grpc-service1.yaml
+
 echo now enter the zatar-grpc-server pod shell and run the server as follows:
 echo /build/install/example-tls/bin/hello-world-xds-server 8000
 

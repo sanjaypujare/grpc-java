@@ -21,3 +21,6 @@ gcloud compute backend-services delete zatar-grpc-service --global -q
 gcloud compute firewall-rules delete fw-allow-health-checks  -q
 
 gcloud compute health-checks delete zatar-test-health-check --global -q
+
+# now delete our deployment of service and client
+kubectl delete -f zatar-test/zatar-gke-service.yaml
