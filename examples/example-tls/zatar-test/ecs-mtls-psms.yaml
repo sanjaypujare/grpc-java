@@ -1,0 +1,6 @@
+name: "ecs_mtls_psms"
+type: "SIDECAR_PROXY"
+serverTlsPolicy: "server_mtls_policy"
+endpointMatcher:
+  metadataLabelMatcher:
+    metadataLabelMatchCriteria: "MATCH_ALL"
