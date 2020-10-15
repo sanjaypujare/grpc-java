@@ -50,6 +50,13 @@ gcloud compute forwarding-rules create zatar-grpc-forwarding-rule --global \
   --target-http-proxy=zatar-grpc-proxy --ports 8000 \
   --network default
 
+# Create MTLS policy on the server side and attach to an ECS
+gcloud alpha network-security server-tls-policies import server_mtls_policy \
+  --source=zatar-test/server-mtls-policy.yaml --location=global
+
+gcloud alpha network-services endpoint-config-selectors import ecs_mtls_psms \
+  --source=zatar-test/ecs-mtls-psms.yaml --location=global
+
 echo now enter the zatar-grpc-server pod shell and run the server as follows:
 echo /build/install/example-tls/bin/hello-world-xds-server 8000
 
