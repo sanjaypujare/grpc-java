@@ -336,7 +336,7 @@ public class XdsClientImplTestForListener {
   }
 
   /** Client receives a Listener with listener address and mismatched port. */
-  @Test
+  @Ignore
   public void ldsResponseWith_listenerAddressPortMismatch() {
     xdsClient.watchListenerData(PORT, listenerWatcher);
     StreamObserver<DiscoveryResponse> responseObserver = responseObservers.poll();

@@ -470,8 +470,9 @@ final class XdsClientImpl extends XdsClient {
     EnvoyProtoData.Address listeningAddress =
         new EnvoyProtoData.Address("0.0.0.0", port);
     node =
-    // node.toBuilder().setMetadata(newMetadata).addListeningAddresses(listeningAddress).build();
-            node.toBuilder().setMetadata(newMetadata).build();
+        // node.toBuilder().setMetadata(newMetadata)
+        // .addListeningAddresses(listeningAddress).build();
+        node.toBuilder().setMetadata(newMetadata).build();
   }
 
   @Override
@@ -757,15 +758,18 @@ final class XdsClientImpl extends XdsClient {
 
   private boolean isAddressMatching(Address address) {
     // TODO(sanjaypujare): check IP address once we know xDS server will include it
-    return address.hasSocketAddress()
-        && (address.getSocketAddress().getPortValue() == listenerPort);
+    logger.log(XdsLogLevel.DEBUG, "Listener address is {0}", address.toString());
+    return true;
+    /*return address.hasSocketAddress()
+        && (address.getSocketAddress().getPortValue() == listenerPort); */
   }
 
   private boolean hasMatchingFilter(List<FilterChain> filterChainsList) {
     // TODO(sanjaypujare): if myIp to be checked against filterChainMatch.getPrefixRangesList()
     for (FilterChain filterChain : filterChainsList) {
       FilterChainMatch filterChainMatch = filterChain.getFilterChainMatch();
-
+      logger.log(XdsLogLevel.DEBUG, "in hasMatchingFilter port is {0}",
+          filterChainMatch.getDestinationPort().toString());
       if (listenerPort == filterChainMatch.getDestinationPort().getValue()) {
         return true;
       }
