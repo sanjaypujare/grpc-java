@@ -55,7 +55,7 @@ gcloud compute url-maps create zatar-grpc-url-map --default-service zatar-grpc-s
 gcloud compute url-maps add-path-matcher zatar-grpc-url-map --default-service  zatar-grpc-service \
        --path-matcher-name zatar-grpc-path-matcher
 
-gcloud compute url-maps add-host-rule zatar-grpc-url-map --hosts zatar-grpc-server \
+gcloud compute url-maps add-host-rule zatar-grpc-url-map --hosts zatar-grpc-server:8000 \
        --path-matcher-name zatar-grpc-path-matcher
 
 gcloud compute target-http-proxies create zatar-grpc-proxy --url-map zatar-grpc-url-map

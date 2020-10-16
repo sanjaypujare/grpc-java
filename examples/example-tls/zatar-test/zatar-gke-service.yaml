@@ -83,10 +83,10 @@ spec:
         resources:
           limits:
             cpu: 800m
-            memory: 128Mi
+            memory: 512Mi
           requests:
             cpu: 100m
-            memory: 128Mi
+            memory: 512Mi
         volumeMounts:
         - mountPath: /var/run/gke-spiffe/certs
           name: gke-spiffe-certs-volume
@@ -130,10 +130,10 @@ spec:
         resources:
           limits:
             cpu: 800m
-            memory: 128Mi
+            memory: 512Mi
           requests:
             cpu: 100m
-            memory: 128Mi
+            memory: 512Mi
         volumeMounts:
         - mountPath: /var/run/gke-spiffe/certs
           name: gke-spiffe-certs-volume
