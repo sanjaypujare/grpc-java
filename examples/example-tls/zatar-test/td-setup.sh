@@ -20,6 +20,19 @@ gcloud iam service-accounts add-iam-policy-binding \
   --member "serviceAccount:meshca-gke-test.svc.id.goog[zatar-grpc-server/zatar-grpc-server]" \
   635862331669-compute@developer.gserviceaccount.com
 
+gcloud iam service-accounts add-iam-policy-binding \
+  --role roles/iam.workloadIdentityUser \
+  --member "serviceAccount:meshca-gke-test.svc.id.goog[zatar-grpc-client/zatar-grpc-client]" \
+  635862331669-compute@developer.gserviceaccount.com
+
+gcloud projects add-iam-policy-binding meshca-gke-test \
+   --member "serviceAccount:meshca-gke-test.svc.id.goog[zatar-grpc-server/zatar-grpc-server]" \
+   --role roles/compute.networkViewer
+
+gcloud projects add-iam-policy-binding meshca-gke-test \
+   --member "serviceAccount:meshca-gke-test.svc.id.goog[zatar-grpc-client/zatar-grpc-client]" \
+   --role roles/compute.networkViewer
+
 gcloud compute health-checks create tcp zatar-test-health-check --port 8000
 
 #create the firewall rule for the health check to work. Note this one needs to be done
