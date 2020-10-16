@@ -825,7 +825,8 @@ public class XdsClientImplTestForListener {
             .setFilterChainMatch(filterChainMatch)
             .setTransportSocket(tlsContext == null
                 ? TransportSocket.getDefaultInstance()
-                : TransportSocket.newBuilder().setName("tls").setTypedConfig(Any.pack(tlsContext))
+                : TransportSocket.newBuilder().setName("envoy.transport_sockets.tls")
+                    .setTypedConfig(Any.pack(tlsContext))
                     .build())
             .addAllFilters(Arrays.asList(filters))
             .build();

@@ -1098,7 +1098,8 @@ final class XdsClientImpl extends XdsClient {
   @Nullable
   private static UpstreamTlsContext getTlsContextFromCluster(Cluster cluster)
       throws InvalidProtocolBufferException {
-    if (cluster.hasTransportSocket() && "tls".equals(cluster.getTransportSocket().getName())) {
+    if (cluster.hasTransportSocket() && "envoy.transport_sockets.tls"
+        .equals(cluster.getTransportSocket().getName())) {
       Any any = cluster.getTransportSocket().getTypedConfig();
       return UpstreamTlsContext.fromEnvoyProtoUpstreamTlsContext(
           io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext.parseFrom(
