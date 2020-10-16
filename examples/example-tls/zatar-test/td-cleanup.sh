@@ -2,9 +2,11 @@
 
 # this script deletes all the TD artifacts created in td-setup.sh
 
-gcloud alpha network-services endpoint-config-selectors delete ecs_mtls_psms --location=global
 
-gcloud alpha network-security server-tls-policies delete server_mtls_policy --location=global
+
+gcloud alpha network-services endpoint-config-selectors delete ecs_mtls_psms --location=global -q
+
+gcloud alpha network-security server-tls-policies delete server_mtls_policy --location=global -q
 
 gcloud compute forwarding-rules delete zatar-grpc-forwarding-rule --global -q
 
@@ -17,6 +19,8 @@ gcloud compute url-maps remove-path-matcher zatar-grpc-url-map --path-matcher-na
 gcloud compute url-maps delete zatar-grpc-url-map --global -q
 
 gcloud compute backend-services delete zatar-grpc-service --global -q
+
+gcloud alpha network-security client-tls-policies delete client_mtls_policy --location=global -q
 
 gcloud compute firewall-rules delete fw-allow-health-checks  -q
 

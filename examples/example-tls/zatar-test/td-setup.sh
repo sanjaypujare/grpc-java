@@ -5,6 +5,8 @@
 # first deploy our service and client
 kubectl apply -f zatar-test/zatar-gke-service.yaml
 
+sleep 20s
+
 NEG_NAME=$(gcloud beta compute network-endpoint-groups list | grep zatar-grpc-server | awk '{print $1}')
 
 if [ x${NEG_NAME} = x ]; then
@@ -67,7 +69,7 @@ gcloud compute backend-services export zatar-grpc-service --global \
 cat /tmp/zatar-grpc-service.yaml zatar-test/client-security-settings.yaml >/tmp/zatar-grpc-service1.yaml
 
 gcloud beta compute backend-services import zatar-grpc-service --global \
-  --source=/tmp/zatar-grpc-service1.yaml
+  --source=/tmp/zatar-grpc-service1.yaml -q
 
 echo now enter the zatar-grpc-server pod shell and run the server as follows:
 echo /build/install/example-tls/bin/hello-world-xds-server 8000
