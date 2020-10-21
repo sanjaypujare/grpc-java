@@ -38,6 +38,7 @@ import io.envoyproxy.envoy.config.cluster.v3.Cluster.EdsClusterConfig;
 import io.envoyproxy.envoy.config.cluster.v3.Cluster.LbPolicy;
 import io.envoyproxy.envoy.config.core.v3.Address;
 import io.envoyproxy.envoy.config.core.v3.HttpProtocolOptions;
+import io.envoyproxy.envoy.config.core.v3.TrafficDirection;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
 import io.envoyproxy.envoy.config.endpoint.v3.LbEndpoint;
 import io.envoyproxy.envoy.config.listener.v3.FilterChain;
@@ -143,6 +144,8 @@ final class XdsClientImpl2 extends XdsClient {
   @Nullable
   private ListenerWatcher listenerWatcher;
   private int listenerPort = -1;
+  private boolean newServerApi;
+  @Nullable private String instanceIp;
   @Nullable
   private ScheduledHandle ldsRespTimer;
 
@@ -152,7 +155,9 @@ final class XdsClientImpl2 extends XdsClient {
       SynchronizationContext syncContext,
       ScheduledExecutorService timeService,
       BackoffPolicy.Provider backoffPolicyProvider,
-      Supplier<Stopwatch> stopwatchSupplier) {
+      Supplier<Stopwatch> stopwatchSupplier,
+      boolean newServerApi,
+      String instanceIp) {
     this.xdsChannel = checkNotNull(channel, "channel");
     this.node = checkNotNull(node, "node");
     this.syncContext = checkNotNull(syncContext, "syncContext");
@@ -164,6 +169,8 @@ final class XdsClientImpl2 extends XdsClient {
     logId = InternalLogId.allocate("xds-client", null);
     logger = XdsLogger.withLogId(logId);
     logger.log(XdsLogLevel.INFO, "Created");
+    this.newServerApi = xdsChannel.isUseProtocolV3() && newServerApi;
+    this.instanceIp = (instanceIp != null ? instanceIp : "0.0.0.0");
   }
 
   @Override
@@ -297,6 +304,16 @@ final class XdsClientImpl2 extends XdsClient {
     }
   }
 
+  private List<String> getListenerResourceNameListForServerSide() {
+    if (newServerApi) {
+      String listeningAddress = instanceIp + ":" + listenerPort;
+      String resourceName = "grpc/server?udpa.resource.listening_address=" + listeningAddress;
+      return ImmutableList.<String>of(resourceName);
+    } else {
+      return ImmutableList.<String>of();
+    }
+  }
+
   @Override
   void watchListenerData(int port, ListenerWatcher watcher) {
     checkState(listenerWatcher == null, "ListenerWatcher already registered");
@@ -311,8 +328,10 @@ final class XdsClientImpl2 extends XdsClient {
     if (adsStream == null) {
       startRpcStream();
     }
-    updateNodeMetadataForListenerRequest(port);
-    adsStream.sendXdsRequest(ResourceType.LDS, ImmutableList.<String>of());
+    if (!newServerApi) {
+      updateNodeMetadataForListenerRequest(port);
+    }
+    adsStream.sendXdsRequest(ResourceType.LDS, getListenerResourceNameListForServerSide());
     ldsRespTimer =
         syncContext
             .schedule(
@@ -326,12 +345,10 @@ final class XdsClientImpl2 extends XdsClient {
     if (node.getMetadata() != null) {
       newMetadata.putAll(node.getMetadata());
     }
-    newMetadata.put("TRAFFICDIRECTOR_PROXYLESS", "1");
-    // TODO(sanjaypujare): eliminate usage of listening_addresses.
-    EnvoyProtoData.Address listeningAddress =
-        new EnvoyProtoData.Address("0.0.0.0", port);
-    node =
-        node.toBuilder().setMetadata(newMetadata).addListeningAddresses(listeningAddress).build();
+    newMetadata.put("TRAFFICDIRECTOR_INBOUND_INTERCEPTION_PORT", "15001");
+    newMetadata.put("TRAFFICDIRECTOR_INBOUND_BACKEND_PORTS", "" + port);
+    newMetadata.put("INSTANCE_IP", instanceIp);
+    node = node.toBuilder().setMetadata(newMetadata).build();
   }
 
   @Override
@@ -571,7 +588,7 @@ final class XdsClientImpl2 extends XdsClient {
     } catch (InvalidProtocolBufferException e) {
       logger.log(XdsLogLevel.WARNING, "Failed to unpack Listeners in LDS response {0}", e);
       adsStream.sendNackRequest(
-          ResourceType.LDS, ImmutableList.<String>of(),
+          ResourceType.LDS, getListenerResourceNameListForServerSide(),
           ldsResponse.getVersionInfo(), "Malformed LDS response: " + e);
       return;
     }
@@ -588,7 +605,7 @@ final class XdsClientImpl2 extends XdsClient {
       } catch (InvalidProtocolBufferException e) {
         logger.log(XdsLogLevel.WARNING, "Failed to unpack Listener in LDS response {0}", e);
         adsStream.sendNackRequest(
-            ResourceType.LDS, ImmutableList.<String>of(),
+            ResourceType.LDS, getListenerResourceNameListForServerSide(),
             ldsResponse.getVersionInfo(), "Malformed LDS response: " + e);
         return;
       }
@@ -597,7 +614,7 @@ final class XdsClientImpl2 extends XdsClient {
         listenerWatcher.onResourceDoesNotExist(":" + listenerPort);
       }
     }
-    adsStream.sendAckRequest(ResourceType.LDS, ImmutableList.<String>of(),
+    adsStream.sendAckRequest(ResourceType.LDS, getListenerResourceNameListForServerSide(),
         ldsResponse.getVersionInfo());
     if (listenerUpdate != null) {
       listenerWatcher.onListenerChanged(listenerUpdate);
@@ -605,15 +622,18 @@ final class XdsClientImpl2 extends XdsClient {
   }
 
   private boolean isRequestedListener(Listener listener) {
-    // TODO(sanjaypujare): check listener.getName() once we know what xDS server returns
+    if (newServerApi) {
+      return "TRAFFICDIRECTOR_INBOUND_LISTENER".equals(listener.getName())
+          && listener.getTrafficDirection().equals(TrafficDirection.INBOUND)
+          && hasMatchingFilter(listener.getFilterChainsList());
+    }
     return isAddressMatching(listener.getAddress())
         && hasMatchingFilter(listener.getFilterChainsList());
   }
 
   private boolean isAddressMatching(Address address) {
-    // TODO(sanjaypujare): check IP address once we know xDS server will include it
-    return address.hasSocketAddress()
-        && (address.getSocketAddress().getPortValue() == listenerPort);
+    return newServerApi || (address.hasSocketAddress()
+        && (address.getSocketAddress().getPortValue() == 15001));
   }
 
   private boolean hasMatchingFilter(List<FilterChain> filterChainsList) {
@@ -899,7 +919,7 @@ final class XdsClientImpl2 extends XdsClient {
     public void run() {
       startRpcStream();
       if (listenerWatcher != null) {
-        adsStream.sendXdsRequest(ResourceType.LDS, ImmutableList.<String>of());
+        adsStream.sendXdsRequest(ResourceType.LDS, getListenerResourceNameListForServerSide());
         ldsRespTimer =
             syncContext
                 .schedule(

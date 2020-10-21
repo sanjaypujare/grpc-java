@@ -113,7 +113,7 @@ public final class XdsNameResolverProvider extends NameResolverProvider {
         @Override
         XdsClient createXdsClient() {
           return new XdsClientImpl2(channel, bootstrapInfo.getNode(), syncContext, timeService,
-              backoffPolicyProvider, stopwatchSupplier);
+              backoffPolicyProvider, stopwatchSupplier, false, null);
         }
       };
       return new RefCountedXdsClientObjectPool(xdsClientFactory);

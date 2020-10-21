@@ -281,7 +281,9 @@ public class XdsClientImplTest2 {
             syncContext,
             fakeClock.getScheduledExecutorService(),
             backoffPolicyProvider,
-            fakeClock.getStopwatchSupplier());
+            fakeClock.getStopwatchSupplier(),
+            false,
+            null);
 
     assertThat(resourceDiscoveryCalls).isEmpty();
     assertThat(loadReportCalls).isEmpty();
