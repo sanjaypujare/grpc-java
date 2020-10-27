@@ -1,0 +1,12 @@
+name: "ecs_mtls_psms"
+type: "SIDECAR_PROXY"
+serverTlsPolicy: "server_mtls_policy"
+trafficPortSelector:
+  ports:
+  - "8000"
+endpointMatcher:
+  metadataLabelMatcher:
+    metadataLabelMatchCriteria: "MATCH_ALL"
+    metadataLabels:
+      - labelName: "version"
+        labelValue: "production"
