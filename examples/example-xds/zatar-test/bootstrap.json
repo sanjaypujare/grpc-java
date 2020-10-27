@@ -1,0 +1,45 @@
+{
+  "node": {
+    "id": "sanjay-gke-meshca-test~10.0.0.1~10-14-2020-15-24",
+    "locality": {
+      "zone": "us-west1-b",
+      "region": "region",
+      "sub_zone": "sub_zone"
+    },
+    "metadata": {
+      "TRAFFICDIRECTOR_GRPC_HOSTNAME": "",
+      "TRAFFICDIRECTOR_NETWORK_NAME": "default",
+      "TRAFFICDIRECTOR_GCP_PROJECT_NUMBER": "635862331669",
+      "version": "production"
+    }
+  },
+  "xds_servers": [
+    {
+      "server_uri": "trafficdirector.googleapis.com:443",
+      "channel_creds": [
+        { "type": "google_default" }
+      ]
+    }
+  ],
+  "certificate_providers": {
+    "gke-cas-certs": {
+      "plugin_name": "file_watcher",
+      "config": {
+        "certificate_file": "/var/run/gke-spiffe/certs/certificates.pem",
+        "private_key_file": "/var/run/gke-spiffe/certs/private_key.pem",
+        "ca_certificate_file": "/var/run/gke-spiffe/certs/ca_certificates.pem",
+        "refresh_interval": 60
+      }
+    },
+    "gke-cas-certs-old": {
+      "plugin_name": "gke-cas-certs",
+      "config": {
+        "directory": "/var/run/gke-spiffe/certs/..data",
+        "certificate-file": "certificates.pem",
+        "private-key-file": "private_key.pem",
+        "ca-certificate-file": "ca_certificates.pem",
+        "refresh_interval": "600"
+      }
+    }
+  }
+}

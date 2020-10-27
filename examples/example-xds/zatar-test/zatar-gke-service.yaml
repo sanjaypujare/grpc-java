@@ -1,0 +1,148 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zatar-grpc-server
+  labels:
+    name: zatar-grpc-server
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zatar-grpc-client
+  labels:
+    name: zatar-grpc-client
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zatar-grpc-server
+  namespace: zatar-grpc-server
+  annotations:
+    iam.gke.io/gcp-service-account: 635862331669-compute@developer.gserviceaccount.com
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zatar-grpc-client
+  namespace: zatar-grpc-client
+  annotations:
+    iam.gke.io/gcp-service-account: 635862331669-compute@developer.gserviceaccount.com
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zatar-grpc-server
+  namespace: zatar-grpc-server
+  labels:
+    k8s-app: zatar-grpc-server
+  annotations:
+    # Annotation to associate service with neg controler, as describe in
+    # https://cloud.google.com/traffic-director/docs/set-up-gke-pods#configuring_kubernetes_services_with_negs
+    # Once the service is deployed, you can check the NEG status with:
+    # ```
+    # $ gcloud alpha compute network-endpoint-groups list
+    # k8s1-92a6ad6d-default-demo-server-8000-bd274fd2  us-central1-c  GCE_VM_IP_PORT  1
+    # ```
+    cloud.google.com/neg: '{"exposed_ports":{"8000":{}}}'
+spec:
+  ports:
+  - name: http
+    port: 8000
+  selector:
+    k8s-app: zatar-grpc-server
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zatar-grpc-server
+  namespace: zatar-grpc-server
+  labels:
+    k8s-app: zatar-grpc-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: zatar-grpc-server
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        k8s-app: zatar-grpc-server
+        version: production
+    spec:
+      containers:
+      - command:
+        - /bin/sleep
+        - inf
+        image: gcr.io/meshca-gke-test/psms-grpc-xds:1.06
+        imagePullPolicy: Always
+        name: zatar-grpc-server
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            cpu: 800m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        volumeMounts:
+        - mountPath: /var/run/gke-spiffe/certs
+          name: gke-spiffe-certs-volume
+          readOnly: true
+      serviceAccountName: zatar-grpc-server
+      volumes:
+      - name: gke-spiffe-certs-volume
+        csi:
+          driver: certs.spiffe.gke.io
+      - emptyDir:
+          medium: Memory
+        name: empty-vol
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zatar-grpc-client
+  namespace: zatar-grpc-client
+  labels:
+    k8s-app: zatar-grpc-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: zatar-grpc-client
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        k8s-app: zatar-grpc-client
+    spec:
+      containers:
+      - command:
+        - /bin/sleep
+        - inf
+        image: gcr.io/meshca-gke-test/psms-grpc-xds:1.06
+        imagePullPolicy: Always
+        name: zatar-grpc-client
+        #ports:
+        #- containerPort: 8000
+        resources:
+          limits:
+            cpu: 800m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        volumeMounts:
+        - mountPath: /var/run/gke-spiffe/certs
+          name: gke-spiffe-certs-volume
+          readOnly: true
+      serviceAccountName: zatar-grpc-client
+      volumes:
+      - name: gke-spiffe-certs-volume
+        csi:
+          driver: certs.spiffe.gke.io
+      - emptyDir:
+          medium: Memory
+        name: empty-vol
