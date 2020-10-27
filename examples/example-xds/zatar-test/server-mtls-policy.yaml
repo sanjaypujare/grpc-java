@@ -1,0 +1,8 @@
+name: “server_mtls_policy”
+serverCertificate:
+  localFilepath:
+      certificatePath: /var/run/gke-spiffe/certs/certificates.pem
+      privateKeyPath: /var/run/gke-spiffe/certs/private_key.pem
+mtlsPolicy:
+  clientValidationCa:
+    - caCertPath: /var/run/gke-spiffe/certs/ca_certificates.pem

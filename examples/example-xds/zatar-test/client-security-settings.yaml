@@ -1,0 +1,4 @@
+securitySettings:
+  clientTlsPolicy: projects/meshca-gke-test/locations/global/clientTlsPolicies/client_mtls_policy
+  subjectAltNames:
+    - "spiffe://meshca-gke-test.svc.id.goog/ns/zatar-grpc-server/sa/zatar-grpc-server"
