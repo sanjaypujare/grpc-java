@@ -19,6 +19,7 @@ package io.grpc.xds.internal.sds;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.CommonTlsContext;
 import io.grpc.xds.Bootstrapper;
 import io.grpc.xds.EnvoyServerProtoData.DownstreamTlsContext;
 import io.grpc.xds.EnvoyServerProtoData.UpstreamTlsContext;
@@ -66,6 +67,11 @@ public final class TlsContextManagerImpl implements TlsContextManager {
   public SslContextProvider findOrCreateServerSslContextProvider(
       DownstreamTlsContext downstreamTlsContext) {
     checkNotNull(downstreamTlsContext, "downstreamTlsContext");
+    CommonTlsContext.Builder builder = downstreamTlsContext.getCommonTlsContext().toBuilder();
+    builder = addCertProviderInstance(builder);
+    downstreamTlsContext =
+        new DownstreamTlsContext(
+            builder.build(), downstreamTlsContext.isRequireClientCertificate());
     return mapForServers.get(downstreamTlsContext);
   }
 
@@ -73,7 +79,30 @@ public final class TlsContextManagerImpl implements TlsContextManager {
   public SslContextProvider findOrCreateClientSslContextProvider(
       UpstreamTlsContext upstreamTlsContext) {
     checkNotNull(upstreamTlsContext, "upstreamTlsContext");
+    CommonTlsContext.Builder builder = upstreamTlsContext.getCommonTlsContext().toBuilder();
+    builder = addCertProviderInstance(builder);
+    upstreamTlsContext = new UpstreamTlsContext(builder.build());
     return mapForClients.get(upstreamTlsContext);
+  }
+
+  private static CommonTlsContext.Builder addCertProviderInstance(
+      CommonTlsContext.Builder builder) {
+    builder.setTlsCertificateCertificateProviderInstance(
+        CommonTlsContext.CertificateProviderInstance.newBuilder().setInstanceName("gke-cas-certs"));
+    if (builder.hasCombinedValidationContext()) {
+      CommonTlsContext.CombinedCertificateValidationContext.Builder ccvcBuilder =
+          builder
+              .getCombinedValidationContextBuilder()
+              .setValidationContextCertificateProviderInstance(
+                  CommonTlsContext.CertificateProviderInstance.newBuilder()
+                      .setInstanceName("gke-cas-certs"));
+      builder.setCombinedValidationContext(ccvcBuilder);
+    } else if (builder.hasValidationContext()) {
+      builder.setValidationContextCertificateProviderInstance(
+          CommonTlsContext.CertificateProviderInstance.newBuilder()
+              .setInstanceName("gke-cas-certs"));
+    }
+    return builder;
   }
 
   @Override

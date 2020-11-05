@@ -25,10 +25,14 @@ import io.grpc.xds.XdsInitializationException;
 import io.grpc.xds.internal.certprovider.CertProviderClientSslContextProvider;
 import io.grpc.xds.internal.sds.ReferenceCountingMap.ValueFactory;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Factory to create client-side SslContextProvider from UpstreamTlsContext. */
 final class ClientSslContextProviderFactory
     implements ValueFactory<UpstreamTlsContext, SslContextProvider> {
+  private static final Logger logger =
+          Logger.getLogger(ClientSslContextProviderFactory.class.getName());
 
   private final Bootstrapper bootstrapper;
   private final CertProviderClientSslContextProvider.Factory
@@ -51,10 +55,12 @@ final class ClientSslContextProviderFactory
     checkNotNull(
         upstreamTlsContext.getCommonTlsContext(),
         "upstreamTlsContext should have CommonTlsContext");
+    logger.log(Level.FINEST, "upstreamTlsContext=" + upstreamTlsContext);
     if (CommonTlsContextUtil.hasCertProviderInstance(
             upstreamTlsContext.getCommonTlsContext())) {
       try {
         Bootstrapper.BootstrapInfo bootstrapInfo = bootstrapper.readBootstrap();
+        logger.log(Level.FINEST, "certProviders=" + bootstrapInfo.getCertProviders());
         return certProviderClientSslContextProviderFactory.getProvider(
                 upstreamTlsContext,
                 bootstrapInfo.getNode().toEnvoyProtoNode(),

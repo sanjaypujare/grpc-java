@@ -26,11 +26,15 @@ import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** Base class for {@link CertProviderClientSslContextProvider}. */
 abstract class CertProviderSslContextProvider extends DynamicSslContextProvider implements
     CertificateProvider.Watcher {
+  private static final Logger logger =
+          Logger.getLogger(CertProviderSslContextProvider.class.getName());
 
   @Nullable private final CertificateProviderStore.Handle certHandle;
   @Nullable private final CertificateProviderStore.Handle rootCertHandle;
@@ -49,6 +53,8 @@ abstract class CertProviderSslContextProvider extends DynamicSslContextProvider 
       BaseTlsContext tlsContext,
       CertificateProviderStore certificateProviderStore) {
     super(tlsContext, staticCertValidationContext);
+    logger.log(
+        Level.FINEST, "certInstance=" + certInstance + ", rootCertInstance=" + rootCertInstance);
     this.certInstance = certInstance;
     this.rootCertInstance = rootCertInstance;
     String certInstanceName = null;
