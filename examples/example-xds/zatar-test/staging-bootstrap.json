@@ -15,7 +15,7 @@
   },
   "xds_servers": [
     {
-      "server_uri": "trafficdirector.googleapis.com:443",
+      "server_uri": "staging-trafficdirector.sandbox.googleapis.com:443",
       "channel_creds": [
         { "type": "google_default" }
       ],
