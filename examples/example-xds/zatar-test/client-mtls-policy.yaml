@@ -1,7 +1,7 @@
 name: “client_mtls_policy”
 clientCertificate:
-  localFilepath:
-      certificatePath: /var/run/gke-spiffe/certs/certificates.pem
-      privateKeyPath: /var/run/gke-spiffe/certs/private_key.pem
+  grpcEndpoint:
+    targetUri: unix:/var/cert/node-agent.0
 serverValidationCa:
-  - caCertPath: /var/run/gke-spiffe/certs/ca_certificates.pem
+  - grpcEndpoint:
+      targetUri: unix:/var/cert/node-agent.0
