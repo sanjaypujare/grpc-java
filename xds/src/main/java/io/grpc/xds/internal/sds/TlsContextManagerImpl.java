@@ -112,7 +112,8 @@ public final class TlsContextManagerImpl implements TlsContextManager {
         CommonTlsContext.CombinedCertificateValidationContext.Builder ccvcBuilder =
                 builder.getCombinedValidationContextBuilder();
         if (ccvcBuilder.hasValidationContextSdsSecretConfig()) {
-          logger.log(Level.INFO, "Doing CertProviderInstanceOverride for combinedValidationContext");
+          logger
+              .log(Level.INFO, "Doing CertProviderInstanceOverride for combinedValidationContext");
           ccvcBuilder =
               ccvcBuilder.setValidationContextCertificateProviderInstance(
                   CommonTlsContext.CertificateProviderInstance.newBuilder()
