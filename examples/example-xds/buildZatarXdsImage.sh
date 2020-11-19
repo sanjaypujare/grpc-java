@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 IMAGENAME=psms-grpc-xds
-TAG=1.06
+TAG=1.07
 PROJECTID=meshca-gke-test
 
 echo Building ${IMAGENAME}:${TAG}
