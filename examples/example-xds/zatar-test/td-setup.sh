@@ -42,7 +42,7 @@ gcloud compute firewall-rules create fw-allow-health-checks --network default --
     --source-ranges 35.191.0.0/16,130.211.0.0/22 \
     --rules tcp
 
-# TODO: should the protocol be HTTP2 or GRPC?
+# HTTP2 works but not GRPC...
 gcloud compute backend-services create zatar-grpc-service --global \
     --health-checks zatar-test-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol HTTP2
 
@@ -76,7 +76,7 @@ gcloud alpha network-services endpoint-config-selectors import ecs_mtls_psms \
 gcloud alpha network-security client-tls-policies import client_mtls_policy \
   --source=zatar-test/client-mtls-policy.yaml --location=global
 
-gcloud compute backend-services export zatar-grpc-service --global \
+gcloud beta compute backend-services export zatar-grpc-service --global \
   --destination=/tmp/zatar-grpc-service.yaml
 
 cat /tmp/zatar-grpc-service.yaml zatar-test/client-security-settings.yaml >/tmp/zatar-grpc-service1.yaml
