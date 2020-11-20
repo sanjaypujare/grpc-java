@@ -10,7 +10,7 @@ gcloud alpha network-security server-tls-policies delete server_mtls_policy --lo
 
 gcloud compute forwarding-rules delete zatar-grpc-forwarding-rule --global -q
 
-gcloud compute target-http-proxies delete zatar-grpc-proxy --global -q
+gcloud compute target-grpc-proxies delete zatar-grpc-proxy -q
 
 gcloud compute url-maps remove-host-rule zatar-grpc-url-map --host zatar-grpc-server:8000
 

@@ -58,11 +58,11 @@ gcloud compute url-maps add-path-matcher zatar-grpc-url-map --default-service  z
 gcloud compute url-maps add-host-rule zatar-grpc-url-map --hosts zatar-grpc-server:8000 \
        --path-matcher-name zatar-grpc-path-matcher
 
-gcloud compute target-http-proxies create zatar-grpc-proxy --url-map zatar-grpc-url-map
+gcloud compute target-grpc-proxies create zatar-grpc-proxy --url-map zatar-grpc-url-map
 
 gcloud compute forwarding-rules create zatar-grpc-forwarding-rule --global \
   --load-balancing-scheme=INTERNAL_SELF_MANAGED --address=0.0.0.0 \
-  --target-http-proxy=zatar-grpc-proxy --ports 8000 \
+  --target-grpc-proxy=zatar-grpc-proxy --ports 8000 \
   --network default
 
 # Create MTLS policy on the server side and attach to an ECS
