@@ -1,7 +1,7 @@
 name: “client_mtls_policy”
 clientCertificate:
-  grpcEndpoint:
-    targetUri: unix:/var/cert/node-agent.0
+  certificateProviderInstance:
+    pluginInstance: google_cloud_private_spiffe
 serverValidationCa:
-  - grpcEndpoint:
-      targetUri: unix:/var/cert/node-agent.0
+  - certificateProviderInstance:
+      pluginInstance: google_cloud_private_spiffe
