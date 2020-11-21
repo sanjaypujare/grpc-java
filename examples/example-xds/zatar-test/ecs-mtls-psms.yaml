@@ -1,5 +1,5 @@
 name: "ecs_mtls_psms"
-type: "SIDECAR_PROXY"
+type: "GRPC_SERVER"
 serverTlsPolicy: "server_mtls_policy"
 trafficPortSelector:
   ports:
