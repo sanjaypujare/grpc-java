@@ -10,7 +10,7 @@ RUN mkdir -p /build/install/example-xds
 
 ADD build/install/example-xds /build/install/example-xds
 
-ENV GRPC_XDS_BOOTSTRAP=/bootstrap.json
+ENV GRPC_XDS_BOOTSTRAP=/staging-bootstrap.json
 
 ENV JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
 

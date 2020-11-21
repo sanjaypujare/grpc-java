@@ -75,7 +75,7 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/meshca-gke-test/psms-grpc-xds:1.07
+        image: gcr.io/bct-staging-td-gke-consumer/psms-grpc-xds:1.07
         imagePullPolicy: Always
         name: zatar-grpc-server
         ports:
@@ -122,7 +122,7 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/meshca-gke-test/psms-grpc-xds:1.07
+        image: gcr.io/bct-staging-td-gke-consumer/psms-grpc-xds:1.07
         imagePullPolicy: Always
         name: zatar-grpc-client
         #ports:

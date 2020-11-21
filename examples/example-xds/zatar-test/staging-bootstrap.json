@@ -1,15 +1,15 @@
 {
   "node": {
-    "id": "projects/635862331669/networks/default/nodes/client-server1",
+    "id": "projects/247312067043/networks/default/nodes/client-server1",
     "locality": {
-      "zone": "us-west1-b",
+      "zone": "us-west1-pj1",
       "region": "region",
       "sub_zone": "sub_zone"
     },
     "metadata": {
       "TRAFFICDIRECTOR_GRPC_HOSTNAME": "",
       "TRAFFICDIRECTOR_NETWORK_NAME": "default",
-      "TRAFFICDIRECTOR_GCP_PROJECT_NUMBER": "635862331669",
+      "TRAFFICDIRECTOR_GCP_PROJECT_NUMBER": "247312067043",
       "version": "production"
     }
   },

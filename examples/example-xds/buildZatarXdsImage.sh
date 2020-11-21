@@ -2,7 +2,7 @@
 
 IMAGENAME=psms-grpc-xds
 TAG=1.07
-PROJECTID=meshca-gke-test
+PROJECTID=bct-staging-td-gke-consumer
 
 echo Building ${IMAGENAME}:${TAG}
 
