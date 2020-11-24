@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 PROJECT=bct-staging-td-gke-consumer
-CLUSTER_NAME=zatar-staging-nov23
+CLUSTER_NAME=zatar-staging-nov24
 CLUSTER_ZONE=us-west1-pj1
 CA_NAME=pkcs2-ca-staging
 CA_ZONE=us-central1
