@@ -77,6 +77,7 @@ public final class TlsContextManagerImpl implements TlsContextManager {
   public SslContextProvider findOrCreateServerSslContextProvider(
       DownstreamTlsContext downstreamTlsContext) {
     checkNotNull(downstreamTlsContext, "downstreamTlsContext");
+    logger.log(Level.INFO, "downstreamTlsContext=" + downstreamTlsContext);
     CommonTlsContext.Builder builder = downstreamTlsContext.getCommonTlsContext().toBuilder();
     builder = performCertInstanceOverride(builder);
     downstreamTlsContext =
@@ -91,6 +92,7 @@ public final class TlsContextManagerImpl implements TlsContextManager {
   public SslContextProvider findOrCreateClientSslContextProvider(
       UpstreamTlsContext upstreamTlsContext) {
     checkNotNull(upstreamTlsContext, "upstreamTlsContext");
+    logger.log(Level.INFO, "upstreamTlsContext=" + upstreamTlsContext);
     CommonTlsContext.Builder builder = upstreamTlsContext.getCommonTlsContext().toBuilder();
     builder = performCertInstanceOverride(builder);
     upstreamTlsContext = new UpstreamTlsContext(builder.build());
