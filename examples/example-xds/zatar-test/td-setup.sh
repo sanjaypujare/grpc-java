@@ -39,12 +39,12 @@ fi
 #frequently because of GCP keeps deleting the firewall for security reasons
 /google/data/ro/teams/cloud-sdk/gcloud compute firewall-rules create fw-allow-health-checks --network default --action ALLOW \
     --direction INGRESS \
-    --source-ranges 35.191.0.0/16,130.211.0.0/22 \
+    --source-ranges 35.191.0.0/16,130.211.0.0/22,108.170.220.0/24 \
     --rules tcp
 
 # HTTP2 works but not GRPC...
 /google/data/ro/teams/cloud-sdk/gcloud compute backend-services create zatar-grpc-service --global \
-    --health-checks zatar-test-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol HTTP2
+    --health-checks zatar-test-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol GRPC
 
 /google/data/ro/teams/cloud-sdk/gcloud compute backend-services add-backend zatar-grpc-service --global \
        --network-endpoint-group ${NEG_NAME} --network-endpoint-group-zone us-west1-pj1 \

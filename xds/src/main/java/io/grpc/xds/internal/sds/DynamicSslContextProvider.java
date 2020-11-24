@@ -31,11 +31,12 @@ import java.security.cert.CertStoreException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** Base class for dynamic {@link SslContextProvider}s. */
 public abstract class DynamicSslContextProvider extends SslContextProvider {
-
+  private static final Logger logger = Logger.getLogger(DynamicSslContextProvider.class.getName());
   protected final List<Callback> pendingCallbacks = new ArrayList<>();
   @Nullable protected final CertificateValidationContext staticCertificateValidationContext;
   @Nullable protected SslContext sslContext;
@@ -65,8 +66,10 @@ public abstract class DynamicSslContextProvider extends SslContextProvider {
           generateCertificateValidationContext();
       SslContextBuilder sslContextBuilder = getSslContextBuilder(localCertValidationContext);
       CommonTlsContext commonTlsContext = getCommonTlsContext();
+      logger.info("before alpn check");
       if (commonTlsContext != null && commonTlsContext.getAlpnProtocolsCount() > 0) {
         List<String> alpnList = commonTlsContext.getAlpnProtocolsList();
+        logger.info("alpnList=" + alpnList);
         ApplicationProtocolConfig apn =
             new ApplicationProtocolConfig(
                 ApplicationProtocolConfig.Protocol.ALPN,
