@@ -44,7 +44,7 @@ fi
 
 # HTTP2 works but not GRPC...
 /google/data/ro/teams/cloud-sdk/gcloud compute backend-services create zatar-grpc-service --global \
-    --health-checks zatar-test-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol GRPC
+    --health-checks zatar-test-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol HTTP2
 
 /google/data/ro/teams/cloud-sdk/gcloud compute backend-services add-backend zatar-grpc-service --global \
        --network-endpoint-group ${NEG_NAME} --network-endpoint-group-zone us-west1-pj1 \
