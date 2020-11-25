@@ -88,4 +88,4 @@ echo Now enter the zatar-grpc-server pod shell and run the server as follows:
 echo /build/install/example-xds/bin/hello-world-server-xds 8000 my-test-xds-server --secure
 
 echo Once server is running, enter zatar-grpc-client pod shell and run client:
-echo /build/install/example-xds/bin/hello-world-client-xds xds:///zatar-grpc-server:8000 my-xds-client --secure
+echo /build/install/example-xds/bin/hello-world-client-xds my-xds-client xds:///zatar-grpc-server:8000 --secure
