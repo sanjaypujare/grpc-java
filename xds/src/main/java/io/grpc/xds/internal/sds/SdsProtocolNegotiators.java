@@ -343,6 +343,8 @@ public final class SdsProtocolNegotiators {
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
       if (evt instanceof ProtocolNegotiationEvent) {
+        logger.log(Level.INFO, "xdsClientWrapperForServerSds {0}",
+            xdsClientWrapperForServerSds);
         DownstreamTlsContext downstreamTlsContext =
             xdsClientWrapperForServerSds == null
                 ? null
