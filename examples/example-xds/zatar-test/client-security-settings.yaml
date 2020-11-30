@@ -1,0 +1,4 @@
+securitySettings:
+  clientTlsPolicy: projects/bct-staging-td-gke-consumer/locations/global/clientTlsPolicies/client_mtls_policy
+  subjectAltNames:
+    - "spiffe://bct-staging-td-gke-consumer.svc.id.goog/ns/zatar-grpc-server/sa/zatar-grpc-server"
