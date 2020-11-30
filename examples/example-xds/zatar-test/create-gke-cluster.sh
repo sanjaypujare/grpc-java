@@ -1,9 +1,9 @@
 #!/bin/bash -x
 
 PROJECT=bct-staging-td-gke-consumer
-CLUSTER_NAME=zatar-staging-nov24
+CLUSTER_NAME=zatar-staging-nov30
 CLUSTER_ZONE=us-west1-pj1
-CA_NAME=pkcs2-ca-staging
+CA_NAME=pkcs2-ca-staging-nov30
 CA_ZONE=us-central1
 CA_URL=//privateca.googleapis.com/projects/${PROJECT}/locations/${CA_ZONE}/certificateAuthorities/${CA_NAME}
 
