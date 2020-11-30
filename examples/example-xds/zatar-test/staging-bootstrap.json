@@ -24,6 +24,7 @@
       ]
     }
   ],
+  "grpc_server_resource_name_id": "grpc/server",
   "certificate_providers": {
     "google_cloud_private_spiffe": {
       "plugin_name": "file_watcher",

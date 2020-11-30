@@ -10,18 +10,6 @@ RUN mkdir -p /build/install/example-xds
 
 ADD build/install/example-xds /build/install/example-xds
 
-#ENV GRPC_XDS_BOOTSTRAP=/staging-bootstrap.json
-
-#ENV JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
-
-#ENV GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT=true
-
-#ENV GRPC_XDS_CERT_INSTANCE_OVERRIDE=false
-
-#ENV GRPC_XDS_EXPERIMENTAL_V3_SUPPORT=true
-
-#ENV GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API=false
-
 ARG builddate
 ENV IMAGE_DATE=$builddate
 

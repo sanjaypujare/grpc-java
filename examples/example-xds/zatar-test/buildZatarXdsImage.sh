@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 IMAGENAME=psms-grpc-xds
-TAG=1.08
+TAG=1.09
 PROJECTID=bct-staging-td-gke-consumer
 
 echo Building ${IMAGENAME}:${TAG}
