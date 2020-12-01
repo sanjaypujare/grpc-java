@@ -24,6 +24,8 @@ import io.grpc.xds.Bootstrapper;
 import io.grpc.xds.EnvoyServerProtoData.DownstreamTlsContext;
 import io.grpc.xds.EnvoyServerProtoData.UpstreamTlsContext;
 import io.grpc.xds.internal.sds.ReferenceCountingMap.ValueFactory;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Class to manage {@link SslContextProvider} objects created from inputs we get from xDS. Used by
@@ -32,6 +34,7 @@ import io.grpc.xds.internal.sds.ReferenceCountingMap.ValueFactory;
  * ReferenceCountingMap}.
  */
 public final class TlsContextManagerImpl implements TlsContextManager {
+  private static final Logger logger = Logger.getLogger(TlsContextManagerImpl.class.getName());
 
   public static final String GOOGLE_CLOUD_PRIVATE_SPIFFE = "google_cloud_private_spiffe";
   private static TlsContextManagerImpl instance;
@@ -74,6 +77,7 @@ public final class TlsContextManagerImpl implements TlsContextManager {
   public SslContextProvider findOrCreateServerSslContextProvider(
       DownstreamTlsContext downstreamTlsContext) {
     checkNotNull(downstreamTlsContext, "downstreamTlsContext");
+    logger.log(Level.INFO, "downstreamTlsContext=" + downstreamTlsContext);
     CommonTlsContext.Builder builder = downstreamTlsContext.getCommonTlsContext().toBuilder();
     builder = performCertInstanceOverride(builder);
     downstreamTlsContext =
@@ -86,6 +90,7 @@ public final class TlsContextManagerImpl implements TlsContextManager {
   public SslContextProvider findOrCreateClientSslContextProvider(
       UpstreamTlsContext upstreamTlsContext) {
     checkNotNull(upstreamTlsContext, "upstreamTlsContext");
+    logger.log(Level.INFO, "upstreamTlsContext=" + upstreamTlsContext);
     CommonTlsContext.Builder builder = upstreamTlsContext.getCommonTlsContext().toBuilder();
     builder = performCertInstanceOverride(builder);
     upstreamTlsContext = new UpstreamTlsContext(builder.build());
@@ -96,6 +101,7 @@ public final class TlsContextManagerImpl implements TlsContextManager {
   CommonTlsContext.Builder performCertInstanceOverride(CommonTlsContext.Builder builder) {
     if (hasCertInstanceOverride) {
       if (builder.getTlsCertificateSdsSecretConfigsCount() > 0) {
+        logger.log(Level.INFO, "Doing CertProviderInstanceOverride for tlsCert");
         builder.setTlsCertificateCertificateProviderInstance(
             CommonTlsContext.CertificateProviderInstance.newBuilder()
                 .setInstanceName(GOOGLE_CLOUD_PRIVATE_SPIFFE));
@@ -104,6 +110,8 @@ public final class TlsContextManagerImpl implements TlsContextManager {
         CommonTlsContext.CombinedCertificateValidationContext.Builder ccvcBuilder =
                 builder.getCombinedValidationContextBuilder();
         if (ccvcBuilder.hasValidationContextSdsSecretConfig()) {
+          logger
+              .log(Level.INFO, "Doing CertProviderInstanceOverride for combinedValidationContext");
           ccvcBuilder =
               ccvcBuilder.setValidationContextCertificateProviderInstance(
                   CommonTlsContext.CertificateProviderInstance.newBuilder()
@@ -111,6 +119,7 @@ public final class TlsContextManagerImpl implements TlsContextManager {
           builder.setCombinedValidationContext(ccvcBuilder);
         }
       } else if (builder.hasValidationContextSdsSecretConfig()) {
+        logger.log(Level.INFO, "Doing CertProviderInstanceOverride for validationContext");
         builder.setValidationContextCertificateProviderInstance(
             CommonTlsContext.CertificateProviderInstance.newBuilder()
                 .setInstanceName(GOOGLE_CLOUD_PRIVATE_SPIFFE));
