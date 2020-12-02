@@ -101,7 +101,7 @@ spec:
         - name: GRPC_XDS_CERT_INSTANCE_OVERRIDE
           value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
-          value: "false"
+          value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API
           value: "false"
       serviceAccountName: zatar-grpc-server
@@ -161,9 +161,7 @@ spec:
         - name: GRPC_XDS_CERT_INSTANCE_OVERRIDE
           value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
-          value: "false"
-        - name: GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API
-          value: "false"
+          value: "true"
       serviceAccountName: zatar-grpc-client
       volumes:
       - name: gke-spiffe-certs-volume
