@@ -74,7 +74,9 @@ spec:
       - args:
         - --output
         - "/tmp/bootstrap/td-grpc-bootstrap.json"
-        image: gcr.io/trafficdirector-prod/td-grpc-bootstrap:0.9.0
+        - --include-v3-features
+        - --include-psm-security
+        image: gcr.io/meshca-gke-test/td-grpc-bootstrap:0.5
         imagePullPolicy: IfNotPresent
         name: grpc-td-init
         resources:
