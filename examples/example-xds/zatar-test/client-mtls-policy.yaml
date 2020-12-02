@@ -1,0 +1,7 @@
+name: “client_mtls_policy”
+clientCertificate:
+  grpcEndpoint:
+    targetUri: unix:/var/cert/node-agent.0
+serverValidationCa:
+  - grpcEndpoint:
+      targetUri: unix:/var/cert/node-agent.0
