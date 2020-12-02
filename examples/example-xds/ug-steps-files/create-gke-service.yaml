@@ -54,6 +54,14 @@ spec:
         env:
         - name: GRPC_XDS_BOOTSTRAP
           value: "/tmp/grpc-xds/td-grpc-bootstrap.json"
+        - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
+          value: "true"
+        - name: GRPC_XDS_CERT_INSTANCE_OVERRIDE
+          value: "true"
+        - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
+          value: "true"
+        - name: GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API
+          value: "true"
         ports:
         - protocol: TCP
           containerPort: 50051
