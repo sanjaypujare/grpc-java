@@ -75,7 +75,7 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/meshca-gke-test/psms-grpc-xds:2.01
+        image: gcr.io/meshca-gke-test/psms-grpc-xds:2.02
         imagePullPolicy: Always
         name: zatar-grpc-server
         ports:
@@ -91,6 +91,19 @@ spec:
         - mountPath: /var/run/gke-spiffe/certs
           name: gke-spiffe-certs-volume
           readOnly: true
+        env:
+        - name: GRPC_XDS_BOOTSTRAP
+          value: "/bootstrap.json"
+        - name: JAVA_OPTS
+          value: "-Djava.util.logging.config.file=/logging.properties"
+        - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
+          value: "true"
+        - name: GRPC_XDS_CERT_INSTANCE_OVERRIDE
+          value: "true"
+        - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
+          value: "false"
+        - name: GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API
+          value: "false"
       serviceAccountName: zatar-grpc-server
       volumes:
       - name: gke-spiffe-certs-volume
@@ -122,7 +135,7 @@ spec:
       - command:
         - /bin/sleep
         - inf
-        image: gcr.io/meshca-gke-test/psms-grpc-xds:2.01
+        image: gcr.io/meshca-gke-test/psms-grpc-xds:2.02
         imagePullPolicy: Always
         name: zatar-grpc-client
         #ports:
@@ -138,6 +151,19 @@ spec:
         - mountPath: /var/run/gke-spiffe/certs
           name: gke-spiffe-certs-volume
           readOnly: true
+        env:
+        - name: GRPC_XDS_BOOTSTRAP
+          value: "/bootstrap.json"
+        - name: JAVA_OPTS
+          value: "-Djava.util.logging.config.file=/logging.properties"
+        - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
+          value: "true"
+        - name: GRPC_XDS_CERT_INSTANCE_OVERRIDE
+          value: "true"
+        - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
+          value: "false"
+        - name: GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API
+          value: "false"
       serviceAccountName: zatar-grpc-client
       volumes:
       - name: gke-spiffe-certs-volume
