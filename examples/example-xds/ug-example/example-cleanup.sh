@@ -18,7 +18,7 @@ gcloud compute url-maps delete example-grpc-url-map --global -q
 
 gcloud compute backend-services delete example-grpc-service --global -q
 
-#gcloud alpha network-security client-tls-policies delete client_mtls_policy --location=global -q
+gcloud alpha network-security client-tls-policies delete client_mtls_policy --location=global -q
 
 gcloud compute firewall-rules delete fw-allow-health-checks  -q
 

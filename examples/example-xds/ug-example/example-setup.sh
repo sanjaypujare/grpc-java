@@ -63,5 +63,14 @@ gcloud alpha network-security server-tls-policies import server_mtls_policy \
 gcloud alpha network-services endpoint-config-selectors import ecs_mtls_psms \
   --source=ug-example/ecs-mtls-psms.yaml --location=global
 
-#echo Once server is running, enter example-grpc-client pod shell and run client:
-#echo /build/install/example-xds/bin/xds-hello-world-client --xds-creds my-xds-client xds:///example-grpc-server:8000
+# Create MTLS policy on the client side and attach to our backendService
+gcloud alpha network-security client-tls-policies import client_mtls_policy \
+  --source=ug-example/client-mtls-policy.yaml --location=global
+
+gcloud beta compute backend-services export example-grpc-service --global \
+  --destination=/tmp/example-grpc-service.yaml
+
+cat /tmp/example-grpc-service.yaml ug-example/client-security-settings.yaml >/tmp/example-grpc-service1.yaml
+
+gcloud beta compute backend-services import example-grpc-service --global \
+  --source=/tmp/example-grpc-service1.yaml -q
