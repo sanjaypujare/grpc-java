@@ -1,0 +1,7 @@
+FROM busybox
+
+ADD zatar-test/bootstrap.json /td-grpc-bootstrap.json
+
+ADD zatar-test/staging-bootstrap.json /staging-bootstrap.json
+
+ADD zatar-test/logging.properties /logging.properties

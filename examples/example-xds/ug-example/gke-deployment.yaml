@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: example-grpc-server
+  namespace: default
+  annotations:
+    iam.gke.io/gcp-service-account: 635862331669-compute@developer.gserviceaccount.com
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-grpc-server
+  namespace: default
+  labels:
+    k8s-app: example-grpc-server
+  annotations:
+    cloud.google.com/neg: '{"exposed_ports":{"8080":{}}}'
+spec:
+  ports:
+  - name: helloworld
+    port: 8080
+    protocol: TCP
+    targetPort: 50051
+  selector:
+    k8s-app: example-grpc-server
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-grpc-server
+  namespace: default
+  labels:
+    k8s-app: example-grpc-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: example-grpc-server
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        k8s-app: example-grpc-server
+        version: production
+    spec:
+      containers:
+      - image: openjdk:8-jdk
+        imagePullPolicy: IfNotPresent
+        name: example-grpc-server
+        command:
+        - /bin/sleep
+        - inf
+        env:
+        - name: GRPC_XDS_BOOTSTRAP
+          value: "/tmp/grpc-xds/td-grpc-bootstrap.json"
+        - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
+          value: "true"
+        - name: GRPC_XDS_CERT_INSTANCE_OVERRIDE
+          value: "true"
+        - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
+          value: "true"
+        - name: GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API
+          value: "true"
+        ports:
+        - protocol: TCP
+          containerPort: 50051
+        resources:
+          limits:
+            cpu: 800m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        volumeMounts:
+        - name: gke-spiffe-certs-volume
+          mountPath: /var/run/gke-spiffe/certs
+          readOnly: true
+        - name: grpc-td-conf
+          mountPath: /tmp/grpc-xds/
+      initContainers:
+      - name: grpc-td-init
+        image: gcr.io/meshca-gke-test/fake-bootstrap-generator:0.01
+        imagePullPolicy: Always
+        command:
+        - cp
+        - "/td-grpc-bootstrap.json"
+        - "/staging-bootstrap.json"
+        - "/logging.properties"
+        - "/tmp/bootstrap/"
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 100Mi
+        volumeMounts:
+        - name: grpc-td-conf
+          mountPath: /tmp/bootstrap/
+      serviceAccountName: example-grpc-server
+      volumes:
+      - name: gke-spiffe-certs-volume
+        csi:
+          driver: certs.spiffe.gke.io
+      - name: grpc-td-conf
+        emptyDir:
+          medium: Memory
