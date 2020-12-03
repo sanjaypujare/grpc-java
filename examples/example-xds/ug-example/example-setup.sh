@@ -63,8 +63,5 @@ gcloud alpha network-security server-tls-policies import server_mtls_policy \
 gcloud alpha network-services endpoint-config-selectors import ecs_mtls_psms \
   --source=ug-example/ecs-mtls-psms.yaml --location=global
 
-echo Now enter the zatar-grpc-server pod shell and run the server as follows:
-echo /build/install/example-xds/bin/xds-hello-world-server --xds-creds 8000 my-test-xds-server
-
-#echo Once server is running, enter zatar-grpc-client pod shell and run client:
+#echo Once server is running, enter example-grpc-client pod shell and run client:
 #echo /build/install/example-xds/bin/xds-hello-world-client --xds-creds my-xds-client xds:///example-grpc-server:8000
