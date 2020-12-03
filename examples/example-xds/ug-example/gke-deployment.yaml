@@ -54,6 +54,8 @@ spec:
         env:
         - name: GRPC_XDS_BOOTSTRAP
           value: "/tmp/grpc-xds/td-grpc-bootstrap.json"
+        - name: JAVA_OPTS
+          value: "-Djava.util.logging.config.file=/tmp/grpc-xds/logging.properties"
         - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
           value: "true"
         - name: GRPC_XDS_CERT_INSTANCE_OVERRIDE
@@ -61,7 +63,7 @@ spec:
         - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
           value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API
-          value: "true"
+          value: "false"
         ports:
         - protocol: TCP
           containerPort: 50051
