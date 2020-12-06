@@ -66,8 +66,6 @@ spec:
           value: "-Djava.util.logging.config.file=/tmp/grpc-xds/logging.properties"
         - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
           value: "true"
-        - name: GRPC_XDS_CERT_INSTANCE_OVERRIDE
-          value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
           value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API
@@ -149,8 +147,6 @@ spec:
         - name: JAVA_OPTS
           value: "-Djava.util.logging.config.file=/tmp/grpc-xds/logging.properties"
         - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
-          value: "true"
-        - name: GRPC_XDS_CERT_INSTANCE_OVERRIDE
           value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
           value: "true"
