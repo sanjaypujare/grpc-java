@@ -33,7 +33,7 @@ gcloud compute firewall-rules create fw-allow-health-checks --network default --
     --source-ranges 35.191.0.0/16,130.211.0.0/22 \
     --rules tcp
 
-# HTTP2 works but not GRPC...
+# HTTP2 works but not GRPC pending rollout of cl/344854138
 gcloud compute backend-services create example-grpc-service --global \
     --health-checks example-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol HTTP2
 
@@ -44,10 +44,12 @@ gcloud compute backend-services add-backend example-grpc-service --global \
 gcloud compute url-maps create example-grpc-url-map --default-service example-grpc-service
 
 gcloud compute url-maps add-path-matcher example-grpc-url-map --default-service  example-grpc-service \
-       --path-matcher-name example-grpc-path-matcher
+       --path-matcher-name example-grpc-path-matcher \
+       --new-hosts example-grpc-server:8000
 
-gcloud compute url-maps add-host-rule example-grpc-url-map --hosts example-grpc-server:8000 \
-       --path-matcher-name example-grpc-path-matcher
+# TODO: remove once new flow is confirmed with proxyless
+#gcloud compute url-maps add-host-rule example-grpc-url-map --hosts example-grpc-server:8000 \
+#       --path-matcher-name example-grpc-path-matcher
 
 gcloud compute target-grpc-proxies create example-grpc-proxy --url-map example-grpc-url-map
 
