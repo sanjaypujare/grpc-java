@@ -6,7 +6,7 @@ trafficPortSelector:
   - "50051"
 endpointMatcher:
   metadataLabelMatcher:
-    metadataLabelMatchCriteria: "MATCH_ALL"
+    metadataLabelMatchCriteria: "MATCH_ANY"
     metadataLabels:
       - labelName: "version"
         labelValue: "production"
