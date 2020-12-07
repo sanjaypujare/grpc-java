@@ -68,8 +68,6 @@ spec:
           value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
           value: "true"
-        - name: GRPC_XDS_EXPERIMENTAL_NEW_SERVER_API
-          value: "false"
         ports:
         - protocol: TCP
           containerPort: 50051
