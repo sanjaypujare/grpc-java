@@ -10,9 +10,6 @@ gcloud compute forwarding-rules delete example-grpc-forwarding-rule --global -q
 
 gcloud compute target-grpc-proxies delete example-grpc-proxy -q
 
-# TODO: remove once new flow is confirmed with proxyless
-#gcloud compute url-maps remove-host-rule example-grpc-url-map --host example-grpc-server:8000
-
 gcloud compute url-maps remove-path-matcher example-grpc-url-map --path-matcher-name example-grpc-path-matcher --global -q
 
 gcloud compute url-maps delete example-grpc-url-map --global -q
