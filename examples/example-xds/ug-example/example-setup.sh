@@ -42,14 +42,6 @@ gcloud compute backend-services add-backend example-grpc-service --global \
        --network-endpoint-group ${NEG_NAME} --network-endpoint-group-zone ${CLUSTER_ZONE} \
        --balancing-mode RATE     --max-rate-per-endpoint 5
 
-gcloud compute url-maps create example-grpc-url-map --default-service example-grpc-service
-
-gcloud compute url-maps add-path-matcher example-grpc-url-map --default-service  example-grpc-service \
-       --path-matcher-name example-grpc-path-matcher \
-       --new-hosts example-grpc-server:8000
-
-gcloud compute target-grpc-proxies create example-grpc-proxy --url-map example-grpc-url-map
-
 # Create MTLS policy on the server side and attach to an ECS
 gcloud alpha network-security server-tls-policies import server_mtls_policy \
   --source=ug-example/server-mtls-policy.yaml --location=global
@@ -68,6 +60,16 @@ cat /tmp/example-grpc-service.yaml ug-example/client-security-settings.yaml >/tm
 
 gcloud beta compute backend-services import example-grpc-service --global \
   --source=/tmp/example-grpc-service1.yaml -q
+
+# finish the remaining routing/LB steps
+sleep 20s
+gcloud compute url-maps create example-grpc-url-map --default-service example-grpc-service
+
+gcloud compute url-maps add-path-matcher example-grpc-url-map --default-service  example-grpc-service \
+       --path-matcher-name example-grpc-path-matcher \
+       --new-hosts example-grpc-server:8000
+
+gcloud compute target-grpc-proxies create example-grpc-proxy --url-map example-grpc-url-map
 
 gcloud compute forwarding-rules create example-grpc-forwarding-rule --global \
   --load-balancing-scheme=INTERNAL_SELF_MANAGED --address=0.0.0.0 \
