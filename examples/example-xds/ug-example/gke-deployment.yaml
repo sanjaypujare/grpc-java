@@ -62,8 +62,6 @@ spec:
         env:
         - name: GRPC_XDS_BOOTSTRAP
           value: "/tmp/grpc-xds/td-grpc-bootstrap.json"
-        - name: JAVA_OPTS
-          value: "-Djava.util.logging.config.file=/tmp/grpc-xds/logging.properties"
         - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
           value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
@@ -86,14 +84,19 @@ spec:
           mountPath: /tmp/grpc-xds/
       initContainers:
       - name: grpc-td-init
-        image: gcr.io/meshca-gke-test/fake-bootstrap-generator:0.01
+        image: gcr.io/meshca-gke-test/td-grpc-bootstrap:0.6
         imagePullPolicy: Always
-        command:
-        - cp
-        - "/td-grpc-bootstrap.json"
-        - "/staging-bootstrap.json"
-        - "/logging.properties"
-        - "/tmp/bootstrap/"
+        args:
+        - --output
+        - "/tmp/bootstrap/td-grpc-bootstrap.json"
+        - --gcp-project-number
+        - "635862331669"
+        - --locality-zone
+        - "us-west1-b"
+        - --include-v3-features-experimental
+        - --include-psm-security-experimental
+        - --node-metadata-experimental
+        - "version=production"
         resources:
           limits:
             cpu: 100m
@@ -142,8 +145,6 @@ spec:
         env:
         - name: GRPC_XDS_BOOTSTRAP
           value: "/tmp/grpc-xds/td-grpc-bootstrap.json"
-        - name: JAVA_OPTS
-          value: "-Djava.util.logging.config.file=/tmp/grpc-xds/logging.properties"
         - name: GRPC_XDS_EXPERIMENTAL_SECURITY_SUPPORT
           value: "true"
         - name: GRPC_XDS_EXPERIMENTAL_V3_SUPPORT
@@ -163,14 +164,17 @@ spec:
           mountPath: /tmp/grpc-xds/
       initContainers:
       - name: grpc-td-init
-        image: gcr.io/meshca-gke-test/fake-bootstrap-generator:0.01
+        image: gcr.io/meshca-gke-test/td-grpc-bootstrap:0.6
         imagePullPolicy: Always
-        command:
-        - cp
-        - "/td-grpc-bootstrap.json"
-        - "/staging-bootstrap.json"
-        - "/logging.properties"
-        - "/tmp/bootstrap/"
+        args:
+        - --output
+        - "/tmp/bootstrap/td-grpc-bootstrap.json"
+        - --gcp-project-number
+        - "635862331669"
+        - --locality-zone
+        - "us-west1-b"
+        - --include-v3-features-experimental
+        - --include-psm-security-experimental
         resources:
           limits:
             cpu: 100m
