@@ -18,3 +18,13 @@ build/install/example-xds/bin/xds-hello-world-client --xds-creds my-xds-client x
 apt-get update &&\
   apt-get install -y jove &&\
   apt-get clean
+
+------------------------------------------------------------------
+Copy the bootstrap generator container from grpc-testing to meshca-gke-test
+docker save -o ~/test/bsn.tar gcr.io/grpc-testing/td-grpc-bootstrap:66de7ea0e170351c9fae17232b81adbfb3e80ec3
+docker load -i ~/test/bsn.tar
+docker image list
+(from the output above find the image id of gcr.io/grpc-testing/td-grpc-bootstrap:66de7ea0e170351c9fae17232b81adbfb3e80ec3
+   as 2bdfc2ba31c6)
+docker tag 2bdfc2ba31c6 gcr.io/meshca-gke-test/td-grpc-bootstrap:0.6
+docker push gcr.io/meshca-gke-test/td-grpc-bootstrap:0.6

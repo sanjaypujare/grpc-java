@@ -38,7 +38,7 @@ gcloud compute backend-services create example-grpc-service --global \
     --health-checks example-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol HTTP2
 
 gcloud compute backend-services add-backend example-grpc-service --global \
-       --network-endpoint-group ${NEG_NAME} --network-endpoint-group-zone us-west1-b \
+       --network-endpoint-group ${NEG_NAME} --network-endpoint-group-zone us-east1-d \
        --balancing-mode RATE     --max-rate-per-endpoint 5
 
 gcloud compute url-maps create example-grpc-url-map --default-service example-grpc-service
