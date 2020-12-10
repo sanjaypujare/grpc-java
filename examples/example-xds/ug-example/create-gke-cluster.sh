@@ -3,8 +3,8 @@
 ME=sanjaypujare@google.com
 PROJECT=meshca-gke-test
 SA_NAME=me-sa-name    # Needs to be at least 6 characters.
-CLUSTER_NAME=zatar-neg-dec9
-CLUSTER_ZONE=us-east1-d
+CLUSTER_NAME=zatar-neg-dec10
+CLUSTER_ZONE=us-west1-a
 CA_NAME=pkcs2-ca
 CA_ZONE=us-west1
 SA=${SA_NAME}@${PROJECT}.iam.gserviceaccount.com

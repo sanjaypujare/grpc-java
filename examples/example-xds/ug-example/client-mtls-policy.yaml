@@ -1,4 +1,4 @@
-name: “client_mtls_policy”
+name: "client_mtls_policy"
 clientCertificate:
   certificateProviderInstance:
     pluginInstance: google_cloud_private_spiffe

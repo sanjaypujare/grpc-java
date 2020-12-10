@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 # this script creates server side stuff
-CLUSTER_ZONE=us-east1-d
+CLUSTER_ZONE=us-west1-a
 
 # first deploy our service
 kubectl apply -f ug-example/gke-deployment.yaml
