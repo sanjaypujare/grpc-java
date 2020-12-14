@@ -32,7 +32,7 @@ gcloud compute health-checks create tcp example-health-check --use-serving-port
 gcloud compute firewall-rules create fw-allow-health-checks --network default --action ALLOW \
     --direction INGRESS \
     --source-ranges 35.191.0.0/16,130.211.0.0/22 \
-    --rules tcp
+    --target-tags allow-health-checks --rules tcp
 
 # HTTP2 works but not GRPC pending rollout of cl/344854138
 gcloud compute backend-services create example-grpc-service --global \
