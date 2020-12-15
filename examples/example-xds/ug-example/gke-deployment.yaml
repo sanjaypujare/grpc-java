@@ -89,10 +89,6 @@ spec:
         args:
         - --output
         - "/tmp/bootstrap/td-grpc-bootstrap.json"
-        - --gcp-project-number
-        - "635862331669"
-        - --locality-zone
-        - "us-west1-b"
         - --include-v3-features-experimental
         - --include-psm-security-experimental
         - --node-metadata-experimental
@@ -169,10 +165,6 @@ spec:
         args:
         - --output
         - "/tmp/bootstrap/td-grpc-bootstrap.json"
-        - --gcp-project-number
-        - "635862331669"
-        - --locality-zone
-        - "us-west1-b"
         - --include-v3-features-experimental
         - --include-psm-security-experimental
         resources:
