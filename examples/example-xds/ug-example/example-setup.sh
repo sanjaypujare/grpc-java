@@ -10,8 +10,8 @@ sleep 20s
 
 NEG_NAME=$(gcloud beta compute network-endpoint-groups list | grep example-grpc-server | grep ${CLUSTER_ZONE} | awk '{print $1}')
 
-if [ x${NEG_NAME} = x ]; then
-    echo NEG_NAME is not set, some issue with the deployment ug-steps-files/create-gke-service.yaml. Exiting...
+if [ x${NEG_NAME} != xexample-grpc-server ]; then
+    echo NEG_NAME is not set, some issue with the deployment ug-example/gke-deployment.yaml. Exiting...
     exit 1
 fi
 

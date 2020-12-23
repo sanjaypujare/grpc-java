@@ -22,7 +22,7 @@ metadata:
   labels:
     k8s-app: example-grpc-server
   annotations:
-    cloud.google.com/neg: '{"exposed_ports":{"8080":{}}}'
+    cloud.google.com/neg: '{"exposed_ports":{"8080":{"name": "example-grpc-server"}}}'
 spec:
   ports:
   - name: helloworld
