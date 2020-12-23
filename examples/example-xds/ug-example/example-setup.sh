@@ -34,9 +34,8 @@ gcloud compute firewall-rules create fw-allow-health-checks --network default --
     --source-ranges 35.191.0.0/16,130.211.0.0/22 \
     --target-tags allow-health-checks --rules tcp
 
-# HTTP2 works but not GRPC pending rollout of cl/344854138
 gcloud compute backend-services create example-grpc-service --global \
-    --health-checks example-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol HTTP2
+    --health-checks example-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol GRPC
 
 gcloud compute backend-services add-backend example-grpc-service --global \
        --network-endpoint-group ${NEG_NAME} --network-endpoint-group-zone ${CLUSTER_ZONE} \
