@@ -53,8 +53,8 @@ spec:
         version: production
     spec:
       containers:
-      - image: openjdk:8-jdk
-        imagePullPolicy: IfNotPresent
+      - image: gcr.io/meshca-gke-test/example-grpc:0.09
+        imagePullPolicy: Always
         name: example-grpc-server
         command:
         - /bin/sleep
@@ -132,8 +132,8 @@ spec:
         version: production
     spec:
       containers:
-      - image: openjdk:8-jdk
-        imagePullPolicy: IfNotPresent
+      - image: gcr.io/meshca-gke-test/example-grpc:0.09
+        imagePullPolicy: Always
         name: example-grpc-client
         command:
         - /bin/sleep
