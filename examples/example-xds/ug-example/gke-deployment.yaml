@@ -93,8 +93,6 @@ spec:
         - "/tmp/bootstrap/td-grpc-bootstrap.json"
         - --include-v3-features-experimental
         - --include-psm-security-experimental
-        - --node-metadata-experimental
-        - "version=production"
         resources:
           limits:
             cpu: 100m
