@@ -50,7 +50,6 @@ spec:
     metadata:
       labels:
         k8s-app: example-grpc-server
-        version: production
     spec:
       containers:
       - image: gcr.io/meshca-gke-test/example-grpc:0.09
@@ -129,7 +128,6 @@ spec:
     metadata:
       labels:
         k8s-app: example-grpc-client
-        version: production
     spec:
       containers:
       - image: gcr.io/meshca-gke-test/example-grpc:0.09
