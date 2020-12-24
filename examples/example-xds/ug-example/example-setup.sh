@@ -38,7 +38,7 @@ gcloud compute backend-services create example-grpc-service --global \
     --health-checks example-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol GRPC
 
 gcloud compute backend-services add-backend example-grpc-service --global \
-       --network-endpoint-group ${NEG_NAME} --network-endpoint-group-zone ${CLUSTER_ZONE} \
+       --network-endpoint-group example-grpc-server --network-endpoint-group-zone ${CLUSTER_ZONE} \
        --balancing-mode RATE     --max-rate-per-endpoint 5
 
 # Create MTLS policy on the server side and attach to an ECS
