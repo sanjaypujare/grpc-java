@@ -68,7 +68,8 @@ gcloud compute url-maps add-path-matcher example-grpc-url-map --default-service 
        --path-matcher-name example-grpc-path-matcher \
        --new-hosts example-grpc-server:8000
 
-gcloud compute target-grpc-proxies create example-grpc-proxy --url-map example-grpc-url-map
+gcloud compute target-grpc-proxies create example-grpc-proxy --url-map example-grpc-url-map \
+       --validate-for-proxyless
 
 gcloud compute forwarding-rules create example-grpc-forwarding-rule --global \
   --load-balancing-scheme=INTERNAL_SELF_MANAGED --address=0.0.0.0 \
