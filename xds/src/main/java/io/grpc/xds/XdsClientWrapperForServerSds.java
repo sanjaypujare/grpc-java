@@ -117,8 +117,9 @@ public final class XdsClientWrapperForServerSds {
     String grpcServerResourceId = bootstrapInfo.getGrpcServerResourceId();
     if (newServerApi && grpcServerResourceId == null) {
       reportError(
-          Status.INVALID_ARGUMENT.withDescription("missing grpc_server_resource_name_id value"));
-      throw new IOException("missing grpc_server_resource_name_id value");
+          Status.INVALID_ARGUMENT.withDescription(
+              "missing server_listener_resource_name_template value"));
+      throw new IOException("server_listener_resource_name_template value");
     }
     XdsClient xdsClientImpl =
         new ServerXdsClient(

@@ -87,8 +87,7 @@ final class ServerXdsClient extends AbstractXdsClient {
     listenerPort = port;
     if (useNewApiForListenerQuery) {
       String listeningAddress = instanceIp + ":" + listenerPort;
-      grpcServerResourceId =
-          grpcServerResourceId + "?udpa.resource.listening_address=" + listeningAddress;
+      grpcServerResourceId = String.format(grpcServerResourceId, listeningAddress);
     } else {
       grpcServerResourceId = ":" + listenerPort;
     }
