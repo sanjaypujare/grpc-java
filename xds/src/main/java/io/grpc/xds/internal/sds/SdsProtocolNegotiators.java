@@ -433,14 +433,18 @@ public final class SdsProtocolNegotiators {
 
             @Override
             public void updateSecret(SslContext sslContext) {
-              ChannelHandler handler =
-                  InternalProtocolNegotiators.serverTls(sslContext).newHandler(grpcHandler);
+              logger.info("entry");
 
               // Delegate rest of handshake to TLS handler
               if (!ctx.isRemoved()) {
+                ChannelHandler handler =
+                    InternalProtocolNegotiators.serverTls(sslContext).newHandler(grpcHandler);
+
                 ctx.pipeline().addAfter(ctx.name(), null, handler);
                 fireProtocolNegotiationEvent(ctx);
                 ctx.pipeline().remove(bufferReads);
+              } else {
+                logger.warning("ctx removed! freeMemory=" + Runtime.getRuntime().freeMemory());
               }
               TlsContextManagerImpl.getInstance()
                   .releaseServerSslContextProvider(sslContextProvider);
