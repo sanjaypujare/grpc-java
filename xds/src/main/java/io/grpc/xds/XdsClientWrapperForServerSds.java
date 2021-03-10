@@ -75,7 +75,8 @@ public final class XdsClientWrapperForServerSds {
   @Nullable private XdsClient xdsClient;
   private final int port;
   private ScheduledExecutorService timeService;
-  private XdsClient.ListenerWatcher listenerWatcher;
+  private XdsClient.LdsResourceWatcher listenerWatcher;
+  String grpcServerResource;
   private boolean newServerApi;
   @VisibleForTesting final Set<ServerWatcher> serverWatchers = new HashSet<>();
 
@@ -112,20 +113,18 @@ public final class XdsClientWrapperForServerSds {
             .keepAliveTime(5, TimeUnit.MINUTES).build();
     timeService = SharedResourceHolder.get(timeServiceResource);
     newServerApi = serverInfo.isUseProtocolV3();
-    String grpcServerResourceId = bootstrapInfo.getGrpcServerResourceId();
-    if (newServerApi && grpcServerResourceId == null) {
+    grpcServerResource = bootstrapInfo.getGrpcServerResourceId();
+    if (newServerApi && grpcServerResource == null) {
       throw new IOException("missing grpc_server_resource_name_id value in xds bootstrap");
     }
     XdsClient xdsClientImpl =
-        new ServerXdsClient(
+        new ClientXdsClient(
             channel,
             serverInfo.isUseProtocolV3(),
             node,
             timeService,
             new ExponentialBackoffPolicy.Provider(),
-            GrpcUtil.STOPWATCH_SUPPLIER,
-            "0.0.0.0",
-            grpcServerResourceId);
+            GrpcUtil.STOPWATCH_SUPPLIER);
     start(xdsClientImpl);
   }
 
@@ -136,10 +135,10 @@ public final class XdsClientWrapperForServerSds {
     checkNotNull(xdsClient, "xdsClient");
     this.xdsClient = xdsClient;
     this.listenerWatcher =
-        new XdsClient.ListenerWatcher() {
+        new XdsClient.LdsResourceWatcher() {
           @Override
-          public void onListenerChanged(XdsClient.ListenerUpdate update) {
-            curListener = update.getListener();
+          public void onChanged(XdsClient.LdsUpdate update) {
+            curListener = update.listener;
             reportSuccess();
           }
 
@@ -157,7 +156,9 @@ public final class XdsClientWrapperForServerSds {
             reportError(error.asException(), isResourceAbsent(error));
           }
         };
-    xdsClient.watchListenerData(port, listenerWatcher);
+    String listeningAddress = "0.0.0.0:" + port;
+    grpcServerResource = grpcServerResource.replaceAll("%s", listeningAddress);
+    xdsClient.watchLdsResource(grpcServerResource, listenerWatcher);
   }
 
   /** Whether the throwable indicates our listener resource is absent/deleted. */
@@ -416,7 +417,7 @@ public final class XdsClientWrapperForServerSds {
   }
 
   @VisibleForTesting
-  XdsClient.ListenerWatcher getListenerWatcher() {
+  XdsClient.LdsResourceWatcher getListenerWatcher() {
     return listenerWatcher;
   }
 
