@@ -24,11 +24,7 @@ import static org.mockito.Mockito.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Message;
-import com.google.protobuf.UInt32Value;
-import com.google.protobuf.UInt64Value;
+import com.google.protobuf.*;
 import com.google.protobuf.util.Durations;
 import io.envoyproxy.envoy.config.cluster.v3.CircuitBreakers;
 import io.envoyproxy.envoy.config.cluster.v3.CircuitBreakers.Thresholds;
@@ -780,8 +776,8 @@ public class ClientXdsClientV3Test extends ClientXdsClientTestBase {
     verify(ldsResourceWatcher).onResourceDoesNotExist(LISTENER_RESOURCE);
     assertThat(fakeClock.getPendingTasks(LDS_RESOURCE_FETCH_TIMEOUT_TASK_FILTER)).isEmpty();
 
+    // next test: listener_filters
     call.resetRequestObserver();
-
     listener = Listener.newBuilder()
             .setName(LISTENER_RESOURCE)
             .setTrafficDirection(TrafficDirection.INBOUND)
@@ -797,7 +793,26 @@ public class ClientXdsClientV3Test extends ClientXdsClientTestBase {
             "",
             "0001",
             NODE,
-            "Listener grpc/server?xds.resource.listening_address=0.0.0.0:7000 cannot have listener-filters");
+            "Listener grpc/server?xds.resource.listening_address=0.0.0.0:7000 cannot have listener_filters");
+
+    // next test: use_original_dst
+    call.resetRequestObserver();
+    listener = Listener.newBuilder()
+            .setName(LISTENER_RESOURCE)
+            .setTrafficDirection(TrafficDirection.INBOUND)
+            .setUseOriginalDst(BoolValue.of(true))
+            .build();
+
+    listeners = ImmutableList.of(Any.pack(listener));
+    call.sendResponse(ResourceType.LDS, listeners, "2", "0002");
+    // NACK the response.
+    call.verifyRequest(
+            ResourceType.LDS,
+            Collections.singletonList(LISTENER_RESOURCE),
+            "",
+            "0002",
+            NODE,
+            "Listener grpc/server?xds.resource.listening_address=0.0.0.0:7000 cannot have use_original_dst set to true");
   }
 
   @Override
