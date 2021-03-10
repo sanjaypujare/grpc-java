@@ -296,6 +296,9 @@ final class ClientXdsClient extends AbstractXdsClient {
     if (!listener.getTrafficDirection().equals(TrafficDirection.INBOUND)) {
       return "Listener " + listener.getName() + " is not INBOUND";
     }
+    if (!listener.getListenerFiltersList().isEmpty()) {
+      return "Listener " + listener.getName() + " cannot have listener-filters";
+    }
     // TODO(sanjaypujare): add validations based on gRFC
     //  https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md
     return null;

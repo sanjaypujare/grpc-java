@@ -17,6 +17,7 @@
 package io.grpc.xds;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -179,6 +180,13 @@ public class ClientXdsClientV2Test extends ClientXdsClientTestBase {
         EnvoyProtoData.Node node) {
       verify(requestObserver).onNext(argThat(new DiscoveryRequestMatcher(
           node.toEnvoyProtoNodeV2(), versionInfo, resources, type.typeUrlV2(), nonce)));
+    }
+
+    @Override
+    protected void verifyRequest(
+        ResourceType type, List<String> resources, String versionInfo, String nonce,
+        EnvoyProtoData.Node node, String errorDetail) {
+      fail("unsupported call");
     }
 
     @Override

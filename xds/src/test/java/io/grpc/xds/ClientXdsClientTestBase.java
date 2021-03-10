@@ -1335,6 +1335,11 @@ public abstract class ClientXdsClientTestBase {
     protected abstract void verifyRequest(
         ResourceType type, List<String> resources, String versionInfo, String nonce, Node node);
 
+    protected abstract void verifyRequest(
+        ResourceType type, List<String> resources, String versionInfo, String nonce, Node node,
+        String errorDetail);
+
+
     protected void verifyRequest(
         ResourceType type, String resource, String versionInfo, String nonce, Node node) {
       verifyRequest(type, ImmutableList.of(resource), versionInfo, nonce, node);

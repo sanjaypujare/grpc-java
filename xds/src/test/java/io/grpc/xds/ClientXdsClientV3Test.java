@@ -193,7 +193,15 @@ public class ClientXdsClientV3Test extends ClientXdsClientTestBase {
         ResourceType type, List<String> resources, String versionInfo, String nonce,
         EnvoyProtoData.Node node) {
       verify(requestObserver).onNext(argThat(new DiscoveryRequestMatcher(
-          node.toEnvoyProtoNode(), versionInfo, resources, type.typeUrl(), nonce)));
+          node.toEnvoyProtoNode(), versionInfo, resources, type.typeUrl(), nonce, null)));
+    }
+
+    @Override
+    protected void verifyRequest(
+        ResourceType type, List<String> resources, String versionInfo, String nonce,
+        EnvoyProtoData.Node node, String errorDetail) {
+      verify(requestObserver).onNext(argThat(new DiscoveryRequestMatcher(
+          node.toEnvoyProtoNode(), versionInfo, resources, type.typeUrl(), nonce, errorDetail)));
     }
 
     @Override
@@ -613,14 +621,16 @@ public class ClientXdsClientV3Test extends ClientXdsClientTestBase {
     private final String typeUrl;
     private final Set<String> resources;
     private final String responseNonce;
+    private final String errorDetail;
 
     private DiscoveryRequestMatcher(Node node, String versionInfo, List<String> resources,
-        String typeUrl, String responseNonce) {
+        String typeUrl, String responseNonce, String errorDetail) {
       this.node = node;
       this.versionInfo = versionInfo;
       this.resources = new HashSet<>(resources);
       this.typeUrl = typeUrl;
       this.responseNonce = responseNonce;
+      this.errorDetail = errorDetail;
     }
 
     @Override
@@ -635,6 +645,10 @@ public class ClientXdsClientV3Test extends ClientXdsClientTestBase {
         return false;
       }
       if (!resources.equals(new HashSet<>(argument.getResourceNamesList()))) {
+        return false;
+      }
+      com.google.rpc.Status errorStatus = argument.getErrorDetail();
+      if (errorDetail != null && !errorDetail.equals(errorStatus.getMessage())) {
         return false;
       }
       return node.equals(argument.getNode());
@@ -747,8 +761,13 @@ public class ClientXdsClientV3Test extends ClientXdsClientTestBase {
     List<Any> listeners = ImmutableList.of(Any.pack(listener));
     call.sendResponse(ResourceType.LDS, listeners, "0", "0000");
     // NACK the response.
-    call.verifyRequest(ResourceType.LDS, Collections.singletonList(LISTENER_RESOURCE), "",
-        "0000", NODE);
+    call.verifyRequest(
+        ResourceType.LDS,
+        Collections.singletonList(LISTENER_RESOURCE),
+        "",
+        "0000",
+        NODE,
+        "Listener grpc/server?xds.resource.listening_address=0.0.0.0:7000 is not INBOUND");
 
     verifyNoInteractions(ldsResourceWatcher);
     fakeClock.forwardTime(ClientXdsClient.INITIAL_RESOURCE_FETCH_TIMEOUT_SEC, TimeUnit.SECONDS);
