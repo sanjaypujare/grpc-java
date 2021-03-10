@@ -1357,6 +1357,10 @@ public abstract class ClientXdsClientTestBase {
     protected abstract void sendError(Throwable t);
 
     protected abstract void sendCompleted();
+
+    protected abstract void resetRequestObserver();
+
+    protected abstract void resetResponseObserver();
   }
 
   protected abstract static class LrsRpcCall {

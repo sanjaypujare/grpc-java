@@ -19,12 +19,7 @@ package io.grpc.xds;
 import static com.google.common.truth.Truth.assertThat;
 import static io.grpc.xds.AbstractXdsClient.ResourceType.LDS;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -68,6 +63,7 @@ import io.envoyproxy.envoy.config.endpoint.v3.LocalityLbEndpoints;
 import io.envoyproxy.envoy.config.listener.v3.ApiListener;
 import io.envoyproxy.envoy.config.listener.v3.FilterChain;
 import io.envoyproxy.envoy.config.listener.v3.Listener;
+import io.envoyproxy.envoy.config.listener.v3.ListenerFilter;
 import io.envoyproxy.envoy.config.route.v3.Route;
 import io.envoyproxy.envoy.config.route.v3.RouteAction;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
@@ -230,6 +226,16 @@ public class ClientXdsClientV3Test extends ClientXdsClientTestBase {
     @Override
     protected void sendCompleted() {
       responseObserver.onCompleted();
+    }
+
+    @Override
+    protected void resetRequestObserver() {
+      reset(requestObserver);
+    }
+
+    @Override
+    protected void resetResponseObserver() {
+      reset(responseObserver);
     }
   }
 
@@ -773,6 +779,25 @@ public class ClientXdsClientV3Test extends ClientXdsClientTestBase {
     fakeClock.forwardTime(ClientXdsClient.INITIAL_RESOURCE_FETCH_TIMEOUT_SEC, TimeUnit.SECONDS);
     verify(ldsResourceWatcher).onResourceDoesNotExist(LISTENER_RESOURCE);
     assertThat(fakeClock.getPendingTasks(LDS_RESOURCE_FETCH_TIMEOUT_TASK_FILTER)).isEmpty();
+
+    call.resetRequestObserver();
+
+    listener = Listener.newBuilder()
+            .setName(LISTENER_RESOURCE)
+            .setTrafficDirection(TrafficDirection.INBOUND)
+            .addListenerFilters(ListenerFilter.newBuilder().build())
+            .build();
+
+    listeners = ImmutableList.of(Any.pack(listener));
+    call.sendResponse(ResourceType.LDS, listeners, "1", "0001");
+    // NACK the response.
+    call.verifyRequest(
+            ResourceType.LDS,
+            Collections.singletonList(LISTENER_RESOURCE),
+            "",
+            "0001",
+            NODE,
+            "Listener grpc/server?xds.resource.listening_address=0.0.0.0:7000 cannot have listener-filters");
   }
 
   @Override

@@ -19,10 +19,7 @@ package io.grpc.xds;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.*;
 
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.Any;
@@ -215,6 +212,16 @@ public class ClientXdsClientV2Test extends ClientXdsClientTestBase {
     @Override
     protected void sendCompleted() {
       responseObserver.onCompleted();
+    }
+
+    @Override
+    protected void resetRequestObserver() {
+      reset(requestObserver);
+    }
+
+    @Override
+    protected void resetResponseObserver() {
+      reset(responseObserver);
     }
   }
 
