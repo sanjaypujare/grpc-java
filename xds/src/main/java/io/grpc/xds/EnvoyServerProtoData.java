@@ -22,14 +22,15 @@ import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.envoyproxy.envoy.config.core.v3.Address;
 import io.envoyproxy.envoy.config.core.v3.SocketAddress;
+import io.envoyproxy.envoy.config.core.v3.TrafficDirection;
+import io.envoyproxy.envoy.config.listener.v3.Filter;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager;
+import io.envoyproxy.envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter;
 import io.envoyproxy.envoy.extensions.transport_sockets.tls.v3.CommonTlsContext;
 import io.grpc.Internal;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import javax.annotation.Nullable;
 
 /**
@@ -359,12 +360,55 @@ public final class EnvoyServerProtoData {
     }
 
     static FilterChain fromEnvoyProtoFilterChain(
-        io.envoyproxy.envoy.config.listener.v3.FilterChain proto)
-        throws InvalidProtocolBufferException {
+            io.envoyproxy.envoy.config.listener.v3.FilterChain filterChain, boolean isDefaultFilterChain)
+        throws InvalidProtocolBufferException, IllegalArgumentException {
+
+      if (!isDefaultFilterChain && filterChain.getFiltersList().isEmpty()) {
+        // TODO(sanjaypujare): once TD is fixed to supply default filter chain remove the isDefaultFilterChain check
+        throw new IllegalArgumentException("filerChain " + filterChain.getName() + " has to have envoy.http_connection_manager");
+      }
+      HashSet<String> uniqueNames = new HashSet<>();
+      for (Filter filter : filterChain.getFiltersList()) {
+        if (!uniqueNames.add(filter.getName())) {
+          throw new IllegalArgumentException("filerChain " + filterChain.getName() + " has non-unique filter name:" + filter.getName());
+        }
+        validateFilter(filter);
+      }
       return new FilterChain(
-          FilterChainMatch.fromEnvoyProtoFilterChainMatch(proto.getFilterChainMatch()),
-          getTlsContextFromFilterChain(proto)
+          FilterChainMatch.fromEnvoyProtoFilterChainMatch(filterChain.getFilterChainMatch()),
+          getTlsContextFromFilterChain(filterChain)
       );
+    }
+
+    private static void validateFilter(Filter filter) throws InvalidProtocolBufferException, IllegalArgumentException {
+      if (!"envoy.http_connection_manager".equals(filter.getName())) {
+        throw new IllegalArgumentException("filter " + filter.getName() + " not supported.");
+      }
+      if (filter.hasConfigDiscovery()) {
+        throw new IllegalArgumentException(" filter " + filter.getName() + " with config_discovery not supported");
+      }
+      if (!filter.hasTypedConfig()) {
+        throw new IllegalArgumentException(" filter " + filter.getName() + " expected to have typed_config");
+      }
+      Any any = filter.getTypedConfig();
+      if (!any.getTypeUrl().equals(ClientXdsClient.TYPE_URL_HTTP_CONNECTION_MANAGER)) {
+        throw new IllegalArgumentException(" filter " + filter.getName() + " with unsupported typed_config type:" + any.getTypeUrl());
+      }
+      validateHttpConnectionManager(any.unpack(HttpConnectionManager.class));
+    }
+
+    private static void validateHttpConnectionManager(HttpConnectionManager hcm) throws IllegalArgumentException {
+      List<HttpFilter> httpFilters = hcm.getHttpFiltersList();
+      HashSet<String> uniqueNames = new HashSet<>();
+      for (HttpFilter httpFilter : httpFilters) {
+        String httpFilterName = httpFilter.getName();
+        if (!uniqueNames.add(httpFilterName)) {
+          throw new IllegalArgumentException("http-connection-manager has non-unique http-filter name:" + httpFilterName);
+        }
+        if (!"envoy.router".equals(httpFilterName)) {
+          throw new IllegalArgumentException("http-connection-manager has unsupported http-filter:" + httpFilterName);
+        }
+      }
     }
 
     @Nullable
@@ -453,19 +497,33 @@ public final class EnvoyServerProtoData {
       return null;
     }
 
-    static Listener fromEnvoyProtoListener(io.envoyproxy.envoy.config.listener.v3.Listener proto)
-        throws InvalidProtocolBufferException {
-      List<FilterChain> filterChains = new ArrayList<>(proto.getFilterChainsCount());
+    static Listener fromEnvoyProtoListener(io.envoyproxy.envoy.config.listener.v3.Listener listener)
+        throws InvalidProtocolBufferException, IllegalArgumentException {
+      if (!listener.getTrafficDirection().equals(TrafficDirection.INBOUND)) {
+        throw new IllegalArgumentException("Listener " + listener.getName() + " is not INBOUND");
+      }
+      if (!listener.getListenerFiltersList().isEmpty()) {
+        throw new IllegalArgumentException("Listener " + listener.getName() + " cannot have listener_filters");
+      }
+      if (listener.hasUseOriginalDst()) {
+        throw new IllegalArgumentException("Listener " + listener.getName() + " cannot have use_original_dst set to true");
+      }
+      List<FilterChain> filterChains = validateAndSelectFilterChains(listener.getFilterChainsList());
+      return new Listener(
+          listener.getName(),
+          convertEnvoyAddressToString(listener.getAddress()),
+          filterChains, FilterChain.fromEnvoyProtoFilterChain(listener.getDefaultFilterChain(), true));
+    }
+
+    private static List<FilterChain> validateAndSelectFilterChains(List<io.envoyproxy.envoy.config.listener.v3.FilterChain> inputFilterChains) throws InvalidProtocolBufferException {
+      List<FilterChain> filterChains = new ArrayList<>(inputFilterChains.size());
       for (io.envoyproxy.envoy.config.listener.v3.FilterChain filterChain :
-          proto.getFilterChainsList()) {
+              inputFilterChains) {
         if (isAcceptable(filterChain.getFilterChainMatch())) {
-          filterChains.add(FilterChain.fromEnvoyProtoFilterChain(filterChain));
+          filterChains.add(FilterChain.fromEnvoyProtoFilterChain(filterChain, false));
         }
       }
-      return new Listener(
-          proto.getName(),
-          convertEnvoyAddressToString(proto.getAddress()),
-          filterChains, FilterChain.fromEnvoyProtoFilterChain(proto.getDefaultFilterChain()));
+      return filterChains;
     }
 
     // check if a filter is acceptable for gRPC server side processing

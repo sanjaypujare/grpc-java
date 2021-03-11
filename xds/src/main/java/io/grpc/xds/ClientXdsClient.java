@@ -40,6 +40,8 @@ import io.envoyproxy.envoy.config.core.v3.HttpProtocolOptions;
 import io.envoyproxy.envoy.config.core.v3.RoutingPriority;
 import io.envoyproxy.envoy.config.core.v3.TrafficDirection;
 import io.envoyproxy.envoy.config.endpoint.v3.ClusterLoadAssignment;
+import io.envoyproxy.envoy.config.listener.v3.Filter;
+import io.envoyproxy.envoy.config.listener.v3.FilterChain;
 import io.envoyproxy.envoy.config.listener.v3.Listener;
 import io.envoyproxy.envoy.config.route.v3.RouteConfiguration;
 import io.envoyproxy.envoy.extensions.filters.http.fault.v3.HTTPFault;
@@ -107,7 +109,7 @@ final class ClientXdsClient extends AbstractXdsClient {
   private static final String TYPE_URL_HTTP_CONNECTION_MANAGER_V2 =
       "type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2"
           + ".HttpConnectionManager";
-  private static final String TYPE_URL_HTTP_CONNECTION_MANAGER =
+  static final String TYPE_URL_HTTP_CONNECTION_MANAGER =
       "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3"
           + ".HttpConnectionManager";
   private static final String TYPE_URL_UPSTREAM_TLS_CONTEXT =
@@ -278,7 +280,7 @@ final class ClientXdsClient extends AbstractXdsClient {
     }
   }
 
-  private StructOrError<EnvoyServerProtoData.Listener> parseServerSideListener(Listener listener) {
+  private static StructOrError<EnvoyServerProtoData.Listener> parseServerSideListener(Listener listener) {
     String errorMessage = validateServerListener(listener);
     if (errorMessage != null) {
       return StructOrError.fromError(errorMessage);
@@ -292,7 +294,7 @@ final class ClientXdsClient extends AbstractXdsClient {
     }
   }
 
-  private String validateServerListener(Listener listener) {
+  private static String validateServerListener(Listener listener) {
     if (!listener.getTrafficDirection().equals(TrafficDirection.INBOUND)) {
       return "Listener " + listener.getName() + " is not INBOUND";
     }
@@ -302,9 +304,49 @@ final class ClientXdsClient extends AbstractXdsClient {
     if (listener.hasUseOriginalDst()) {
       return "Listener " + listener.getName() + " cannot have use_original_dst set to true";
     }
+    for (FilterChain filterChain : listener.getFilterChainsList()) {
+      String errorMessage = null;
+      try {
+        errorMessage = validateFilterChain(filterChain);
+      } catch (InvalidProtocolBufferException e) {
+        return "Listener " + listener.getName() + ": " + e.getMessage();
+      }
+      if (errorMessage != null) {
+        return "Listener " + listener.getName() + ": " + errorMessage;
+      }
+    }
     // TODO(sanjaypujare): add validations based on gRFC
     //  https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md
     return null;
+  }
+
+  private static String validateFilterChain(FilterChain filterChain) throws InvalidProtocolBufferException {
+    HashSet<String> uniqueNames = new HashSet<>();
+
+    for (Filter filter : filterChain.getFiltersList()) {
+      if (!uniqueNames.add(filter.getName())) {
+        return "filerChain " + filterChain.getName() + " has non-unique filter name:" + filter.getName();
+      }
+      String errorMessage = validateFilter(filter);
+    }
+    return null;
+  }
+
+  private static String validateFilter(Filter filter) throws InvalidProtocolBufferException {
+    if (!"envoy.http_connection_manager".equals(filter.getName())) {
+      return "filter " + filter.getName() + " not supported.";
+    }
+    if (filter.hasConfigDiscovery()) {
+      return " filter " + filter.getName() + " with config_discovery not supported";
+    }
+    if (!filter.hasTypedConfig()) {
+      return " filter " + filter.getName() + " expected to have typed_config";
+    }
+    Any any = filter.getTypedConfig();
+    if (!any.getTypeUrl().equals(TYPE_URL_HTTP_CONNECTION_MANAGER)) {
+      return " filter " + filter.getName() + " with unsupported typed_config type:" + any.getTypeUrl();
+    }
+    HttpConnectionManager hcm = any.unpack(HttpConnectionManager.class);
   }
 
   private static StructOrError<VirtualHost> parseVirtualHost(
