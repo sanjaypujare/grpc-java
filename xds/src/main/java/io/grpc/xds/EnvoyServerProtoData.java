@@ -364,7 +364,6 @@ public final class EnvoyServerProtoData {
         throws InvalidProtocolBufferException, IllegalArgumentException {
 
       if (!isDefaultFilterChain && filterChain.getFiltersList().isEmpty()) {
-        // TODO(sanjaypujare): once TD is fixed to supply default filter chain remove the isDefaultFilterChain check
         throw new IllegalArgumentException("filerChain " + filterChain.getName() + " has to have envoy.http_connection_manager");
       }
       HashSet<String> uniqueNames = new HashSet<>();
@@ -405,8 +404,21 @@ public final class EnvoyServerProtoData {
         if (!uniqueNames.add(httpFilterName)) {
           throw new IllegalArgumentException("http-connection-manager has non-unique http-filter name:" + httpFilterName);
         }
-        if (!"envoy.router".equals(httpFilterName)) {
-          throw new IllegalArgumentException("http-connection-manager has unsupported http-filter:" + httpFilterName);
+        if (!httpFilter.getIsOptional()) {
+          if (!"envoy.router".equals(httpFilterName)) {
+            throw new IllegalArgumentException(
+                "http-connection-manager has unsupported http-filter:" + httpFilterName);
+          }
+          if (httpFilter.hasConfigDiscovery()) {
+            throw new IllegalArgumentException(
+                    "http-connection-manager http-filter " + httpFilterName + " uses config-discovery which is unsupported");
+          }
+          if (httpFilter.hasTypedConfig()) {
+            Any any = httpFilter.getTypedConfig();
+            if (!any.getTypeUrl().equals("type.googleapis.com/envoy.extensions.filters.http.router.v3.Router")) {
+              throw new IllegalArgumentException("http-connection-manager http-filter " + httpFilterName + " has unsupported typed-config type:" + any.getTypeUrl());
+            }
+          }
         }
       }
     }

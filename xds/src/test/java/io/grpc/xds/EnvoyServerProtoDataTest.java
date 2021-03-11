@@ -21,10 +21,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.UInt32Value;
-import io.envoyproxy.envoy.config.core.v3.Address;
-import io.envoyproxy.envoy.config.core.v3.CidrRange;
-import io.envoyproxy.envoy.config.core.v3.SocketAddress;
-import io.envoyproxy.envoy.config.core.v3.TransportSocket;
+import io.envoyproxy.envoy.config.core.v3.*;
 import io.envoyproxy.envoy.config.listener.v3.Filter;
 import io.envoyproxy.envoy.config.listener.v3.FilterChain;
 import io.envoyproxy.envoy.config.listener.v3.FilterChainMatch;
@@ -55,9 +52,10 @@ public class EnvoyServerProtoDataTest {
         io.envoyproxy.envoy.config.listener.v3.Listener.newBuilder()
             .setName("8000")
             .setAddress(address)
-            .addFilterChains(createOutFilter())
+//            .addFilterChains(createOutFilter())
             .addFilterChains(createInFilter())
             .setDefaultFilterChain(createDefaultFilterChain())
+            .setTrafficDirection(TrafficDirection.INBOUND)
             .build();
 
     Listener xdsListener = Listener.fromEnvoyProtoListener(listener);
@@ -65,18 +63,8 @@ public class EnvoyServerProtoDataTest {
     assertThat(xdsListener.getAddress()).isEqualTo("10.2.1.34:8000");
     List<EnvoyServerProtoData.FilterChain> filterChains = xdsListener.getFilterChains();
     assertThat(filterChains).isNotNull();
-    assertThat(filterChains.size()).isEqualTo(2);
-    EnvoyServerProtoData.FilterChain outFilter = filterChains.get(0);
-    assertThat(outFilter).isNotNull();
-    EnvoyServerProtoData.FilterChainMatch outFilterChainMatch = outFilter.getFilterChainMatch();
-    assertThat(outFilterChainMatch).isNotNull();
-    assertThat(outFilterChainMatch.getDestinationPort()).isEqualTo(8000);
-    assertThat(outFilterChainMatch.getApplicationProtocols()).isEmpty();
-    assertThat(outFilterChainMatch.getPrefixRanges()).isEmpty();
-    assertThat(outFilter.getDownstreamTlsContext())
-        .isNull();
-
-    EnvoyServerProtoData.FilterChain inFilter = filterChains.get(1);
+    assertThat(filterChains.size()).isEqualTo(1);
+    EnvoyServerProtoData.FilterChain inFilter = filterChains.get(0);
     assertThat(inFilter).isNotNull();
     EnvoyServerProtoData.FilterChainMatch inFilterChainMatch = inFilter.getFilterChainMatch();
     assertThat(inFilterChainMatch).isNotNull();
@@ -107,30 +95,17 @@ public class EnvoyServerProtoDataTest {
         .containsExactly(new EnvoyServerProtoData.CidrRange("10.20.0.16", 30));
   }
 
-  private static FilterChain createOutFilter() {
-    FilterChain filterChain =
-        FilterChain.newBuilder()
-            .setFilterChainMatch(
-                FilterChainMatch.newBuilder()
-                    .setDestinationPort(UInt32Value.of(8000))
-                    .build())
-            .addFilters(Filter.newBuilder()
-                .setName("envoy.http_connection_manager")
-                .build())
-            .build();
-    return filterChain;
-  }
-
   private static FilterChain createInFilter() {
     FilterChain filterChain =
         FilterChain.newBuilder()
             .setFilterChainMatch(
                 FilterChainMatch.newBuilder()
                     .setDestinationPort(UInt32Value.of(8000))
-                    .addPrefixRanges(CidrRange.newBuilder()
-                        .setAddressPrefix("10.20.0.15")
-                        .setPrefixLen(UInt32Value.of(32))
-                        .build())
+                    .addPrefixRanges(
+                        CidrRange.newBuilder()
+                            .setAddressPrefix("10.20.0.15")
+                            .setPrefixLen(UInt32Value.of(32))
+                            .build())
                     .addSourcePrefixRanges(
                         CidrRange.newBuilder()
                             .setAddressPrefix("10.30.3.0")
@@ -141,18 +116,23 @@ public class EnvoyServerProtoDataTest {
                     .addSourcePorts(200)
                     .addSourcePorts(300)
                     .build())
-            .setTransportSocket(TransportSocket.newBuilder().setName("envoy.transport_sockets.tls")
-                .setTypedConfig(
-                    Any.pack(CommonTlsContextTestsUtil.buildTestDownstreamTlsContext(
-                        "google-sds-config-default", "ROOTCA")))
-                .build())
-            .addFilters(Filter.newBuilder()
-                .setName("envoy.http_connection_manager")
-                .setTypedConfig(Any.newBuilder()
-                    .setTypeUrl(
-                        "type.googleapis.com/envoy.config.filter.network.http_connection_manager"
-                            + ".v2.HttpConnectionManager"))
-                .build())
+            .setTransportSocket(
+                TransportSocket.newBuilder()
+                    .setName("envoy.transport_sockets.tls")
+                    .setTypedConfig(
+                        Any.pack(
+                            CommonTlsContextTestsUtil.buildTestDownstreamTlsContext(
+                                "google-sds-config-default", "ROOTCA")))
+                    .build())
+            .addFilters(
+                Filter.newBuilder()
+                    .setName("envoy.http_connection_manager")
+                    .setTypedConfig(
+                        Any.newBuilder()
+                            .setTypeUrl(
+                                "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3"
+                                    + ".HttpConnectionManager"))
+                    .build())
             .build();
     return filterChain;
   }
@@ -183,9 +163,8 @@ public class EnvoyServerProtoDataTest {
                     .setTypedConfig(
                         Any.newBuilder()
                             .setTypeUrl(
-                                "type.googleapis.com/"
-                                    + "envoy.config.filter.network.http_connection_manager"
-                                    + ".v2.HttpConnectionManager"))
+                                    "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3"
+                                        + ".HttpConnectionManager"))
                     .build())
             .build();
     return filterChain;

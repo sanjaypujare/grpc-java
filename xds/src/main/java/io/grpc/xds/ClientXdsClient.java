@@ -284,9 +284,11 @@ final class ClientXdsClient extends AbstractXdsClient {
     try {
       return StructOrError.fromStruct(EnvoyServerProtoData.Listener
           .fromEnvoyProtoListener(listener));
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+    } catch (InvalidProtocolBufferException  e) {
       return StructOrError.fromError(
           "Failed to unpack Listener " + listener.getName() + ":" + e.getMessage());
+    } catch (IllegalArgumentException e) {
+      return StructOrError.fromError(e.getMessage());
     }
   }
 
