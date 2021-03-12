@@ -156,7 +156,14 @@ public final class XdsClientWrapperForServerSds {
           }
         };
     String listeningAddress = "0.0.0.0:" + port;
-    grpcServerResource = grpcServerResource.replaceAll("%s", listeningAddress);
+    if (grpcServerResource.contains("%s")) {
+      grpcServerResource = grpcServerResource.replaceAll("%s", listeningAddress);
+    } else {
+      grpcServerResource =
+          grpcServerResource + "?udpa.resource.listening_address=" + listeningAddress;
+    }
+    logger.log(
+        Level.INFO, "ClientXdsClient for watching resource:" + grpcServerResource);
     xdsClient.watchLdsResource(grpcServerResource, listenerWatcher);
   }
 
