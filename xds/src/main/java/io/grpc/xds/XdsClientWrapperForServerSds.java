@@ -76,7 +76,6 @@ public final class XdsClientWrapperForServerSds {
   private final int port;
   private ScheduledExecutorService timeService;
   private XdsClient.LdsResourceWatcher listenerWatcher;
-  String grpcServerResource;
   private boolean newServerApi;
   @VisibleForTesting final Set<ServerWatcher> serverWatchers = new HashSet<>();
 
@@ -113,7 +112,7 @@ public final class XdsClientWrapperForServerSds {
             .keepAliveTime(5, TimeUnit.MINUTES).build();
     timeService = SharedResourceHolder.get(timeServiceResource);
     newServerApi = serverInfo.isUseProtocolV3();
-    grpcServerResource = bootstrapInfo.getGrpcServerResourceId();
+    String grpcServerResource = bootstrapInfo.getGrpcServerResourceId();
     if (newServerApi && grpcServerResource == null) {
       throw new IOException("missing grpc_server_resource_name_id value in xds bootstrap");
     }
@@ -125,12 +124,12 @@ public final class XdsClientWrapperForServerSds {
             timeService,
             new ExponentialBackoffPolicy.Provider(),
             GrpcUtil.STOPWATCH_SUPPLIER);
-    start(xdsClientImpl);
+    start(xdsClientImpl, grpcServerResource);
   }
 
   /** Accepts an XdsClient and starts a watch. */
   @VisibleForTesting
-  public void start(XdsClient xdsClient) {
+  public void start(XdsClient xdsClient, String grpcServerResource) {
     checkState(this.xdsClient == null, "start() called more than once");
     checkNotNull(xdsClient, "xdsClient");
     this.xdsClient = xdsClient;
