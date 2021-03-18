@@ -1,15 +1,15 @@
 Enter the server pod
 
-curl -L https://github.com/grpc/grpc-java/archive/v1.34.1.tar.gz | tar -xz
-cd grpc-java-1.34.1/examples/example-xds
+curl -L https://github.com/grpc/grpc-java/archive/v1.36.0.tar.gz | tar -xz
+cd grpc-java-1.36.0/examples/example-xds
 ../gradlew --no-daemon installDist
 
 build/install/example-xds/bin/xds-hello-world-server --xds-creds 50051 my-test-xds-server
 
 Enter the client pod
 
-curl -L https://github.com/grpc/grpc-java/archive/v1.34.1.tar.gz | tar -xz
-cd grpc-java-1.34.1/examples/example-xds
+curl -L https://github.com/grpc/grpc-java/archive/v1.36.0.tar.gz | tar -xz
+cd grpc-java-1.36.0/examples/example-xds
 ../gradlew --no-daemon installDist
 
 build/install/example-xds/bin/xds-hello-world-client --xds-creds my-xds-client xds:///example-grpc-server:8000
@@ -28,3 +28,7 @@ docker image list
    as 2bdfc2ba31c6)
 docker tag 2bdfc2ba31c6 gcr.io/meshca-gke-test/td-grpc-bootstrap:0.6
 docker push gcr.io/meshca-gke-test/td-grpc-bootstrap:0.6
+
+--------------------------------------------------------------------
+To enable logging using JAVA_OPTS
+JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
