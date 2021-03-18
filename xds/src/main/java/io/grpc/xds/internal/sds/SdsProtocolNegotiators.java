@@ -44,6 +44,7 @@ import java.security.cert.CertStoreException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -208,8 +209,13 @@ public final class SdsProtocolNegotiators {
     private boolean readComplete;
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-      reads.add(msg);
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+      if (ctx.isRemoved()) {
+        logger.log(Level.WARNING, "BufferReadsHandler removed- passing to super!");
+        super.channelRead(ctx, msg);
+      } else {
+        reads.add(msg);
+      }
     }
 
     @Override
@@ -428,6 +434,8 @@ public final class SdsProtocolNegotiators {
         return;
       }
       final SslContextProvider sslContextProvider = sslContextProviderTemp;
+      final AtomicReference<SslContextProvider> sslContextProviderRef =
+          new AtomicReference<>(sslContextProvider);
       sslContextProvider.addCallback(
           new SslContextProvider.Callback(ctx.executor()) {
 
@@ -435,6 +443,10 @@ public final class SdsProtocolNegotiators {
             public void updateSecret(SslContext sslContext) {
               logger.info("entry");
 
+              if (sslContextProviderRef.compareAndSet(sslContextProvider, null)) {
+                TlsContextManagerImpl.getInstance()
+                    .releaseServerSslContextProvider(sslContextProvider);
+              }
               // Delegate rest of handshake to TLS handler
               if (!ctx.isRemoved()) {
                 ChannelHandler handler =
@@ -446,12 +458,15 @@ public final class SdsProtocolNegotiators {
               } else {
                 logger.warning("ctx removed! freeMemory=" + Runtime.getRuntime().freeMemory());
               }
-              TlsContextManagerImpl.getInstance()
-                  .releaseServerSslContextProvider(sslContextProvider);
             }
 
             @Override
             public void onException(Throwable throwable) {
+              if (sslContextProviderRef.compareAndSet(sslContextProvider, null)) {
+                logger.warning("inside onException releasing SslContextProvider");
+                TlsContextManagerImpl.getInstance()
+                    .releaseServerSslContextProvider(sslContextProvider);
+              }
               ctx.fireExceptionCaught(throwable);
             }
           }
