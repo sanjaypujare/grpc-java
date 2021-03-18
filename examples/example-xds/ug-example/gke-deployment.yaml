@@ -52,7 +52,7 @@ spec:
         k8s-app: example-grpc-server
     spec:
       containers:
-      - image: gcr.io/meshca-gke-test/example-grpc:0.09
+      - image: gcr.io/meshca-gke-test/psms-grpc-xds:2.04
         imagePullPolicy: Always
         name: example-grpc-server
         command:
@@ -85,7 +85,7 @@ spec:
           mountPath: /tmp/grpc-xds/
       initContainers:
       - name: grpc-td-init
-        image: gcr.io/trafficdirector-prod/td-grpc-bootstrap:0.10.0
+        image: gcr.io/grpc-testing/td-grpc-bootstrap:8af4336691ba23683ee3e280275894959dc47c4c
         imagePullPolicy: Always
         args:
         - --output
@@ -130,7 +130,7 @@ spec:
         k8s-app: example-grpc-client
     spec:
       containers:
-      - image: gcr.io/meshca-gke-test/example-grpc:0.09
+      - image: gcr.io/meshca-gke-test/psms-grpc-xds:2.04
         imagePullPolicy: Always
         name: example-grpc-client
         command:
@@ -158,7 +158,7 @@ spec:
           mountPath: /tmp/grpc-xds/
       initContainers:
       - name: grpc-td-init
-        image: gcr.io/trafficdirector-prod/td-grpc-bootstrap:0.10.0
+        image: gcr.io/grpc-testing/td-grpc-bootstrap:8af4336691ba23683ee3e280275894959dc47c4c
         imagePullPolicy: Always
         args:
         - --output
