@@ -1,0 +1,13 @@
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicy
+metadata:
+  name: iampolicy-workloadidentity
+spec:
+  resourceRef:
+    apiVersion: iam.cnrm.cloud.google.com/v1beta1
+    kind: IAMServiceAccount
+    name: 635862331669-compute@developer.gserviceaccount.com
+  bindings:
+    - role: roles/iam.workloadIdentityUser
+      members:
+        - serviceAccount:meshca-gke-test.svc.id.goog[default/example-grpc-server]
