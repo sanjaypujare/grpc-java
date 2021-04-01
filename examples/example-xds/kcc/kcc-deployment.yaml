@@ -1,3 +1,8 @@
+# Give our service account access to TD APIs
+#gcloud iam service-accounts add-iam-policy-binding \
+#  --role roles/iam.workloadIdentityUser \
+#  --member "serviceAccount:meshca-gke-test.svc.id.goog[default/example-grpc-server]" \
+#  635862331669-compute@developer.gserviceaccount.com
 apiVersion: iam.cnrm.cloud.google.com/v1beta1
 kind: IAMPolicy
 metadata:
@@ -11,3 +16,20 @@ spec:
     - role: roles/iam.workloadIdentityUser
       members:
         - serviceAccount:meshca-gke-test.svc.id.goog[default/example-grpc-server]
+---
+#gcloud projects add-iam-policy-binding meshca-gke-test \
+#   --member "serviceAccount:meshca-gke-test.svc.id.goog[default/example-grpc-server]" \
+#   --role roles/compute.networkViewer
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicy
+metadata:
+  name: iampolicy-project
+spec:
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    name: meshca-gke-test
+  bindings:
+  - members:
+    - serviceAccount:meshca-gke-test.svc.id.goog[default/example-grpc-server]
+    role: roles/compute.networkViewer
