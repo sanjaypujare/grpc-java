@@ -52,7 +52,7 @@ spec:
         k8s-app: example-grpc-server
     spec:
       containers:
-      - image: gcr.io/meshca-gke-test/psms-grpc-xds:2.04
+      - image: gcr.io/meshca-gke-test/psms-grpc-xds:2.05
         imagePullPolicy: Always
         name: example-grpc-server
         command:
@@ -130,7 +130,7 @@ spec:
         k8s-app: example-grpc-client
     spec:
       containers:
-      - image: gcr.io/meshca-gke-test/psms-grpc-xds:2.04
+      - image: gcr.io/meshca-gke-test/psms-grpc-xds:2.05
         imagePullPolicy: Always
         name: example-grpc-client
         command:

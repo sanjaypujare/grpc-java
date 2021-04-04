@@ -35,7 +35,7 @@ docker tag gcr.io/grpc-testing/td-grpc-bootstrap:8af4336691ba23683ee3e2802758949
 docker push gcr.io/meshca-gke-test/td-grpc-bootstrap:0.11
 --------------------------------------------------------------------
 To enable logging using JAVA_OPTS
-JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
+export JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
 ----------------------------------------------------------------
 jmap -dump:live,format=b,file=/java-heap.hprof <pid>
 
