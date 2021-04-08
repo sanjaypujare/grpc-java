@@ -1,10 +1,24 @@
 #!/bin/bash -x
 
+PROJECT=`gcloud config get-value project`
+export PROJNUM=`gcloud projects describe $PROJECT --format="value(projectNumber)"`
+KUBECTL_CONFIG=`kubectl config get-clusters |grep $PROJECT`
+NUM_CONFIGS=`echo $KUBECTL_CONFIG |wc -w`
+
+if (($NUM_CONFIGS>1)); then
+  echo Found $NUM_CONFIGS configs... exiting
+fi
+
+kubectl config set-context $KUBECTL_CONFIG
+
 # this script creates server side stuff
-CLUSTER_ZONE=us-west1-a
+CLUSTER_ZONE=`echo $KUBECTL_CONFIG | cut -d'_' -f 3`
 
 # first deploy our service
-kubectl apply -f ug-example/gke-deployment.yaml
+cat ug-example/gke-deployment.yaml | envsubst | kubectl apply -f -
+
+echo exiting
+exit 0
 
 sleep 20s
 

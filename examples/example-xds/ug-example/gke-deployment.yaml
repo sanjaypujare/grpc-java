@@ -4,7 +4,7 @@ metadata:
   name: example-grpc-server
   namespace: default
   annotations:
-    iam.gke.io/gcp-service-account: 635862331669-compute@developer.gserviceaccount.com
+    iam.gke.io/gcp-service-account: ${PROJNUM}-compute@developer.gserviceaccount.com
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -12,7 +12,7 @@ metadata:
   name: example-grpc-client
   namespace: default
   annotations:
-    iam.gke.io/gcp-service-account: 635862331669-compute@developer.gserviceaccount.com
+    iam.gke.io/gcp-service-account: ${PROJNUM}-compute@developer.gserviceaccount.com
 ---
 apiVersion: v1
 kind: Service
@@ -48,6 +48,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        security.cloud.google.com/use-workload-certificates: ""
       labels:
         k8s-app: example-grpc-server
     spec:
@@ -78,9 +80,6 @@ spec:
             cpu: 100m
             memory: 512Mi
         volumeMounts:
-        - name: gke-spiffe-certs-volume
-          mountPath: /var/run/gke-spiffe/certs
-          readOnly: true
         - name: grpc-td-conf
           mountPath: /tmp/grpc-xds/
       initContainers:
@@ -104,9 +103,6 @@ spec:
           mountPath: /tmp/bootstrap/
       serviceAccountName: example-grpc-server
       volumes:
-      - name: gke-spiffe-certs-volume
-        csi:
-          driver: certs.spiffe.gke.io
       - name: grpc-td-conf
         emptyDir:
           medium: Memory
@@ -126,6 +122,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        security.cloud.google.com/use-workload-certificates: ""
       labels:
         k8s-app: example-grpc-client
     spec:
@@ -151,9 +149,6 @@ spec:
             cpu: 100m
             memory: 512Mi
         volumeMounts:
-        - name: gke-spiffe-certs-volume
-          mountPath: /var/run/gke-spiffe/certs
-          readOnly: true
         - name: grpc-td-conf
           mountPath: /tmp/grpc-xds/
       initContainers:
@@ -177,9 +172,6 @@ spec:
           mountPath: /tmp/bootstrap/
       serviceAccountName: example-grpc-client
       volumes:
-      - name: gke-spiffe-certs-volume
-        csi:
-          driver: certs.spiffe.gke.io
       - name: grpc-td-conf
         emptyDir:
           medium: Memory
