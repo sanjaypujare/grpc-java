@@ -51,7 +51,7 @@ gcloud compute health-checks create tcp example-health-check --enable-logging --
 #frequently because of GCP keeps deleting the firewall for security reasons
 gcloud compute firewall-rules create fw-allow-health-checks --network default --action ALLOW \
     --direction INGRESS \
-    --source-ranges 35.191.0.0/16,130.211.0.0/22,108.170.220.0/24,35.235.160.0/23 \
+    --source-ranges 35.191.0.0/16,130.211.0.0/22 \
     --rules tcp
 
 gcloud compute backend-services create example-grpc-service --global \
