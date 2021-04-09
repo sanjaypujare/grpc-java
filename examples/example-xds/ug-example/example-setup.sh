@@ -17,9 +17,6 @@ CLUSTER_ZONE=`echo $KUBECTL_CONFIG | cut -d'_' -f 3`
 # first deploy our service
 cat ug-example/gke-deployment.yaml | envsubst | kubectl apply -f -
 
-echo exiting
-exit 0
-
 sleep 20s
 
 NEG_NAME=$(gcloud beta compute network-endpoint-groups list | grep example-grpc-server | grep ${CLUSTER_ZONE} | awk '{print $1}')
@@ -29,14 +26,23 @@ if [ x${NEG_NAME} != xexample-grpc-server ]; then
     exit 1
 fi
 
-# Give our service account access to TD APIs
+# Give our service accounts access to TD APIs
 gcloud iam service-accounts add-iam-policy-binding \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:meshca-gke-test.svc.id.goog[default/example-grpc-server]" \
-  635862331669-compute@developer.gserviceaccount.com
+  --member "serviceAccount:${PROJECT}.svc.id.goog[default/example-grpc-server]" \
+  ${PROJNUM}-compute@developer.gserviceaccount.com
 
-gcloud projects add-iam-policy-binding meshca-gke-test \
-   --member "serviceAccount:meshca-gke-test.svc.id.goog[default/example-grpc-server]" \
+gcloud projects add-iam-policy-binding ${PROJECT} \
+   --member "serviceAccount:${PROJECT}.svc.id.goog[default/example-grpc-server]" \
+   --role roles/compute.networkViewer
+
+gcloud iam service-accounts add-iam-policy-binding \
+  --role roles/iam.workloadIdentityUser \
+  --member "serviceAccount:${PROJECT}.svc.id.goog[default/example-grpc-client]" \
+  ${PROJNUM}-compute@developer.gserviceaccount.com
+
+gcloud projects add-iam-policy-binding ${PROJECT} \
+   --member "serviceAccount:${PROJECT}.svc.id.goog[default/example-grpc-client]" \
    --role roles/compute.networkViewer
 
 gcloud compute health-checks create tcp example-health-check --enable-logging --use-serving-port
@@ -45,8 +51,8 @@ gcloud compute health-checks create tcp example-health-check --enable-logging --
 #frequently because of GCP keeps deleting the firewall for security reasons
 gcloud compute firewall-rules create fw-allow-health-checks --network default --action ALLOW \
     --direction INGRESS \
-    --source-ranges 35.191.0.0/16,130.211.0.0/22 \
-    --target-tags allow-health-checks --rules tcp
+    --source-ranges 35.191.0.0/16,130.211.0.0/22,108.170.220.0/24,35.235.160.0/23 \
+    --rules tcp
 
 gcloud compute backend-services create example-grpc-service --global \
     --health-checks example-health-check   --load-balancing-scheme INTERNAL_SELF_MANAGED --protocol GRPC
@@ -69,7 +75,7 @@ gcloud alpha network-security client-tls-policies import client_mtls_policy \
 gcloud beta compute backend-services export example-grpc-service --global \
   --destination=/tmp/example-grpc-service.yaml
 
-cat /tmp/example-grpc-service.yaml ug-example/client-security-settings.yaml >/tmp/example-grpc-service1.yaml
+cat /tmp/example-grpc-service.yaml ug-example/client-security-settings.yaml | envsubst >/tmp/example-grpc-service1.yaml
 
 gcloud beta compute backend-services import example-grpc-service --global \
   --source=/tmp/example-grpc-service1.yaml -q

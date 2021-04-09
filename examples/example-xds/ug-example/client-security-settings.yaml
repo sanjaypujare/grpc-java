@@ -1,4 +1,4 @@
 securitySettings:
-  clientTlsPolicy: projects/meshca-gke-test/locations/global/clientTlsPolicies/client_mtls_policy
+  clientTlsPolicy: projects/${PROJECT}/locations/global/clientTlsPolicies/client_mtls_policy
   subjectAltNames:
-    - "spiffe://meshca-gke-test.svc.id.goog/ns/default/sa/example-grpc-server"
+    - "spiffe://${PROJECT}.svc.id.goog/ns/default/sa/example-grpc-server"

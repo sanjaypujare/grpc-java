@@ -30,9 +30,9 @@ docker tag 2bdfc2ba31c6 gcr.io/meshca-gke-test/td-grpc-bootstrap:0.6
 docker push gcr.io/meshca-gke-test/td-grpc-bootstrap:0.6
 --------------------------------------------------
 Another easier way:
-docker pull gcr.io/grpc-testing/td-grpc-bootstrap:8af4336691ba23683ee3e280275894959dc47c4c
-docker tag gcr.io/grpc-testing/td-grpc-bootstrap:8af4336691ba23683ee3e280275894959dc47c4c gcr.io/meshca-gke-test/td-grpc-bootstrap:0.11
-docker push gcr.io/meshca-gke-test/td-grpc-bootstrap:0.11
+docker pull gcr.io/grpc-testing/td-grpc-bootstrap:2558ec79df06984ed0d37e9e69f34688ffe301bb
+docker tag gcr.io/grpc-testing/td-grpc-bootstrap:2558ec79df06984ed0d37e9e69f34688ffe301bb gcr.io/meshca-gke-test/td-grpc-bootstrap:0.12
+docker push gcr.io/meshca-gke-test/td-grpc-bootstrap:0.12
 --------------------------------------------------------------------
 To enable logging using JAVA_OPTS
 export JAVA_OPTS="-Djava.util.logging.config.file=/logging.properties"
