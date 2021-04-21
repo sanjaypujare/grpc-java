@@ -6,8 +6,8 @@ spec:
   # You must include a trustStores entry for the trust domain that
   # your cluster is enrolled in.
   trustStores:
-  - trustDomain: sanjaypujare-2-gke-dev.svc.id.goog
+  - trustDomain: meshca-gke-test.svc.id.goog
     # Trust identities in this trustDomain if they appear in a certificate
     # that chains up to this root CA.
     trustAnchors:
-    - certificateAuthorityServiceURI: //privateca.googleapis.com/projects/sanjaypujare-2-gke-dev/locations/us-west1/certificateAuthorities/gke_pp_subordinate_ca
+    - certificateAuthorityServiceURI: //privateca.googleapis.com/projects/meshca-gke-test/locations/us-west1/certificateAuthorities/zatar-root-apr21

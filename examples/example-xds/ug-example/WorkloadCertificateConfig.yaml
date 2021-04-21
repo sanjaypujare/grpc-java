@@ -5,12 +5,12 @@ metadata:
 spec:
   # Required. The SPIFFE trust domain. This must match your cluster's
   # workload identity pool.
-  trustDomain: sanjaypujare-2-gke-dev.svc.id.goog
+  trustDomain: meshca-gke-test.svc.id.goog
 
   # Required. The CA service that issues your certificates.
   certificateAuthorityConfig:
     certificateAuthorityServiceConfig:
-      endpointURI: //privateca.googleapis.com/projects/sanjaypujare-2-gke-dev/locations/us-west1/certificateAuthorities/gke_pp_subordinate_ca
+      endpointURI: //privateca.googleapis.com/projects/meshca-gke-test/locations/us-west1/certificateAuthorities/zatar-subord-apr21
 
   # Required. The key algorithm to use. Choice of RSA or ECDSA.
   #
