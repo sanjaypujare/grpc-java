@@ -11,6 +11,7 @@ if (($NUM_CONFIGS>1)); then
 fi
 
 kubectl config set-context $KUBECTL_CONFIG
+kubectl config use-context $KUBECTL_CONFIG
 
 # this script creates server side stuff
 CLUSTER_ZONE=`echo $KUBECTL_CONFIG | cut -d'_' -f 3`

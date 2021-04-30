@@ -80,7 +80,7 @@ spec:
           mountPath: /tmp/grpc-xds/
       initContainers:
       - name: grpc-td-init
-        image: gcr.io/meshca-gke-test/td-grpc-bootstrap:0.12
+        image: gcr.io/trafficdirector-prod/td-grpc-bootstrap:0.12.0-rc1
         imagePullPolicy: Always
         args:
         - --output
@@ -146,7 +146,7 @@ spec:
           mountPath: /tmp/grpc-xds/
       initContainers:
       - name: grpc-td-init
-        image: gcr.io/meshca-gke-test/td-grpc-bootstrap:0.12
+        image: gcr.io/trafficdirector-prod/td-grpc-bootstrap:0.12.0-rc1
         imagePullPolicy: Always
         args:
         - --output
