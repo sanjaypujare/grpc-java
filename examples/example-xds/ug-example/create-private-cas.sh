@@ -9,7 +9,7 @@ SUBORDINATE_CA_LOCATION=us-west1
 #  --subject "CN=${ROOT_CA_NAME}, O=${ROOT_CA_NAME}" \
 #  --key-algorithm "rsa-pkcs1-2048-sha256" \
 #  --max-chain-length=1 \
-#  --location ROOT_CA_LOCATION \
+#  --location ${ROOT_CA_LOCATION} \
 #  --tier enterprise
 
 #Create a subordinate CA:

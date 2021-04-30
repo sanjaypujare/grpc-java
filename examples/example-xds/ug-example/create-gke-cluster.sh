@@ -1,15 +1,15 @@
 #!/bin/bash -x
 
 PROJECT=`gcloud config get-value project`
-CLUSTER_NAME=zatar-apr15
+CLUSTER_NAME=non-zatar-apr15
 CLUSTER_ZONE=us-west1-b
 
 # To create a cluster with workload identity and managed SPIFFE certs enabled
 # note we had performed the following override:
 #gcloud config set api_endpoint_overrides/container https://test-container.sandbox.googleapis.com/
-gcloud beta container clusters create ${CLUSTER_NAME} --cluster-version=1.20.5-gke.1300 \
+gcloud beta container clusters create ${CLUSTER_NAME}  \
   --release-channel=rapid --workload-pool=${PROJECT}.svc.id.goog \
-  --enable-workload-certificates --zone=${CLUSTER_ZONE} \
+  --zone=${CLUSTER_ZONE} \
   --scopes=cloud-platform  --enable-ip-alias \
   --tags=allow-health-checks --workload-metadata=GCE_METADATA
 
