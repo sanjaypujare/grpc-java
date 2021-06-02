@@ -64,22 +64,22 @@ gcloud compute backend-services add-backend example-grpc-service --global \
        --balancing-mode RATE     --max-rate-per-endpoint 5
 
 # Create MTLS policy on the server side and attach to an ECS
-gcloud alpha network-security server-tls-policies import server_mtls_policy \
+gcloud beta network-security server-tls-policies import server_mtls_policy \
   --source=ug-example/server-mtls-policy.yaml --location=global
 
 gcloud alpha network-services endpoint-policies import ecs_mtls_psms \
   --source=ug-example/ecs-mtls-psms.yaml --location=global
 
 # Create MTLS policy on the client side and attach to our backendService
-gcloud alpha network-security client-tls-policies import client_mtls_policy \
+gcloud beta network-security client-tls-policies import client_mtls_policy \
   --source=ug-example/client-mtls-policy.yaml --location=global
 
-gcloud beta compute backend-services export example-grpc-service --global \
+gcloud compute backend-services export example-grpc-service --global \
   --destination=/tmp/example-grpc-service.yaml
 
 cat /tmp/example-grpc-service.yaml ug-example/client-security-settings.yaml | envsubst >/tmp/example-grpc-service1.yaml
 
-gcloud beta compute backend-services import example-grpc-service --global \
+gcloud compute backend-services import example-grpc-service --global \
   --source=/tmp/example-grpc-service1.yaml -q
 
 # finish the remaining routing/LB steps
