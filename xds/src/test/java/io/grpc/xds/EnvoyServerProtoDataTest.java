@@ -95,10 +95,9 @@ public class EnvoyServerProtoDataTest {
         .getTlsContext();
     assertThat(inFilterTlsContext.getCommonTlsContext()).isNotNull();
     CommonTlsContext commonTlsContext = inFilterTlsContext.getCommonTlsContext();
-    List<SdsSecretConfig> tlsCertSdsConfigs = commonTlsContext
-        .getTlsCertificateSdsSecretConfigsList();
-    assertThat(tlsCertSdsConfigs).hasSize(1);
-    assertThat(tlsCertSdsConfigs.get(0).getName()).isEqualTo("google-sds-config-default");
+    CommonTlsContext.CertificateProviderInstance certificateProviderInstance = commonTlsContext
+        .getTlsCertificateCertificateProviderInstance();
+    assertThat(certificateProviderInstance.getInstanceName()).isEqualTo("cert-instance-name");
 
     EnvoyServerProtoData.FilterChain defaultFilter = xdsListener.getDefaultFilterChain();
     assertThat(defaultFilter).isNotNull();

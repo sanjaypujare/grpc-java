@@ -84,7 +84,7 @@ public abstract class Bootstrapper {
     private final String pluginName;
     private final Map<String, ?> config;
 
-    CertificateProviderInfo(String pluginName, Map<String, ?> config) {
+    public CertificateProviderInfo(String pluginName, Map<String, ?> config) {
       this.pluginName = checkNotNull(pluginName, "pluginName");
       this.config = checkNotNull(config, "config");
     }
@@ -109,11 +109,11 @@ public abstract class Bootstrapper {
     @Nullable private final String serverListenerResourceNameTemplate;
 
     @VisibleForTesting
-    BootstrapInfo(
-        List<ServerInfo> servers,
-        Node node,
-        Map<String, CertificateProviderInfo> certProviders,
-        String serverListenerResourceNameTemplate) {
+    public BootstrapInfo(
+            List<ServerInfo> servers,
+            Node node,
+            Map<String, CertificateProviderInfo> certProviders,
+            String serverListenerResourceNameTemplate) {
       this.servers = servers;
       this.node = node;
       this.certProviders = certProviders;

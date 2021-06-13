@@ -63,8 +63,7 @@ public class SslContextProviderSupplierTest {
 
   private void prepareSupplier() {
     upstreamTlsContext =
-            CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-                    CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE);
+            CommonTlsContextTestsUtil.buildUpstreamTlsContext("google_cloud_private_spiffe", true);
     mockSslContextProvider = mock(SslContextProvider.class);
     doReturn(mockSslContextProvider)
             .when(mockTlsContextManager)

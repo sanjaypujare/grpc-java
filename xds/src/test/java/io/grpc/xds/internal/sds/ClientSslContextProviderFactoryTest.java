@@ -68,62 +68,6 @@ public class ClientSslContextProviderFactoryTest {
   }
 
   @Test
-  public void createSslContextProvider_allFilenames() {
-    clientSslContextProviderFactory =
-            new ClientSslContextProviderFactory(
-                    null, certProviderClientSslContextProviderFactory);
-    UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-            CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE);
-
-    SslContextProvider sslContextProvider =
-        clientSslContextProviderFactory.create(upstreamTlsContext);
-    assertThat(sslContextProvider).isNotNull();
-  }
-
-  @Test
-  public void createSslContextProvider_sdsConfigForTlsCert_expectException() {
-    clientSslContextProviderFactory =
-            new ClientSslContextProviderFactory(
-                    null, certProviderClientSslContextProviderFactory);
-    CommonTlsContext commonTlsContext =
-        CommonTlsContextTestsUtil.buildCommonTlsContextFromSdsConfigForTlsCertificate(
-            /* name= */ "name", /* targetUri= */ "unix:/tmp/sds/path", CA_PEM_FILE);
-    UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContext(commonTlsContext);
-
-    try {
-      clientSslContextProviderFactory.create(upstreamTlsContext);
-      Assert.fail("no exception thrown");
-    } catch (IllegalArgumentException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("unexpected TlsCertificateSdsSecretConfigs");
-    }
-  }
-
-  @Test
-  public void createSslContextProvider_sdsConfigForCertValidationContext_expectException() {
-    clientSslContextProviderFactory =
-            new ClientSslContextProviderFactory(
-                    null, certProviderClientSslContextProviderFactory);
-    CommonTlsContext commonTlsContext =
-        CommonTlsContextTestsUtil.buildCommonTlsContextFromSdsConfigForValidationContext(
-            /* name= */ "name",
-            /* targetUri= */ "unix:/tmp/sds/path",
-            CLIENT_KEY_FILE,
-            CLIENT_PEM_FILE);
-    UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContext(commonTlsContext);
-
-    try {
-      SslContextProvider unused =
-          clientSslContextProviderFactory.create(upstreamTlsContext);
-      Assert.fail("no exception thrown");
-    } catch (IllegalStateException expected) {
-      assertThat(expected).hasMessageThat().isEqualTo("incorrect ValidationContextTypeCase");
-    }
-  }
-
-  @Test
   public void createCertProviderClientSslContextProvider() throws XdsInitializationException {
     final CertificateProvider.DistributorWatcher[] watcherCaptor =
         new CertificateProvider.DistributorWatcher[1];
@@ -265,23 +209,6 @@ public class ClientSslContextProviderFactoryTest {
     assertThat(sslContextProvider).isInstanceOf(CertProviderClientSslContextProvider.class);
     verifyWatcher(sslContextProvider, watcherCaptor[0]);
     verifyWatcher(sslContextProvider, watcherCaptor[1]);
-  }
-
-  @Test
-  public void createEmptyCommonTlsContext_exception() throws IOException {
-    clientSslContextProviderFactory =
-            new ClientSslContextProviderFactory(
-                    null, certProviderClientSslContextProviderFactory);
-    UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(null, null, null);
-    try {
-      clientSslContextProviderFactory.create(upstreamTlsContext);
-      Assert.fail("no exception thrown");
-    } catch (UnsupportedOperationException expected) {
-      assertThat(expected)
-          .hasMessageThat()
-          .isEqualTo("Unsupported configurations in UpstreamTlsContext!");
-    }
   }
 
   @Test

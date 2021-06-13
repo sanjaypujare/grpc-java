@@ -79,7 +79,10 @@ public class XdsSdsClientServerTest {
   @Rule public final GrpcCleanupRule cleanupRule = new GrpcCleanupRule();
   private int port;
   private FakeNameResolverFactory fakeNameResolverFactory;
-  private final TlsContextManagerImpl tlsContextManager = new TlsContextManagerImpl(null);
+  private Bootstrapper.BootstrapInfo bootstrapInfoForClient = null;
+  private Bootstrapper.BootstrapInfo bootstrapInfoForServer = null;
+  private TlsContextManagerImpl tlsContextManagerForClient;
+  private TlsContextManagerImpl tlsContextManagerForServer;
 
   @Before
   public void setUp() throws IOException {
@@ -115,15 +118,16 @@ public class XdsSdsClientServerTest {
   /** TLS channel - no mTLS. */
   @Test
   public void tlsClientServer_noClientAuthentication() throws IOException, URISyntaxException {
+    bootstrapInfoForServer = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-server", SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     DownstreamTlsContext downstreamTlsContext =
-        CommonTlsContextTestsUtil.buildDownstreamTlsContextFromFilenames(
-            SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, null);
+        CommonTlsContextTestsUtil.buildDownstreamTlsContext(
+                "google_cloud_private_spiffe-server", false, false);
     buildServerWithTlsContext(downstreamTlsContext);
 
     // for TLS, client only needs trustCa
+    bootstrapInfoForClient = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-client", CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-            /* privateKey= */ null, /* certChain= */ null, CA_PEM_FILE);
+        CommonTlsContextTestsUtil.buildUpstreamTlsContext("google_cloud_private_spiffe-client", false);
 
     SimpleServiceGrpc.SimpleServiceBlockingStub blockingStub =
         getBlockingStub(upstreamTlsContext, /* overrideAuthority= */ "foo.test.google.fr");
@@ -133,15 +137,16 @@ public class XdsSdsClientServerTest {
   @Test
   public void requireClientAuth_noClientCert_expectException()
       throws IOException, URISyntaxException {
+    bootstrapInfoForServer = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-server", SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     DownstreamTlsContext downstreamTlsContext =
-        CommonTlsContextTestsUtil.buildDownstreamTlsContextFromFilenamesWithClientCertRequired(
-            SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE);
+            CommonTlsContextTestsUtil.buildDownstreamTlsContext(
+                    "google_cloud_private_spiffe-server", true, true);
     buildServerWithTlsContext(downstreamTlsContext);
 
     // for TLS, client only uses trustCa
+    bootstrapInfoForClient = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-client", CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-            /* privateKey= */ null, /* certChain= */ null, CA_PEM_FILE);
+            CommonTlsContextTestsUtil.buildUpstreamTlsContext("google_cloud_private_spiffe-client", false);
 
     SimpleServiceGrpc.SimpleServiceBlockingStub blockingStub =
         getBlockingStub(upstreamTlsContext, /* overrideAuthority= */ "foo.test.google.fr");
@@ -162,14 +167,15 @@ public class XdsSdsClientServerTest {
 
   @Test
   public void noClientAuth_sendBadClientCert_passes() throws IOException, URISyntaxException {
+    bootstrapInfoForServer = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-server", SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     DownstreamTlsContext downstreamTlsContext =
-        CommonTlsContextTestsUtil.buildDownstreamTlsContextFromFilenames(
-            SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, /* trustCa= */ null);
+            CommonTlsContextTestsUtil.buildDownstreamTlsContext(
+                    "google_cloud_private_spiffe-server", false, false);
     buildServerWithTlsContext(downstreamTlsContext);
 
+    bootstrapInfoForClient = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-client", BAD_CLIENT_KEY_FILE, BAD_CLIENT_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-            BAD_CLIENT_KEY_FILE, BAD_CLIENT_PEM_FILE, CA_PEM_FILE);
+            CommonTlsContextTestsUtil.buildUpstreamTlsContext("google_cloud_private_spiffe-client", true);
 
     SimpleServiceGrpc.SimpleServiceBlockingStub blockingStub =
         getBlockingStub(upstreamTlsContext, /* overrideAuthority= */ "foo.test.google.fr");
@@ -178,11 +184,11 @@ public class XdsSdsClientServerTest {
 
   @Test
   public void mtls_badClientCert_expectException() throws IOException, URISyntaxException {
+    bootstrapInfoForClient = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-client", BAD_CLIENT_KEY_FILE, BAD_CLIENT_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-            BAD_CLIENT_KEY_FILE, BAD_CLIENT_PEM_FILE, CA_PEM_FILE);
+            CommonTlsContextTestsUtil.buildUpstreamTlsContext("google_cloud_private_spiffe-client", true);
     try {
-      performMtlsTestAndGetListenerWatcher(upstreamTlsContext, false);
+      performMtlsTestAndGetListenerWatcher(upstreamTlsContext, false, null, null, null, null);
       fail("exception expected");
     } catch (StatusRuntimeException sre) {
       if (sre.getCause() instanceof SSLHandshakeException) {
@@ -199,27 +205,28 @@ public class XdsSdsClientServerTest {
   /** mTLS - client auth enabled. */
   @Test
   public void mtlsClientServer_withClientAuthentication() throws IOException, URISyntaxException {
+    bootstrapInfoForClient = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-client", CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-            CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE);
-    performMtlsTestAndGetListenerWatcher(upstreamTlsContext, false);
+            CommonTlsContextTestsUtil.buildUpstreamTlsContext("google_cloud_private_spiffe-client", true);
+    performMtlsTestAndGetListenerWatcher(upstreamTlsContext, false, null, null, null, null);
   }
 
   /** mTLS - client auth enabled - using {@link XdsChannelCredentials} API. */
   @Test
   public void mtlsClientServer_withClientAuthentication_withXdsChannelCreds()
       throws IOException, URISyntaxException {
+    bootstrapInfoForClient = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-client", CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-            CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE);
-    performMtlsTestAndGetListenerWatcher(upstreamTlsContext, true);
+            CommonTlsContextTestsUtil.buildUpstreamTlsContext("google_cloud_private_spiffe-client", true);
+    performMtlsTestAndGetListenerWatcher(upstreamTlsContext, true, null, null, null, null);
   }
 
   @Test
   public void tlsServer_plaintextClient_expectException() throws IOException, URISyntaxException {
+    bootstrapInfoForServer = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-server", SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     DownstreamTlsContext downstreamTlsContext =
-        CommonTlsContextTestsUtil.buildDownstreamTlsContextFromFilenames(
-            SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, null);
+            CommonTlsContextTestsUtil.buildDownstreamTlsContext(
+                    "google_cloud_private_spiffe-server", false, false);
     buildServerWithTlsContext(downstreamTlsContext);
 
     SimpleServiceGrpc.SimpleServiceBlockingStub blockingStub =
@@ -238,9 +245,9 @@ public class XdsSdsClientServerTest {
     buildServerWithTlsContext(/* downstreamTlsContext= */ null);
 
     // for TLS, client only needs trustCa
+    bootstrapInfoForClient = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-client", CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-            /* privateKey= */ null, /* certChain= */ null, CA_PEM_FILE);
+            CommonTlsContextTestsUtil.buildUpstreamTlsContext("google_cloud_private_spiffe-client", false);
 
     SimpleServiceGrpc.SimpleServiceBlockingStub blockingStub =
         getBlockingStub(upstreamTlsContext, /* overrideAuthority= */ "foo.test.google.fr");
@@ -257,15 +264,17 @@ public class XdsSdsClientServerTest {
   @Test
   public void mtlsClientServer_changeServerContext_expectException()
       throws IOException, URISyntaxException {
+
+    bootstrapInfoForClient = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-client", CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE, null, null, null, null);
     UpstreamTlsContext upstreamTlsContext =
-        CommonTlsContextTestsUtil.buildUpstreamTlsContextFromFilenames(
-            CLIENT_KEY_FILE, CLIENT_PEM_FILE, CA_PEM_FILE);
+            CommonTlsContextTestsUtil.buildUpstreamTlsContext("google_cloud_private_spiffe-client", true);
+
     XdsClient.LdsResourceWatcher listenerWatcher =
-        performMtlsTestAndGetListenerWatcher(upstreamTlsContext, false);
+        performMtlsTestAndGetListenerWatcher(upstreamTlsContext, false, "cert-instance-name2", BAD_SERVER_KEY_FILE, BAD_SERVER_PEM_FILE, CA_PEM_FILE);
     DownstreamTlsContext downstreamTlsContext =
-        CommonTlsContextTestsUtil.buildDownstreamTlsContextFromFilenames(
-            BAD_SERVER_KEY_FILE, BAD_SERVER_PEM_FILE, CA_PEM_FILE);
-    generateListenerUpdateToWatcher(downstreamTlsContext, listenerWatcher, tlsContextManager);
+            CommonTlsContextTestsUtil.buildDownstreamTlsContext(
+                    "cert-instance-name2", true, true);
+    generateListenerUpdateToWatcher(downstreamTlsContext, listenerWatcher, tlsContextManagerForServer);
     try {
       SimpleServiceGrpc.SimpleServiceBlockingStub blockingStub =
           getBlockingStub(upstreamTlsContext, "foo.test.google.fr");
@@ -278,11 +287,12 @@ public class XdsSdsClientServerTest {
   }
 
   private XdsClient.LdsResourceWatcher performMtlsTestAndGetListenerWatcher(
-      UpstreamTlsContext upstreamTlsContext, boolean newApi)
+          UpstreamTlsContext upstreamTlsContext, boolean newApi, String certInstanceName2, String privateKey2, String cert2, String trustCa2)
       throws IOException, URISyntaxException {
+    bootstrapInfoForServer = CommonBootstrapperTestUtils.buildBootstrapInfo("google_cloud_private_spiffe-server", SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE, certInstanceName2, privateKey2, cert2, trustCa2);
     DownstreamTlsContext downstreamTlsContext =
-        CommonTlsContextTestsUtil.buildDownstreamTlsContextFromFilenamesWithClientCertRequired(
-            SERVER_1_KEY_FILE, SERVER_1_PEM_FILE, CA_PEM_FILE);
+            CommonTlsContextTestsUtil.buildDownstreamTlsContext(
+                    "google_cloud_private_spiffe-server", true, true);
 
     final XdsClientWrapperForServerSds xdsClientWrapperForServerSds =
         createXdsClientWrapperForServerSds(port);
@@ -325,8 +335,9 @@ public class XdsSdsClientServerTest {
 
   /** Creates XdsClientWrapperForServerSds. */
   private XdsClientWrapperForServerSds createXdsClientWrapperForServerSds(int port) {
+    tlsContextManagerForServer = new TlsContextManagerImpl(bootstrapInfoForServer);
     XdsClientWrapperForServerSds xdsClientWrapperForServerSds =
-        XdsServerTestHelper.createXdsClientWrapperForServerSds(port, tlsContextManager);
+        XdsServerTestHelper.createXdsClientWrapperForServerSds(port, tlsContextManagerForServer);
     xdsClientWrapperForServerSds.start();
     return xdsClientWrapperForServerSds;
   }
@@ -348,8 +359,9 @@ public class XdsSdsClientServerTest {
       throws IOException {
     XdsServerBuilder builder = XdsServerBuilder.forPort(port, serverCredentials)
         .addService(new SimpleServiceImpl());
+    tlsContextManagerForServer = new TlsContextManagerImpl(bootstrapInfoForServer);
     XdsServerTestHelper.generateListenerUpdate(
-        xdsClientWrapperForServerSds.getListenerWatcher(), downstreamTlsContext, tlsContextManager);
+        xdsClientWrapperForServerSds.getListenerWatcher(), downstreamTlsContext, tlsContextManagerForServer);
     cleanupRule.register(builder.buildServer(xdsClientWrapperForServerSds)).start();
   }
 
@@ -389,12 +401,13 @@ public class XdsSdsClientServerTest {
     }
     InetSocketAddress socketAddress =
         new InetSocketAddress(Inet4Address.getLoopbackAddress(), port);
+    tlsContextManagerForClient = new TlsContextManagerImpl(bootstrapInfoForClient);
     Attributes attrs =
         (upstreamTlsContext != null)
             ? Attributes.newBuilder()
                 .set(InternalXdsAttributes.ATTR_SSL_CONTEXT_PROVIDER_SUPPLIER,
                     new SslContextProviderSupplier(
-                        upstreamTlsContext, tlsContextManager))
+                        upstreamTlsContext, tlsContextManagerForClient))
                 .build()
             : Attributes.EMPTY;
     fakeNameResolverFactory.setServers(
