@@ -67,7 +67,7 @@ gcloud compute backend-services add-backend example-grpc-service --global \
 gcloud beta network-security server-tls-policies import server_mtls_policy \
   --source=ug-example/server-mtls-policy.yaml --location=global
 
-gcloud alpha network-services endpoint-policies import ecs_mtls_psms \
+gcloud beta network-services endpoint-policies import ecs_mtls_psms \
   --source=ug-example/ecs-mtls-psms.yaml --location=global
 
 # Create MTLS policy on the client side and attach to our backendService

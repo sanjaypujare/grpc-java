@@ -2,7 +2,7 @@
 
 # this script deletes all the TD artifacts created in example-setup.sh
 
-gcloud alpha network-services endpoint-policies delete ecs_mtls_psms --location=global -q
+gcloud beta network-services endpoint-policies delete ecs_mtls_psms --location=global -q
 
 gcloud beta network-security server-tls-policies delete server_mtls_policy --location=global -q
 
