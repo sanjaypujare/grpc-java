@@ -47,7 +47,7 @@ gcloud projects add-iam-policy-binding ${PROJECT} \
    --member "serviceAccount:${PROJECT}.svc.id.goog[default/example-grpc-client]" \
    --role roles/compute.networkViewer
 
-gcloud compute health-checks create tcp example-health-check --enable-logging --use-serving-port
+gcloud compute health-checks create grpc example-health-check --enable-logging --port 50052
 
 #create the firewall rule for the health check to work. Note this one needs to be done
 #frequently because of GCP keeps deleting the firewall for security reasons
