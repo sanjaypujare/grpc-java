@@ -31,20 +31,20 @@ fi
 # Give our service accounts access to TD APIs
 gcloud iam service-accounts add-iam-policy-binding \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:${PROJECT}.svc.id.goog[default/example-grpc-server]" \
+  --member "serviceAccount:${PROJECT}.svc.id.goog[example-grpc-server/example-grpc-server]" \
   ${PROJNUM}-compute@developer.gserviceaccount.com
 
 gcloud projects add-iam-policy-binding ${PROJECT} \
-   --member "serviceAccount:${PROJECT}.svc.id.goog[default/example-grpc-server]" \
+   --member "serviceAccount:${PROJECT}.svc.id.goog[example-grpc-server/example-grpc-server]" \
    --role roles/compute.networkViewer
 
 gcloud iam service-accounts add-iam-policy-binding \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:${PROJECT}.svc.id.goog[default/example-grpc-client]" \
+  --member "serviceAccount:${PROJECT}.svc.id.goog[example-grpc-client/example-grpc-client]" \
   ${PROJNUM}-compute@developer.gserviceaccount.com
 
 gcloud projects add-iam-policy-binding ${PROJECT} \
-   --member "serviceAccount:${PROJECT}.svc.id.goog[default/example-grpc-client]" \
+   --member "serviceAccount:${PROJECT}.svc.id.goog[example-grpc-client/example-grpc-client]" \
    --role roles/compute.networkViewer
 
 gcloud compute health-checks create grpc example-health-check --enable-logging --port 50052

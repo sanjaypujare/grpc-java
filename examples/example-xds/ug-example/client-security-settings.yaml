@@ -1,4 +1,4 @@
 securitySettings:
   clientTlsPolicy: projects/${PROJECT}/locations/global/clientTlsPolicies/client_mtls_policy
   subjectAltNames:
-    - "spiffe://${PROJECT}.svc.id.goog/ns/default/sa/example-grpc-server"
+    - "spiffe://${PROJECT}.svc.id.goog/ns/example-grpc-server/sa/example-grpc-server"

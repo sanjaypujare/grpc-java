@@ -1,8 +1,22 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: example-grpc-server
+  labels:
+    name: example-grpc-server
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: example-grpc-client
+  labels:
+    name: example-grpc-client
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: example-grpc-server
-  namespace: default
+  namespace: example-grpc-server
   annotations:
     iam.gke.io/gcp-service-account: ${PROJNUM}-compute@developer.gserviceaccount.com
 ---
@@ -10,7 +24,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: example-grpc-client
-  namespace: default
+  namespace: example-grpc-client
   annotations:
     iam.gke.io/gcp-service-account: ${PROJNUM}-compute@developer.gserviceaccount.com
 ---
@@ -18,7 +32,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: example-grpc-server
-  namespace: default
+  namespace: example-grpc-server
   labels:
     k8s-app: example-grpc-server
   annotations:
@@ -37,7 +51,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: example-grpc-server
-  namespace: default
+  namespace: example-grpc-server
   labels:
     k8s-app: example-grpc-server
 spec:
@@ -106,7 +120,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: example-grpc-client
-  namespace: default
+  namespace: example-grpc-client
   labels:
     k8s-app: example-grpc-client
 spec:
