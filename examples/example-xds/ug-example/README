@@ -6,6 +6,10 @@ cd grpc-java-1.38.1/examples/example-xds
 
 build/install/example-xds/bin/xds-hello-world-server --xds-creds 50051 my-test-xds-server
 
+If needed start the client deployment:
+
+kubectl apply -f ug-example/gke-client-deployment.yaml
+
 Enter the client pod
 
 curl -L https://github.com/grpc/grpc-java/archive/v1.38.1.tar.gz | tar -xz

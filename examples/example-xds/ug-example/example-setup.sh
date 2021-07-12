@@ -17,14 +17,14 @@ kubectl config use-context $KUBECTL_CONFIG
 CLUSTER_ZONE=`echo $KUBECTL_CONFIG | cut -d'_' -f 3`
 
 # first deploy our service
-cat ug-example/gke-deployment.yaml | envsubst | kubectl apply -f -
+cat ug-example/gke-server-deployment.yaml | envsubst | kubectl apply -f -
 
 sleep 20s
 
 NEG_NAME=$(gcloud beta compute network-endpoint-groups list | grep example-grpc-server | grep ${CLUSTER_ZONE} | awk '{print $1}')
 
 if [ x${NEG_NAME} != xexample-grpc-server ]; then
-    echo NEG_NAME is not set, some issue with the deployment ug-example/gke-deployment.yaml. Exiting...
+    echo NEG_NAME is not set, some issue with the deployment ug-example/gke-server-deployment.yaml. Exiting...
     exit 1
 fi
 

@@ -23,4 +23,5 @@ gcloud compute firewall-rules delete fw-allow-health-checks  -q
 gcloud compute health-checks delete example-health-check --global -q
 
 # now delete our deployment of service and client
-kubectl delete -f ug-example/gke-deployment.yaml
+kubectl delete -f ug-example/gke-client-deployment.yaml
+kubectl delete -f ug-example/gke-server-deployment.yaml
