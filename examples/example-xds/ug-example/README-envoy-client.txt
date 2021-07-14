@@ -20,6 +20,7 @@ Perform steps in https://cloud.google.com/traffic-director/docs/set-up-gke-pods-
 Perform steps in https://cloud.google.com/traffic-director/docs/set-up-gke-pods-auto#installing_the_sidecar_injector_to_your_cluster
 
 After running ./ug-example/example-setup.sh :
+kubectl label namespace example-grpc-server istio-injection-
 kubectl label namespace example-grpc-client istio-injection=enabled
 
 kubectl apply -f ./ug-example/gke-client-envoy-deployment.yaml
@@ -30,7 +31,7 @@ Create a DNS entry or modify /etc/hosts file to add
 
 Assuming 10.80.4.150 is the IP address of your backend pod which is running the gRPC service
 
-Enter the Envoy container using:
+Enter the application container using:
 kubectl exec -it example-grpc-client-xxx-yyy -n example-grpc-client -c example-grpc-client  -- /bin/bash
 
 build/install/example-xds/bin/xds-hello-world-client my-xds-client example-grpc-server:8000
@@ -39,6 +40,6 @@ build/install/example-xds/bin/xds-hello-world-client my-xds-client example-grpc-
 The Envoy container doesn't have useful commands. Use the application container.
 
 curl localhost:15000/clusters
-curl localhost:15000/admin_dump
+curl localhost:15000/config_dump
 
 kubectl logs example-grpc-client-79cd7798f7-pft56 -n example-grpc-client -c envoy

@@ -1,0 +1,7 @@
+name: "ep_mtls_envoy"
+type: "SIDECAR_PROXY"
+serverTlsPolicy: "server_mtls_policy"
+endpointMatcher:
+  metadataLabelMatcher:
+    metadataLabelMatchCriteria: "MATCH_ANY"
+    metadataLabels: []

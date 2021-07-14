@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: example-grpc-server
+  labels:
+    name: example-grpc-server
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: example-grpc-client
+  labels:
+    name: example-grpc-client
